@@ -1,0 +1,26 @@
+# Системные файлы macOS
+.DS_Store
+*/.DS_Store
+
+# Скомпилированный бинарник (если он будет называться agl)
+/agl
+
+# Временные файлы
+*.tmp
+*.log
+
+# Папка vendor (если используешь)
+/vendor/
+
+# IDE настройки
+.vscode/
+.idea/
+*.swp
+
+# Конфиги с секретами (если есть)
+.env
+.env.local
+config/config.local.yml
+
+# Repomix output (если не нужен в репозитории)
+# repository.txt
