@@ -95,7 +95,7 @@ func ensureDefaultConfig(configPath string) {
 	// Файл отсутствует. Порождаем эталонную конфигурацию мажорной версии.
 	// ОБНОВЛЕНО В v8.0.1: Структура соответствует обновлённому `config.go`.
 	defaultConfig := config.Config{
-		Lang:             "ru",
+		Lang:             "en", // v8.3.0 (6.3): дефолт генерации — английский
 		StandardSshPort:  22,
 		RealSshPort:      2244,
 		DelayStep:        13,
@@ -224,6 +224,9 @@ func main() {
 	watcher := flag.Bool("watcher", false, "Запуск наблюдателя простоя")
 	version := flag.Bool("version", false, "Показать версию и выйти")
 	info := flag.Bool("info", false, "Показать служебную информацию")
+	// v8.3.0 (6.3): разовый переопределитель языка. Не пишется в config.json (А.1).
+	// Пустая строка = «не задан», тогда идём дальше по приоритетам.
+	langFlag := flag.String("lang", "", "Язык интерфейса на этот запуск (ru|en). Не сохраняется.")
 	flag.Parse()
 
 	// --version: человеко-читаемое доказательство ldflags-инъекции (5.1).
@@ -326,7 +329,18 @@ func main() {
 		if err := config.LoadConfig(configPath); err != nil {
 			os.Exit(1)
 		}
-
+		// v8.3.0 (6.3): демон тоже пишет локализованные описания событий через TrEvent.
+		// Приоритет: флаг → конфиг → env → "en" (совпадает с TUI).
+		daemonLang := config.C.Lang
+		if *langFlag != "" {
+			daemonLang = *langFlag
+		} else if envLang := os.Getenv("AGL_LANG"); envLang != "" {
+			daemonLang = envLang
+		}
+		if daemonLang != "ru" && daemonLang != "en" {
+			daemonLang = "en"
+		}
+		i18n.InitLanguage(daemonLang)
 		// Инициализация межпроцессного счётчика ботов в режиме МАСТЕРА.
 		// Демон создаёт файл `/dev/shm/amberguard.counter` и записывает
 		// в него количество удерживаемых ботов через атомарные операции.
@@ -396,6 +410,17 @@ func main() {
 		if err := config.LoadConfig(configPath); err != nil {
 			os.Exit(1)
 		}
+		// v8.3.0 (6.3): вотчер тоже пишет логи — язык для TrEvent.
+		watcherLang := config.C.Lang
+		if *langFlag != "" {
+			watcherLang = *langFlag
+		} else if envLang := os.Getenv("AGL_LANG"); envLang != "" {
+			watcherLang = envLang
+		}
+		if watcherLang != "ru" && watcherLang != "en" {
+			watcherLang = "en"
+		}
+		i18n.InitLanguage(watcherLang)
 		// ИБ-АУДИТ: Фиксируем старт наблюдателя
 		sys.LogAction("WATCHER", "PROCESS_START", "SUCCESS",
 			"Процесс наблюдателя простоя администратора запущен.")
@@ -490,8 +515,24 @@ func main() {
 	// Читатели (TUI, сверки) больше не создают файл как побочный эффект.
 	_ = config.InitInventory()
 
-	// Инициализация языка интерфейса
-	i18n.InitLanguage(config.C.Lang)
+	// v8.3.0 (6.3): вычисление активного языка по приоритетам А.1:
+	// флаг --lang → config.json → переменная окружения AGL_LANG → "en".
+	activeLang := ""
+	switch {
+	case *langFlag != "":
+		activeLang = *langFlag
+	case config.C.Lang != "":
+		activeLang = config.C.Lang
+	case os.Getenv("AGL_LANG") != "":
+		activeLang = os.Getenv("AGL_LANG")
+	default:
+		activeLang = "en"
+	}
+	// Жёсткая валидация: любой не-ru/en → "en"
+	if activeLang != "ru" && activeLang != "en" {
+		activeLang = "en"
+	}
+	i18n.InitLanguage(activeLang)
 
 	// Запуск интерактивной панели управления (блокирующий вызов)
 	// Когда пользователь выходит из TUI, управление возвращается сюда.

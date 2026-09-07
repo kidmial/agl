@@ -186,11 +186,10 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 			}
 		} else {
 			statusBox.Text = fmt.Sprintf(
-				" %s\n "+
-					"%s\n "+
-					"Нажмите [ESC](fg:yellow,mod:bold) в любой момент для отмены изменений.",
+				" %s\n %s\n %s",
 				i18n.GetSettingsStatusText("hint_nav_1", isEn),
 				i18n.GetSettingsStatusText("hint_nav_2", isEn),
+				i18n.GetSettingsStatusText("hint_esc", isEn),
 			)
 			statusBox.BorderStyle.Fg = ui.ColorYellow
 			statusBox.TextStyle.Fg = ui.ColorCyan
@@ -264,10 +263,11 @@ func HandleSettingsNavigation(key string) (bool, string) {
 			if currentLang == "en" {
 				newLang = "ru"
 			}
-			// v8.2.2 (волна гонки 2.3): in-place мутация устранена —
-			// публикация снепшота и переключение i18n теперь внутри
-			// SaveSettingValueToDisk (config.Update + i18n.InitLanguage при успехе).
-			_ = SaveSettingValueToDisk("lang", newLang)
+			// v8.3.0 (6.9): config.Update + i18n.InitLanguage внутри SaveSettingValueToDisk.
+			// Возвращаем true — сигнал циклу событий на полную перерисовку
+			// всех виджетов SETTINGS с новым активным языком.
+			errStr := SaveSettingValueToDisk("lang", newLang)
+			return true, errStr
 		}
 	case "<Enter>":
 		if currentItem.Key == "BACK" {
@@ -390,9 +390,12 @@ func SaveSettingValueToDisk(key, value string) string {
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
 			c.Lang = langLower
 		})
-		// Язык TUI переключаем только после успешной публикации снепшота
+		// v8.3.0 (6.9): Язык TUI переключаем только после успешной публикации снепшота.
+		// Обновляем локальный флаг isEn, чтобы финальное сообщение об успехе
+		// (если оно будет добавлено позже) шло уже на новом языке.
 		if updateErr == nil {
 			i18n.InitLanguage(langLower)
+			isEn = (langLower == "en")
 		}
 	}
 
