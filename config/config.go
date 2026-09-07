@@ -1,0 +1,401 @@
+// config/config.go
+package config
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
+	"sync"
+)
+
+// SysctlCoreConfig изолирует двухуровневые параметры тюнинга сетевого стека ядра Linux.
+// Содержит жесткие эталоны Amber Guard Lab (default_) и изменяемые боевые крутилки (armor_).
+type SysctlCoreConfig struct {
+	// --- Заводские боевые константы Amber Guard Lab (Зашиты намертво для отката) ---
+	DefaultNetIpv4TcpSyncookies       int `json:"default_net_ipv4_tcp_syncookies"`
+	DefaultNetIpv4TcpFinTimeout       int `json:"default_net_ipv4_tcp_fin_timeout"`
+	DefaultNetIpv4TcpSynRetries       int `json:"default_net_ipv4_tcp_syn_retries"`
+	DefaultNetIpv4TcpSynackRetries    int `json:"default_net_ipv4_tcp_synack_retries"`
+	DefaultNetCoreSomaxconn           int `json:"default_net_core_somaxconn"`
+	DefaultNetIpv4TcpMaxSynBacklog    int `json:"default_net_ipv4_tcp_max_syn_backlog"`
+	DefaultNetIpv4ConfAllRpFilter     int `json:"default_net_ipv4_conf_all_rp_filter"`
+	DefaultNetIpv4ConfDefaultRpFilter int `json:"default_net_ipv4_conf_default_rp_filter"` // ФИКС: Добавили упущенное
+
+	// --- Боевые изменяемые параметры администратора через TUI ---
+	ArmorNetIpv4TcpSyncookies       int `json:"armor_net_ipv4_tcp_syncookies"`
+	ArmorNetIpv4TcpFinTimeout       int `json:"armor_net_ipv4_tcp_fin_timeout"`
+	ArmorNetIpv4TcpSynRetries       int `json:"armor_net_ipv4_tcp_syn_retries"`
+	ArmorNetIpv4TcpSynackRetries    int `json:"armor_net_ipv4_tcp_synack_retries"`
+	ArmorNetCoreSomaxconn           int `json:"armor_net_core_somaxconn"`
+	ArmorNetIpv4TcpMaxSynBacklog    int `json:"armor_net_ipv4_tcp_max_syn_backlog"`
+	ArmorNetIpv4ConfAllRpFilter     int `json:"armor_net_ipv4_conf_all_rp_filter"`
+	ArmorNetIpv4ConfDefaultRpFilter int `json:"armor_net_ipv4_conf_default_rp_filter"` // ФИКС: Добавили упущенное
+}
+
+// Config описывает центральную структуру конфигурации киберразведки Amber Guard Lab.
+type Config struct {
+	Lang string `json:"lang"` // Текущий язык интерфейса панели (ru/en)
+
+	// --- Абсолютные пути к лог-файлам и журналам системы ---
+	AuthLog          string `json:"auth_log"`
+	BtmpLog          string `json:"btmp_log"`
+	F2bLog           string `json:"f2b_log"`
+	UfwLog           string `json:"ufw_log"`
+	NginxRadioLog    string `json:"nginx_radio_log"`
+	ApacheLog        string `json:"apache_log"`
+	TarpitConnLog    string `json:"tarpit_conn_log"`
+	TarpitRptLog     string `json:"tarpit_rpt_log"`
+	AglLogarchiveDir string `json:"agl_logarchive_dir"` // РЕБРЕНДИНГ: Изменено под аббревиатуру agl_
+
+	// --- Директории назначения для резервного копирования ---
+	BackupRootDir string `json:"backup_root_dir"`
+
+	// --- Инструменты криминалистики и гео-аналитики ---
+	GeoTool string `json:"geo_tool"`
+
+	// --- Параметры Модуля «Дегтярная яма» (TARPIT) ---
+	StandardSshPort int `json:"standard_ssh_port"` // Всегда 22
+	RealSshPort     int `json:"real_ssh_port"`     // Кастомный порт после кастлинга
+	DelayStep       int `json:"delay_step"`
+	DelayVariance   int `json:"delay_variance"`
+
+	// --- Системные лимиты сокетов Дегтярной Ямы ---
+	TarpitBacklog int `json:"tarpit_backlog"`
+	TarpitMaxConn int `json:"tarpit_max_conn"`
+
+	// --- Подсистема глубокого тюнинга ядра CORE_SETTINGS ---
+	SysctlCore SysctlCoreConfig `json:"sysctl_core_settings"`
+
+	// --- M2 (v8.1.2): Интервал простоя администратора для испепеления ---
+	// Таймаут в минутах, после которого анти-локаут админа испепеляется.
+	// Дефолт: 10 мин. Настраивается через SETTINGS.
+	AdminIdleTimeout int `json:"admin_idle_timeout"`
+
+	// --- M3 (v8.1.2): Канал спасения «веб-стук» ---
+	// Тумблер включения/выключения канала спасения через веб-стук.
+	// Дефолт: true. Настраивается через SETTINGS.
+	WebRescueEnabled bool `json:"web_rescue_enabled"`
+	// --- M3b (v8.1.2): Автономный HTTP-сервер веб-стука ---
+	// Порт, на котором слушает лёгкий HTTP-сервер веб-стука.
+	// Дефолт: 55111. Настраивается через SETTINGS.
+	WebRescuePort int `json:"web_rescue_port"`
+	// Пароль псевдо-2FA для веб-стука.
+	// Дефолт: "KeyKey" (по геному `secured_rescue_gate.php`).
+	// ВАЖНО: каждый админ должен сменить пароль на уникальный!
+	WebRescuePassword string `json:"web_rescue_password,omitempty"`
+	// --- M3g (v8.1.3): ХЭШ пароля веб-стука (plaintext изъят из конфига) ---
+	// SHA-256 (hex) пароля псевдо-2FA. Без соли — осознанный компромисс
+	// (первичная защита — TLS-шлюз; хэш прикрывает утечки backup-копий).
+	WebRescuePasswordHash string `json:"web_rescue_password_hash"`
+}
+
+// C — глобальный синглтон настроек, доступный из любой точки программы.
+// v8.2.0 (2.3): C — УКАЗАТЕЛЬ на неизменяемый снепшот. LoadConfig собирает
+// новую структуру целиком и публикует её одним присваиванием указателя:
+// читатель видит либо старый снепшот целиком, либо новый целиком —
+// без «рваных» полей при массовой перезагрузке. Все существующие
+// читатели `config.C.X` работают без изменений (авто-разыменование).
+var C *Config = &Config{}
+
+// configMu — сериализует транзакции LoadConfig/SaveConfig (v8.2.0, 2.3).
+var configMu sync.Mutex
+
+// PasswordJustMigrated — одноразовый флаг миграции plaintext→хэш (логирует вотчер).
+var PasswordJustMigrated bool
+
+// CheckFileExists — хелпер для проверки ленивых маркеров активности Брони
+func CheckFileExists(filePath string) (bool, error) {
+	_, err := os.Stat(filePath)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+// CheckArmorRouteStub заглушка-имитатор для сохранения совместимости компиляции tui/view_armor.go
+// func (c *Config) CheckArmorRouteStub(uuid string) error {
+// 	return nil
+// }
+
+// LoadConfig выполняет детерминированное чтение JSON и инициализацию рантайм-контуров.
+func LoadConfig(filePath string) error {
+	configMu.Lock()
+	defer configMu.Unlock()
+
+	// v8.2.0 (2.3): собираем НОВЫЙ снепшот; живой C не трогаем до валидации.
+	local := &Config{}
+
+	// ФИКС: Мягкое наполнение базовыми рабочими дефолтами до десериализации JSON.
+	// Это защищает структуру от появления "нулей", если старый файл конфигурации обновляется.
+	local.Lang = "ru"
+	local.StandardSshPort = 22
+	local.RealSshPort = 2244
+	local.DelayStep = 13
+	local.DelayVariance = 8
+	local.TarpitMaxConn = 100
+	local.TarpitBacklog = 1024
+	local.AdminIdleTimeout = 10   // M2: дефолт 10 минут
+	local.WebRescueEnabled = true // M3: канал спасения включён по умолчанию
+	local.WebRescuePort = 55111   // M3b: порт автономного HTTP-сервера веб-стука
+	local.GeoTool = "geoiplookup"
+	local.AglLogarchiveDir = DirLog // БЛОК 4.4: Используем константу из paths.go
+	local.BackupRootDir = "/backup"
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("критическая ошибка Amber Guard Lab: не удалось открыть конфигурационный центр: %v", err)
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	// ← Decode в local, не в &C
+	if err := decoder.Decode(local); err != nil {
+		return fmt.Errorf("критическая ошибка парсинга структуры v6.3.9: %v", err)
+	}
+
+	// БЛОК 3.7: Жёсткие фолбэки для критичных параметров после парсинга.
+	// Гарантируем, что даже при повреждённом или неполном конфиге
+	// система не упадёт и не получит нулевые/отрицательные значения.
+	if local.WebRescuePort <= 0 {
+		local.WebRescuePort = 55111
+	}
+	if local.AdminIdleTimeout <= 0 {
+		local.AdminIdleTimeout = 10
+	}
+	if local.TarpitMaxConn <= 0 {
+		local.TarpitMaxConn = 100
+	}
+	if local.DelayStep <= 0 {
+		local.DelayStep = 13
+	}
+	if local.DelayVariance < 0 {
+		local.DelayVariance = 3
+	}
+
+	// БЛОК 4.4: централизованные фолбэки путей логов дегтярной ямы (паттерн 3.7).
+	// Демон пишет логи по путям из конфига, TUI обязан читать те же файлы.
+	// Старые конфиги могут не иметь ключей — откатываемся на заводские
+	// константы из paths.go вместо пустой строки.
+	if local.TarpitConnLog == "" {
+		local.TarpitConnLog = FileTarpitConnLog
+	}
+	if local.TarpitRptLog == "" {
+		local.TarpitRptLog = FileTarpitRptLog
+	}
+
+	// --- M3g (v8.1.3): миграция plaintext → хэш с затиранием plaintext ---
+	if local.WebRescuePassword != "" && local.WebRescuePasswordHash == "" {
+		sum := sha256.Sum256([]byte(local.WebRescuePassword))
+		local.WebRescuePasswordHash = hex.EncodeToString(sum[:])
+		local.WebRescuePassword = ""
+		PasswordJustMigrated = true
+		// ВАЖНО: используем saveConfigLocked, так как local не является глобальным state
+		if err := saveConfigLocked(filePath, local); err != nil {
+			// Добавление обработки ошибки, если сохранение после миграции не удалось
+			return fmt.Errorf("критическая ошибка при сохранении после миграции: %v", err)
+		}
+	}
+
+	// v8.2.0 (1.1): дефолтного пароля НЕТ. Свежий конфиг = канал выключен,
+	// пока админ осознанно не задаст собственный пароль через SETTINGS.
+	if local.WebRescuePasswordHash == "" && local.WebRescuePassword == "" {
+		local.WebRescueEnabled = false
+	}
+	// v8.2.0 (1.2): есть хэш — plaintext в ОЗУ обязан быть пустым.
+	if local.WebRescuePasswordHash != "" {
+		local.WebRescuePassword = ""
+	}
+
+	// --- Автоматическая стабилизация окружения на сервере ---
+	if err := os.MkdirAll(DirLib, 0755); err != nil {
+		return fmt.Errorf("авария геометрии диска: невозможно создать %s: %v", DirLib, err)
+	}
+	// Папка в ОЗУ /var/run/amberguard должна быть доступна (обычно создается systemd, но страхуем рантайм)
+	_ = os.MkdirAll(DirRun, 0750)
+
+	// --- Защитная валидация базовых параметров ---
+	if local.Lang != "ru" && local.Lang != "en" {
+		local.Lang = "en"
+	}
+
+	if local.RealSshPort <= 0 || local.RealSshPort > 65535 {
+		return fmt.Errorf("конфигурационный сбой: скрытый порт SSH (%d) выходит за рамки TCP", local.RealSshPort)
+	}
+
+	// ФИКС: Вместо критического падения — применяем мягкое восстановление лимита
+	if local.TarpitMaxConn <= 0 {
+		local.TarpitMaxConn = 100
+	}
+
+	// =========================================================================
+	//   ЖЕСТКИЙ ИБ-ВАЛИДАТОР ГРАНИЦ И ЗАЩИТА ЯДРА ОТ ОКИРПИЧИВАНИЯ (FAIL-SAFE)
+	// =========================================================================
+	s := &local.SysctlCore
+
+	// 1. Синхронизируем заводские дефолты (Они жестко зашиты в коде комплекса намертво)
+	s.DefaultNetIpv4TcpSyncookies = 1
+	s.DefaultNetIpv4TcpFinTimeout = 15
+	s.DefaultNetIpv4TcpSynRetries = 2
+	s.DefaultNetIpv4TcpSynackRetries = 2
+	s.DefaultNetCoreSomaxconn = 4096
+	s.DefaultNetIpv4TcpMaxSynBacklog = 4096
+	s.DefaultNetIpv4ConfAllRpFilter = 1
+	s.DefaultNetIpv4ConfDefaultRpFilter = 1 // ФИКС: Защитили дефолт дефолтного фильтра маршрутов
+
+	// 2. Бронированная проверка боевых параметров администратора (armor_)
+	if s.ArmorNetIpv4TcpSyncookies != 0 && s.ArmorNetIpv4TcpSyncookies != 1 {
+		s.ArmorNetIpv4TcpSyncookies = s.DefaultNetIpv4TcpSyncookies
+	}
+
+	// Границы таймаутов FIN-WAIT-2: строго от 10 до 60 секунд
+	if s.ArmorNetIpv4TcpFinTimeout < 10 || s.ArmorNetIpv4TcpFinTimeout > 60 {
+		s.ArmorNetIpv4TcpFinTimeout = s.DefaultNetIpv4TcpFinTimeout
+	}
+
+	// Повторы SYN пакетов: от 1 до 5 попыток
+	if s.ArmorNetIpv4TcpSynRetries < 1 || s.ArmorNetIpv4TcpSynRetries > 5 {
+		s.ArmorNetIpv4TcpSynRetries = s.DefaultNetIpv4TcpSynRetries
+	}
+
+	// Повторы SYN-ACK ответов ядра: от 1 до 5 попыток
+	if s.ArmorNetIpv4TcpSynackRetries < 1 || s.ArmorNetIpv4TcpSynackRetries > 5 {
+		s.ArmorNetIpv4TcpSynackRetries = s.DefaultNetIpv4TcpSynackRetries
+	}
+
+	// Системные буферы очередей: от 128 до 32768 соединений
+	if s.ArmorNetCoreSomaxconn < 128 || s.ArmorNetCoreSomaxconn > 32768 {
+		s.ArmorNetCoreSomaxconn = s.DefaultNetCoreSomaxconn
+	}
+	if s.ArmorNetIpv4TcpMaxSynBacklog < 128 || s.ArmorNetIpv4TcpMaxSynBacklog > 32768 {
+		s.ArmorNetIpv4TcpMaxSynBacklog = s.DefaultNetIpv4TcpMaxSynBacklog
+	}
+
+	// Обратный фильтр маршрутов rp_filter: строго 0, 1 или 2
+	if s.ArmorNetIpv4ConfAllRpFilter < 0 || s.ArmorNetIpv4ConfAllRpFilter > 2 {
+		s.ArmorNetIpv4ConfAllRpFilter = s.DefaultNetIpv4ConfAllRpFilter
+	}
+
+	// ФИКС: ИБ-вализация для добавленного armor_net_ipv4_conf_default_rp_filter
+	if s.ArmorNetIpv4ConfDefaultRpFilter < 0 || s.ArmorNetIpv4ConfDefaultRpFilter > 2 {
+		s.ArmorNetIpv4ConfDefaultRpFilter = s.DefaultNetIpv4ConfDefaultRpFilter
+	}
+
+	// Публикация снепшота: единое присвоение указателя.
+	C = local
+
+	return nil
+}
+
+// SaveConfig сохраняет текущее состояние синглтона в файл config.json.
+// v8.2.0 (2.3): транзакция под configMu; маршалит ТЕКУЩИЙ снепшот C.
+func SaveConfig(filePath string) error {
+	configMu.Lock()
+	defer configMu.Unlock()
+	return saveConfigLocked(filePath, C)
+}
+
+// saveConfigLocked — внутренняя атомарная запись БЕЗ взятия замка.
+// v8.2.0 (2.3): принимает снепшот явно:
+//   - SaveConfig передаёт глобальный C;
+//   - LoadConfig (миграция M3g) передаёт local ДО публикации —
+//     иначе на диск уехал бы старый снепшот.
+//
+// Вызов из-под configMu безопасен (mutex не реентерабелен — не берём повторно).
+func saveConfigLocked(filePath string, cfg *Config) error {
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("авария сериализации конфига: %v", err)
+	}
+	tmpPath := filePath + ".tmp"
+	f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("авария создания временного файла конфига: %v", err)
+	}
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("авария записи конфигурации: %v", err)
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("авария синхронизации конфигурации с диском: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("авария закрытия временного файла конфига: %v", err)
+	}
+	if err := os.Rename(tmpPath, filePath); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("авария атомарного переименования конфигурации: %v", err)
+	}
+	return nil
+}
+
+// Update — транзакция мутации снепшота конфига (v8.2.2, волна остаточной гонки 2.3).
+// Под configMu: клонирует текущий снепшот, применяет fn к клону, публикует клон
+// единым присваиванием и атомарно сохраняет на диск.
+//
+// PURPOSE: устраняет in-place мутации опубликованного снепшота
+// («s := &config.C.SysctlCore» + присваивания полей) и потерянные обновления
+// при хот-релоаде вотчера, который перетирает C.
+//
+// CONTRACT:
+//   - fn НЕ должна вызывать LoadConfig/SaveConfig/Update — sync.Mutex не
+//     реентерабелен, будет deadlock. fn только мутирует поля клона, быстро, без I/O.
+//   - После публикации снепшот неизменяем: читатели config.C.X работают без
+//     изменений и всегда видят согласованное состояние.
+//   - Клон поверхностный (cloned := *C): корректен, пока Config плоский
+//     (примитивы, строки, SysctlCoreConfig без слайсов/мап). Появятся в Config
+//     слайсы/мапы — заменить на глубокое клонирование.
+//
+// SIDE-EFFECTS:
+//   - Публикует новый снепшот в C (единое присваивание указателя).
+//   - Пишет config.json на диск через saveConfigLocked (без повторного лока).
+func Update(filePath string, fn func(c *Config)) error {
+	configMu.Lock()
+	defer configMu.Unlock()
+
+	// Защита от nil: C инициализирован при объявлении, но страхуемся на случай
+	// вызова Update до первого LoadConfig.
+	if C == nil {
+		C = &Config{}
+	}
+
+	// Клонируем текущий снепшот: читатели продолжают видеть старый C до публикации.
+	cloned := *C
+
+	// Применяем мутации к клону, а не к опубликованному снепшоту.
+	fn(&cloned)
+
+	// Публикация единым присваиванием: читатели атомарно переключаются на новый снепшот.
+	C = &cloned
+
+	// Персистентность на диск без повторного взятия лока (saveConfigLocked не лочит).
+	return saveConfigLocked(filePath, C)
+}
+
+// GetSysctlParamNameByIndex возвращает строковое имя параметра ядра по индексу строки TUI-меню
+
+// GetSysctlParamNameByIndex возвращает строковое имя параметра ядра по индексу строки TUI-меню
+func GetSysctlParamNameByIndex(index int) string {
+	names := []string{
+		"net.ipv4.tcp_syncookies",
+		"net.ipv4.tcp_fin_timeout",
+		"net.ipv4.tcp_syn_retries",
+		"net.ipv4.tcp_synack_retries",
+		"net.core.somaxconn",
+		"net.ipv4.tcp_max_syn_backlog",
+		"net.ipv4.conf.all.rp_filter",
+		"net.ipv4.conf.default.rp_filter", // ФИКС: Отразили в меню TUI, чтобы индексы не съехали при отрисовке параметров ядра
+	}
+	if index >= 0 && index < len(names) {
+		return names[index]
+	}
+	return "unknown_param"
+}

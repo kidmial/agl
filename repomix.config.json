@@ -1,0 +1,20 @@
+{
+  "output": {
+    "removeComments": true,
+    "filePath": "repository.txt",
+    "style": "xml"
+  },
+  "include": [
+    "**/*.go",
+    "**/*.php",
+    "**/*.json",
+    "**/*.md"
+  ],
+  "exclude": [
+    "**/node_modules/**",
+    "**/.git/**",
+    "**/bin/**",
+    "**/*.sign",
+    "**/agl"
+  ]
+}
