@@ -24,3 +24,5 @@ config/config.local.yml
 
 # Repomix output (если не нужен в репозитории)
 # repository.txt
+
+repository.txt
