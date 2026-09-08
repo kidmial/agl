@@ -3,6 +3,7 @@ package service
 
 import (
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/sys"
 	"context"
 	"fmt"
@@ -23,7 +24,7 @@ func RunPerimeterInventoryScan(ctx context.Context) error {
 	if err != nil {
 		sys.LogAction("SERVICE_INVENTORY", "SCAN_FAIL", "ERROR",
 			fmt.Sprintf("event=inventory.scan_failed err=%v", err))
-		return fmt.Errorf("сбой сканирования периметра: %w", err)
+		return fmt.Errorf(i18n.T.InventoryScanFail, err)
 	}
 	sys.LogAction("SERVICE_INVENTORY", "SCAN_OK", "SUCCESS",
 		"event=inventory.scan_completed")
@@ -34,7 +35,7 @@ func RunPerimeterInventoryScan(ctx context.Context) error {
 func LoadInventory() ([]config.PortTarget, error) {
 	ports, err := config.LoadInventory()
 	if err != nil {
-		return nil, fmt.Errorf("сбой загрузки инвентаря портов: %w", err)
+		return nil, fmt.Errorf(i18n.T.InventoryLoadPortsFail, err)
 	}
 	return ports, nil
 }
@@ -43,7 +44,7 @@ func LoadInventory() ([]config.PortTarget, error) {
 func LoadDetectedApps() ([]config.AppInventoryItem, error) {
 	apps, err := config.LoadDetectedApps()
 	if err != nil {
-		return nil, fmt.Errorf("сбой загрузки обнаруженных приложений: %w", err)
+		return nil, fmt.Errorf(i18n.T.InventoryLoadAppsFail, err)
 	}
 	return apps, nil
 }

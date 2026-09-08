@@ -2,6 +2,7 @@
 package service
 
 import (
+	"agl/i18n"
 	"agl/internal/armor"
 	"agl/internal/sys"
 	"fmt"
@@ -23,7 +24,7 @@ func ToggleSshCastling(action string) error {
 	if err != nil {
 		sys.LogAction("SERVICE_SSH", "CASTLING_FAIL", "ERROR",
 			fmt.Sprintf("event=ssh.castling_failed action=%s err=%v", action, err))
-		return fmt.Errorf("сбой рокировки SSH: %w", err)
+		return fmt.Errorf(i18n.T.SshCastlingFail, err)
 	}
 	sys.LogAction("SERVICE_SSH", "CASTLING_OK", "SUCCESS",
 		fmt.Sprintf("event=ssh.castling_toggled action=%s", action))
