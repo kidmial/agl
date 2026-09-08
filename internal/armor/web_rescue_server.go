@@ -67,7 +67,7 @@ func ensureWebRescueGate(port int) {
 
 	// Пишем SUCCESS только после реального успеха внешней команды.
 	sys.LogAction("WEB_RESCUE", "UFW_GATE_OPEN", "SUCCESS",
-		fmt.Sprintf(i18n.T.WebRescueUfwGateOpen, port))
+		i18n.TrEventf("web_rescue.ufw_gate_open", port))
 }
 
 // startWebRescueServer поднимает HTTPS-сервер веб-стука на ЛИЧНОМ mux.
@@ -78,7 +78,7 @@ func startWebRescueServer(port int) *http.Server {
 		if !tlsAlerted {
 			tlsAlerted = true
 			sys.LogAction("WEB_RESCUE", "TLS_FAIL_CLOSED", "ALERT",
-				fmt.Sprintf(i18n.T.WebRescueTlsFailClosed, err))
+				i18n.TrEventf("web_rescue.tls_fail_closed", err))
 		}
 		return nil
 	}
@@ -99,11 +99,11 @@ func startWebRescueServer(port int) *http.Server {
 	go func() {
 		if err := srv.ListenAndServeTLS(rescueCertPath, rescueKeyPath); err != nil && err != http.ErrServerClosed {
 			sys.LogAction("WEB_RESCUE", "SERVER_FAIL", "ERROR",
-				fmt.Sprintf(i18n.T.WebRescueServerFail, err))
+				i18n.TrEventf("web_rescue.server_fail", err))
 		}
 	}()
 	sys.LogAction("WEB_RESCUE", "SERVER_START", "SUCCESS",
-		fmt.Sprintf(i18n.T.WebRescueServerStart, port))
+		i18n.TrEventf("web_rescue.server_start", port))
 	return srv
 }
 
@@ -137,7 +137,7 @@ func removeWebRescueGate(port int) {
 
 	// Успех логируем только после реального успеха команды.
 	sys.LogAction("WEB_RESCUE", "UFW_GATE_CLOSED", "SUCCESS",
-		fmt.Sprintf(i18n.T.WebRescueUfwGateClosed, port))
+		i18n.TrEventf("web_rescue.ufw_gate_closed", port))
 }
 
 // v8.2.3 (1.7): счётчик брутфорса в памяти сервера.
@@ -297,7 +297,7 @@ func handleWebRescue(w http.ResponseWriter, r *http.Request) {
 			// Если не смогли открыть файл, канал спасения не получает сигнал.
 			// Это нужно обязательно писать в журнал.
 			sys.LogAction("WEB_RESCUE", "SIGNAL_WRITE_FAIL", "ERROR",
-				fmt.Sprintf(i18n.T.WebRescueSignalWriteFail, errSig))
+				i18n.TrEventf("web_rescue.signal_write_fail", errSig))
 		} else {
 			// Записываем IP админа в сигнальный файл.
 			_, errSig = f.WriteString(adminIP)
@@ -309,11 +309,11 @@ func handleWebRescue(w http.ResponseWriter, r *http.Request) {
 			if errSig != nil {
 				// Ошибка записи или закрытия означает, что сигнал не доставлен.
 				sys.LogAction("WEB_RESCUE", "SIGNAL_WRITE_FAIL", "ERROR",
-					fmt.Sprintf(i18n.T.WebRescueSignalWriteFail, errSig))
+					i18n.TrEventf("web_rescue.signal_write_fail", errSig))
 			} else {
 				// Успешный веб-стук зафиксирован.
 				sys.LogAction("WEB_RESCUE", "SIGNAL_WRITTEN", "SUCCESS",
-					fmt.Sprintf(i18n.T.WebRescueSignalWritten, adminIP))
+					i18n.TrEventf("web_rescue.signal_written", adminIP))
 			}
 		}
 
@@ -356,7 +356,7 @@ func handleWebRescue(w http.ResponseWriter, r *http.Request) {
 
 		// Фиксируем факт срабатывания анти-брутфорс блокировки.
 		sys.LogAction("WEB_RESCUE", "BRUTEFORCE_LOCKOUT", "ALERT",
-			i18n.T.WebRescueBruteforceLockout)
+			i18n.TrEvent("web_rescue.bruteforce_lockout"))
 	} else {
 		// Порог ещё не достигнут.
 		// Просто освобождаем мьютекс и продолжаем обычную обработку.

@@ -96,6 +96,6 @@ func ensureRescueTLS() error {
 
 	sum := sha256.Sum256(der)
 	sys.LogAction("WEB_RESCUE", "TLS_CERT_GENERATED", "SUCCESS",
-		fmt.Sprintf(i18n.T.TlsCertGenerated, hex.EncodeToString(sum[:])))
+		i18n.TrEventf("web_rescue.tls_cert_generated", hex.EncodeToString(sum[:])))
 	return nil
 }

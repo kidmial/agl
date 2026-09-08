@@ -177,7 +177,7 @@ func SetTarpitProtocol(action string) error {
 		if sys.DetectActiveSshPort() == fmt.Sprintf("%d", config.C.StandardSshPort) &&
 			strings.ToUpper(os.Getenv("AMBER_FORCE_TARPIT")) != "TRUE" {
 			sys.LogAction("TARPIT_SERVICE", "PORT_CONGESTION_LOCK", "ALERT",
-				i18n.T.TarpitPortCongestionLockAlert)
+				i18n.TrEvent("tarpit_service.port_congestion_lock"))
 			return fmt.Errorf("%s", i18n.T.TarpitPortCongestionLockError)
 		}
 
@@ -190,7 +190,7 @@ func SetTarpitProtocol(action string) error {
 		_ = SetCustomRateLimit(22, "open_ssh", "Open SSH", "OFF")
 		time.Sleep(300 * time.Millisecond) // Фирменная пауза стабилизации таблиц ядра
 		sys.LogAction("TARPIT_SERVICE", "NETFILTER_PREPARE", "SUCCESS",
-			i18n.T.TarpitNetfilterPrepareDone)
+			i18n.TrEvent("tarpit_service.netfilter_prepare_done"))
 
 		// -------------------------------------------------------------
 		// ШАГ 3: ПОДГОТОВКА UFW
@@ -291,7 +291,7 @@ func SetTarpitProtocol(action string) error {
 		// SUCCESS пишем для высокоуровневого шага: правило добавлено,
 		// критичная команда `ufw allow` подтверждена.
 		sys.LogAction("TARPIT_SERVICE", "UFW_GATE_OPEN", "SUCCESS",
-			i18n.T.TarpitUfwGateOpen)
+			i18n.TrEvent("tarpit_service.ufw_gate_open"))
 
 		// -------------------------------------------------------------
 		// ШАГ 4: ДЕЛЕГИРОВАНИЕ В TARPITCTL
@@ -313,7 +313,7 @@ func SetTarpitProtocol(action string) error {
 
 		if err := tarpitctl.ActivateCoreTarpit(coreConfig); err != nil {
 			sys.LogAction("TARPIT_SERVICE", "TARPITCTL_ACTIVATE_FAIL", "ERROR",
-				fmt.Sprintf(i18n.T.TarpitCtlActivateFail, err))
+				i18n.TrEventf("tarpit_service.tarpitctl_activate_fail", err))
 			return fmt.Errorf(i18n.T.TarpitActivateCritical, err)
 		}
 
@@ -321,7 +321,7 @@ func SetTarpitProtocol(action string) error {
 		ResetUfwCacheSnapshot()
 
 		sys.LogAction("TARPIT_SERVICE", "TARPIT_ON_COMPLETE", "SUCCESS",
-			i18n.T.TarpitOnComplete)
+			i18n.TrEvent("tarpit_service.tarpit_on_complete"))
 		return nil
 
 	// =================================================================
@@ -352,7 +352,7 @@ func SetTarpitProtocol(action string) error {
 		// -------------------------------------------------------------
 		if err := tarpitctl.DeactivateCoreTarpit(); err != nil {
 			sys.LogAction("TARPIT_SERVICE", "TARPITCTL_DEACTIVATE_FAIL", "ERROR",
-				fmt.Sprintf(i18n.T.TarpitCtlDeactivateFail, err))
+				i18n.TrEventf("tarpit_service.tarpitctl_deactivate_fail", err))
 			// Не возвращаем ошибку — продолжаем очистку UFW
 		}
 
@@ -409,10 +409,10 @@ func SetTarpitProtocol(action string) error {
 		// Если были сбои — WARNING с машинным кодом деградации.
 		if gateCloseOK {
 			sys.LogAction("TARPIT_SERVICE", "UFW_GATE_CLOSED", "SUCCESS",
-				i18n.T.TarpitUfwGateClosed)
+				i18n.TrEvent("tarpit_service.ufw_gate_closed"))
 		} else {
 			sys.LogAction("TARPIT_SERVICE", "UFW_GATE_CLOSED", "WARNING",
-				"event=ufw.gate_close_degraded port=22. "+i18n.T.TarpitGateCloseDegraded)
+				i18n.TrEvent("ufw.gate_close_degraded"))
 		}
 
 		// -------------------------------------------------------------
@@ -458,22 +458,22 @@ func SetTarpitProtocol(action string) error {
 			// считаем восстановление периметра деградированным.
 			if allowStdRes.Err != nil || reloadStdRes.Err != nil {
 				sys.LogAction("TARPIT_SERVICE", "PERIMETER_RESTORE", "WARNING",
-					"event=perimeter.restore_degraded port=22. "+i18n.T.TarpitPerimeterRestoreDegraded)
+					i18n.TrEvent("perimeter.restore_degraded"))
 			} else {
 				sys.LogAction("TARPIT_SERVICE", "PERIMETER_RESTORE", "SUCCESS",
-					i18n.T.TarpitPerimeterRestoreStandard)
+					i18n.TrEvent("tarpit_service.perimeter_restore_standard"))
 			}
 		} else {
 			// Рокировка ВЫПОЛНЕНА → порт 22 остаётся замурованным
 			sys.LogAction("TARPIT_SERVICE", "PERIMETER_MUTING", "SUCCESS",
-				i18n.T.TarpitPerimeterMuting)
+				i18n.TrEvent("tarpit_service.perimeter_muting"))
 		}
 
 		// Сбрасываем кэш UFW для мгновенного обновления сетки TUI
 		ResetUfwCacheSnapshot()
 
 		sys.LogAction("TARPIT_SERVICE", "TARPIT_OFF_COMPLETE", "SUCCESS",
-			i18n.T.TarpitOffComplete)
+			i18n.TrEvent("tarpit_service.tarpit_off_complete"))
 		return nil
 
 	// =================================================================

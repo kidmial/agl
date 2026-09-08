@@ -140,117 +140,36 @@ type UITranslation struct {
 	ArmorMultiTarpitUnknownAction string
 
 	// --- internal/armor/port_move_protocol.go ---
-	PortMoveOriginalAnchorFailedContinue string
-	PortMoveOriginalAnchorCreated        string
-	PortMoveBackupPruned                 string
-	PortMoveCastlingInactive             string
-	PortMoveUnknownAction                string
-	PortMovePortBusy                     string
-	PortMoveBackupCreateFailed           string
-	PortMoveBackupCreated                string
-	PortMoveLimiterSuspend22             string
-	PortMoveGeometryWriteFailed          string
-	PortMoveWatcherInstallFailed         string
-	PortMoveWatcherStarted               string
-	PortMoveRollbackManualRestore        string
-	PortMoveValidationFailedRollback     string
-	PortMoveConfigMovedToCustom          string
-	PortMoveAntiLockoutAdminAdded        string
-	PortMoveAdminIPDetectFailed          string
-	PortMoveSocketMasked                 string
-	PortMoveSshRestartFailed             string
-	PortMoveSshRestartedCustom           string
-	PortMoveLimiterRestoredPort          string
-	PortMovePerimeterRescanOnDone        string
-	PortMoveRollbackStarted              string
-	PortMoveRollbackComplete             string
-	PortMoveLimiterSuspendCustom         string
-	PortMoveWatcherStopped               string
-	PortMoveValidationFailedOff          string
-	PortMoveConfigRestored22             string
-	PortMoveAntiLockoutHiddenRemoved     string
-	PortMoveSocketUnmasked               string
-	PortMoveSshRestored22                string
-	PortMoveLimiterRestored22            string
-	PortMovePerimeterRescanOffDone       string
-	PortMoveSshdConfigReadFailed         string
-	PortMoveSshdConfigWriteFailed        string
-	PortMoveWatcherUnitWriteFailed       string
+	PortMoveCastlingInactive         string
+	PortMoveUnknownAction            string
+	PortMovePortBusy                 string
+	PortMoveBackupCreateFailed       string
+	PortMoveGeometryWriteFailed      string
+	PortMoveValidationFailedRollback string
+	PortMoveSshRestartFailed         string
+	PortMoveValidationFailedOff      string
+	PortMoveSshdConfigReadFailed     string
+	PortMoveSshdConfigWriteFailed    string
+	PortMoveWatcherUnitWriteFailed   string
 
 	// --- internal/armor/ssh_limit_protocol.go ---
-	SshLimitCollisionLockAlert string
 	SshLimitCollisionLockError string
-	SshLimitTargetPortResolved string
 	SshLimitDisabled           string
 	SshLimitUnknownAction      string
 
 	// --- internal/armor/sysctl_tune_protocol.go ---
-	SysctlBaselineReadFailed      string
-	SysctlBaselineWriteFailed     string
-	SysctlBaselineSaved           string
-	SysctlRestoreSourceBaseline   string
-	SysctlRestoreSourceFactory    string
-	SysctlRestoreBaselineDone     string
-	SysctlCoreProtectionApplied   string
 	SysctlOptimizationDisabled    string
 	SysctlKernelIntervalsMismatch string
-	SysctlCoreMisconfiguration    string
 	SysctlUnknownAction           string
 
 	// --- internal/armor/tarpit_service_protocol.go ---
-	TarpitPortCongestionLockAlert  string
-	TarpitPortCongestionLockError  string
-	TarpitNetfilterPrepareDone     string
-	TarpitUfwGateInitFailed        string
-	TarpitUfwGateOpen              string
-	TarpitCtlActivateFail          string
-	TarpitActivateCritical         string
-	TarpitOnComplete               string
-	TarpitCtlDeactivateFail        string
-	TarpitUfwGateClosed            string
-	TarpitGateCloseDegraded        string
-	TarpitPerimeterRestoreDegraded string
-	TarpitPerimeterRestoreStandard string
-	TarpitPerimeterMuting          string
-	TarpitOffComplete              string
-	TarpitDaemonDeactivated        string
-	TarpitInventoryUnavailable     string
-	TarpitCoreTrapNotFound         string
-	TarpitUnknownAction            string
-
-	// --- internal/armor/watcher_protocol.go ---
-	WatcherStarted                     string
-	WatcherConfigReloadFailedContinue  string
-	WatcherSafeReopenedByKnock         string
-	WatcherSafeReopenedBySession       string
-	WatcherSessionAppeared             string
-	WatcherIdleStarted                 string
-	WatcherIdleHalfWarning             string
-	WatcherIdleTimeoutReached          string
-	WatcherSafeClosed                  string
-	WatcherUtmpReadFail                string
-	WatcherCounterWriteFail            string
-	WatcherCounterRenameFail           string
-	WatcherIncinerationStart           string
-	WatcherRuleIncinerated             string
-	WatcherIncinerationComplete        string
-	WatcherWebRescueDirInit            string
-	WatcherWebKnockReadFail            string
-	WatcherWebKnockInvalidIP           string
-	WatcherWebKnockPersistFailContinue string
-	WatcherWebKnockProcessed           string
-	WatcherWebRescueServerDisabled     string
-	WatcherWebRescueServerRestart      string
-
-	// --- internal/armor/web_rescue_server.go --- File ---
-	WebRescueUfwGateOpen       string
-	WebRescueTlsFailClosed     string
-	WebRescueServerFail        string
-	WebRescueServerStart       string
-	WebRescueUfwGateClosed     string
-	WebRescueSignalWriteFail   string
-	WebRescueSignalWritten     string
-	WebRescueBruteforceLockout string
+	TarpitPortCongestionLockError string
+	TarpitUfwGateInitFailed       string
+	TarpitActivateCritical        string
+	TarpitDaemonDeactivated       string
+	TarpitInventoryUnavailable    string
+	TarpitCoreTrapNotFound        string
+	TarpitUnknownAction           string
 
 	// --- internal/armor/web_rescue_server.go --- WEB Page ---
 	WebRescuePageInvalidIP     string
@@ -271,7 +190,6 @@ type UITranslation struct {
 	TlsCertCreateFailed    string
 	TlsKeyFileFailed       string
 	TlsCertFileFailed      string
-	TlsCertGenerated       string
 
 	// --- internal/backup/backup.go ---
 	BackupControlDiskCheck      string
@@ -297,6 +215,30 @@ type UITranslation struct {
 	BackupRecursivePackFail     string
 	BackupTarFlushFail          string
 	BackupGzipFlushFail         string
+
+	// --- internal/forensics/tarpit_report.go ---
+	ForensicsReportTitle           string
+	ForensicsGenDate               string
+	ForensicsTargetLog             string
+	ForensicsColTime               string
+	ForensicsColTrap               string
+	ForensicsColIP                 string
+	ForensicsColPlanFact           string
+	ForensicsColBehavior           string
+	ForensicsColCountry            string
+	ForensicsLogEmptyOrUnavailable string
+	ForensicsLogEmpty              string
+	ForensicsTotalRecords          string
+	ForensicsTrapEmpty             string
+	ForensicsStatusClosed          string
+	ForensicsSecShort              string
+
+	// --- internal/service/armor_service.go ---
+	ArmorRouteFail             string
+	ArmorSysctlToggleFail      string
+	ArmorRateLimitFail         string
+	ArmorUfwReloadFail         string
+	ArmorMultiTarpitToggleFail string
 }
 
 // LogTranslation описывает человекочитаемые описания событий для журнала.

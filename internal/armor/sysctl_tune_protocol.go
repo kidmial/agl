@@ -90,7 +90,7 @@ func saveSysctlBaseline() {
 		v, err := readSysctlParam(p)
 		if err != nil {
 			sys.LogAction("SYSCTL_TUNE", "BASELINE_READ_FAIL", "WARNING",
-				fmt.Sprintf(i18n.T.SysctlBaselineReadFailed, p, err))
+				i18n.TrEventf("sysctl_tune.baseline_read_fail", p, err))
 			continue
 		}
 		base[p] = v
@@ -101,11 +101,11 @@ func saveSysctlBaseline() {
 	}
 	if err := sys.WriteAtomic(sysctlBaselinePath, data, 0600); err != nil {
 		sys.LogAction("SYSCTL_TUNE", "BASELINE_WRITE_FAIL", "WARNING",
-			fmt.Sprintf(i18n.T.SysctlBaselineWriteFailed, err))
+			i18n.TrEventf("sysctl_tune.baseline_write_fail", err))
 		return
 	}
 	sys.LogAction("SYSCTL_TUNE", "BASELINE_SAVED", "SUCCESS",
-		fmt.Sprintf(i18n.T.SysctlBaselineSaved, len(base)))
+		i18n.TrEventf("sysctl_tune.baseline_saved", len(base)))
 }
 
 // restoreSysctlBaseline возвращает ядро в пре-броневое состояние:
@@ -140,12 +140,12 @@ func restoreSysctlBaseline() {
 		runSysctlCmd(p, strconv.Itoa(v))
 	}
 	_ = os.Remove(sysctlBaselinePath)
-	src := i18n.T.SysctlRestoreSourceBaseline
+	src := i18n.TrEvent("sysctl_tune.restore_src_baseline")
 	if !fromBaseline {
-		src = i18n.T.SysctlRestoreSourceFactory
+		src = i18n.TrEvent("sysctl_tune.restore_src_factory")
 	}
 	sys.LogAction("SYSCTL_TUNE", "RESTORE_BASELINE_CORE", "SUCCESS",
-		fmt.Sprintf(i18n.T.SysctlRestoreBaselineDone, src))
+		i18n.TrEventf("sysctl_tune.restore_baseline_core", src))
 }
 
 // SetSysctlProtocol осуществляет низкоуровневую оптимизацию и защиту сетевого стека ядра.
@@ -173,7 +173,7 @@ func SetSysctlProtocol(action string) error {
 		// Фиксируем маркер успешной активации брони в ОЗУ
 		// АУДИТ: Фиксируем точный числовой слепок параметров, улетевших в ядро Linux
 		sys.LogAction("SYSCTL_TUNE", "APPLY_CORE_PROTECTION", "SUCCESS",
-			fmt.Sprintf(i18n.T.SysctlCoreProtectionApplied,
+			i18n.TrEventf("sysctl_tune.apply_core_protection",
 				s.ArmorNetIpv4TcpSyncookies, s.ArmorNetIpv4TcpFinTimeout, s.ArmorNetIpv4TcpMaxSynBacklog, s.ArmorNetCoreSomaxconn))
 
 		_ = sys.WriteAtomic(markerFile, []byte("ON"), 0644)
@@ -218,7 +218,7 @@ func SetSysctlProtocol(action string) error {
 
 		// АУДИТ ИБ-ИНЦИДЕНТА: Фиксируем рассинхронизацию, если ядро изменили в обход Laboratory
 		sys.LogAction("SYSCTL_TUNE", "CORE_MISCONFIGURATION", "ALERT",
-			fmt.Sprintf(i18n.T.SysctlCoreMisconfiguration, currentTimeout, s.ArmorNetIpv4TcpFinTimeout))
+			i18n.TrEventf("sysctl_tune.core_misconfiguration", currentTimeout, s.ArmorNetIpv4TcpFinTimeout))
 		return fmt.Errorf("%s", i18n.T.SysctlKernelIntervalsMismatch)
 	}
 

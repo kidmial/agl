@@ -34,13 +34,13 @@ func SetSshLimitProtocol(action string) error {
 		if targetPort == 22 && SetTarpitProtocol("CHECK") == nil {
 			// АУДИТ: Фиксируем попытку опасной коллизии подсистем безопасности
 			sys.LogAction("SSH_LIMIT", "COLLISION_LOCK", "ALERT",
-				i18n.T.SshLimitCollisionLockAlert)
+				i18n.TrEvent("ssh_limit.collision_lock"))
 			return fmt.Errorf("%s", i18n.T.SshLimitCollisionLockError)
 		}
 
 		// АУДИТ: Логируем, какой именно порт уходит под защиту лимитера пакетов
 		sys.LogAction("SSH_LIMIT", "TARGET_PORT_RESOLVE", "SUCCESS",
-			fmt.Sprintf(i18n.T.SshLimitTargetPortResolved, targetPort))
+			i18n.TrEventf("ssh_limit.target_port_resolve", targetPort))
 
 		// Делегируем выполнение монолитному исполнительному движку Netfilter/UFW
 		return SetCustomRateLimit(targetPort, "open_ssh", "Open SSH", "ON")
