@@ -2,8 +2,8 @@
 package sys
 
 import (
+	"agl/i18n"
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
@@ -119,7 +119,7 @@ func detectActiveSshPortUncached() string {
 	if ssDegraded {
 		ssDegraded = false
 		LogAction("SSH_DETECT", "SS_PROBE", "SUCCESS",
-			"event=ss.probe_restored Опрос ss снова доступен.")
+			i18n.TrEvent("ss.probe_restored"))
 	}
 	// Регулярка ищет ":<порт>" в адресе прослушивания + "sshd" в имени процесса
 	re := regexp.MustCompile(`:(\d+)\s+.*users:\(\("sshd"`)
@@ -131,14 +131,14 @@ func detectActiveSshPortUncached() string {
 			// v8.2.0 (2.8-ext): логируем только НОВОЕ расхождение
 			if realPort != lastMismatchReal || configPort != lastMismatchConfig {
 				LogAction("SSH_DETECT", "PORT_MISMATCH", "WARNING",
-					fmt.Sprintf("Расхождение геометрии SSH: sshd_config декларирует %s, ядро (ss) слушает %s. Приоритет: конфиг (намерение админа). AGL не правит sshd_config вне рокировки. Если расхождение не осознанно выполните systemctl reload ssh.", configPort, realPort))
+					i18n.TrEventf("ssh_detect.port_mismatch", configPort, realPort))
 				lastMismatchConfig = configPort
 				lastMismatchReal = realPort
 			}
 		} else if lastMismatchReal != "" {
 			// Расхождение исчезло — один SUCCESS и сброс состояния
 			LogAction("SSH_DETECT", "PORT_MISMATCH_RESOLVED", "SUCCESS",
-				fmt.Sprintf("Геометрия SSH восстановлена: sshd_config и ядро слушают порт %s.", configPort))
+				i18n.TrEventf("ssh_detect.port_mismatch_resolved", configPort))
 			lastMismatchConfig = ""
 			lastMismatchReal = ""
 		}

@@ -239,6 +239,33 @@ type UITranslation struct {
 	ArmorRateLimitFail         string
 	ArmorUfwReloadFail         string
 	ArmorMultiTarpitToggleFail string
+	// --- internal/service/inventory_service.go ---
+	InventoryScanFail      string
+	InventoryLoadPortsFail string
+	InventoryLoadAppsFail  string
+	// --- internal/service/ssh_service.go ---
+	SshCastlingFail string
+	// --- internal/service/tarpit_service.go ---
+	TarpitServiceActivateFail     string
+	TarpitServiceDeactivateFail   string
+	TarpitServiceDeleteFail       string
+	TarpitServiceDaemonEnsureFail string
+	TarpitServiceSyncConfigFail   string
+	TarpitServiceUpdateConfigFail string
+	// --- internal/sys/runner.go ---
+	SysRunnerTimeout string
+	// --- internal/sys/tarpit_inventory.go ---
+	TarpitInvReadFail        string
+	TarpitInvParseFail       string
+	TarpitInvSerializeFail   string
+	TarpitInvDirCreateFail   string
+	TarpitInvTmpCreateFail   string
+	TarpitInvDataWriteFail   string
+	TarpitInvFsyncFail       string
+	TarpitInvRenameFail      string
+	TarpitInvLockOpenFail    string
+	TarpitInvLockAcquireFail string
+	TarpitInvTxCurrupted     string
 }
 
 // LogTranslation описывает человекочитаемые описания событий для журнала.

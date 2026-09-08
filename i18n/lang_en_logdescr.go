@@ -16,6 +16,10 @@ func init() {
 			"sysctl_tune.restore_baseline_core": "Kernel network stack restored to pre-armor state. Source: %s.",
 			"sysctl_tune.apply_core_protection": "Linux kernel network stack parameters optimized: SYN_Cookies=%d, FIN_Timeout=%d, Max_Syn_Backlog=%d, Somaxconn=%d",
 			"sysctl_tune.core_misconfiguration": "Kernel parameter mismatch detected! Current fin_timeout in OS=%d, Laboratory reference value=%d",
+			// --- internal/sys/utils.go ---
+			"ss.probe_restored":                 "event=ss.probe_restored ss probe available again.",
+			"ssh_detect.port_mismatch":          "SSH geometry mismatch: sshd_config declares %s, kernel (ss) listens %s. Priority: config (admin intent). AGL does not modify sshd_config outside castling. If mismatch is unintentional, run systemctl reload ssh.",
+			"ssh_detect.port_mismatch_resolved": "SSH geometry restored: sshd_config and kernel listen port %s.",
 			// --- internal/armor/web_rescue_tls.go ---
 			"web_rescue.tls_cert_generated": "Generated self-signed TLS certificate (ECDSA P-256, 10 years). SHA-256 fingerprint for pinning: %s",
 			// --- internal/armor/web_rescue_server.go ---

@@ -16,6 +16,10 @@ func init() {
 			"sysctl_tune.restore_baseline_core": "Сетевой стек ядра возвращён к пре-броневому состоянию. Источник: %s.",
 			"sysctl_tune.apply_core_protection": "Параметры сетевого стека ядра Linux оптимизированы: SYN_Cookies=%d, FIN_Timeout=%d, Max_Syn_Backlog=%d, Somaxconn=%d",
 			"sysctl_tune.core_misconfiguration": "Обнаружено рассогласование параметров ядра! Текущий fin_timeout в ОС=%d, эталонное значение Laboratory=%d",
+			// --- internal/sys/utils.go ---
+			"ss.probe_restored":                 "event=ss.probe_restored Опрос ss снова доступен.",
+			"ssh_detect.port_mismatch":          "Расхождение геометрии SSH: sshd_config декларирует %s, ядро (ss) слушает %s. Приоритет: конфиг (намерение админа). AGL не правит sshd_config вне рокировки. Если расхождение не осознанно выполните systemctl reload ssh.",
+			"ssh_detect.port_mismatch_resolved": "Геометрия SSH восстановлена: sshd_config и ядро слушают порт %s.",
 			// --- internal/armor/web_rescue_tls.go ---
 			"web_rescue.tls_cert_generated": "Сгенерирован самоподписанный TLS-сертификат (ECDSA P-256, 10 лет). SHA-256 отпечаток для пиннинга: %s",
 			// --- internal/armor/web_rescue_server.go ---

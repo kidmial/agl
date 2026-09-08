@@ -235,5 +235,32 @@ func init() {
 		ArmorRateLimitFail:         "rate-limit rule failure for port %d: %w",
 		ArmorUfwReloadFail:         "UFW reload failure: %w",
 		ArmorMultiTarpitToggleFail: "multi-tarpit toggle failure on port %d: %w",
+		// --- internal/service/inventory_service.go ---
+		InventoryScanFail:      "perimeter scan failure: %w",
+		InventoryLoadPortsFail: "port inventory load failure: %w",
+		InventoryLoadAppsFail:  "detected apps load failure: %w",
+		// --- internal/service/ssh_service.go ---
+		SshCastlingFail: "SSH castling failure: %w",
+		// --- internal/service/tarpit_service.go ---
+		TarpitServiceActivateFail:     "trap activation failure on port %d: %w",
+		TarpitServiceDeactivateFail:   "trap deactivation failure on port %d: %w",
+		TarpitServiceDeleteFail:       "trap deletion failure on port %d: %w",
+		TarpitServiceDaemonEnsureFail: "daemon ensure failure: %w",
+		TarpitServiceSyncConfigFail:   "config sync failure with core trap: %w",
+		TarpitServiceUpdateConfigFail: "trap config update failure on port %d: %w",
+		// --- internal/sys/runner.go ---
+		SysRunnerTimeout: "command %s exceeded timeout %s: %w",
+		// --- internal/sys/tarpit_inventory.go ---
+		TarpitInvReadFail:        "failed to read tarpit inventory %s: %w",
+		TarpitInvParseFail:       "tarpit inventory JSON parse failure %s: %w",
+		TarpitInvSerializeFail:   "tarpit inventory serialize failure: %w",
+		TarpitInvDirCreateFail:   "failed to create directory for inventory: %w",
+		TarpitInvTmpCreateFail:   "failed to create inventory temporary file: %w",
+		TarpitInvDataWriteFail:   "inventory data write failure: %w",
+		TarpitInvFsyncFail:       "inventory fsync failure: %w",
+		TarpitInvRenameFail:      "inventory atomic rename failure: %w",
+		TarpitInvLockOpenFail:    "failed to open inventory lock file: %w",
+		TarpitInvLockAcquireFail: "failed to acquire inventory lock: %w",
+		TarpitInvTxCurrupted:     "inventory corrupted inside transaction: %w",
 	}
 }

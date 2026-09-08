@@ -2,6 +2,7 @@
 package sys
 
 import (
+	"agl/i18n"
 	"bytes"
 	"context"
 	"fmt"
@@ -84,7 +85,7 @@ func RunTimeout(timeout time.Duration, name string, args ...string) CmdResult {
 	// Это даёт понятный машинный текст в журналах вместо «какой-то сигнал».
 	if ctx.Err() == context.DeadlineExceeded {
 		if err != nil {
-			err = fmt.Errorf("команда %s превысила таймаут %s: %w", name, timeout, err)
+			err = fmt.Errorf(i18n.T.SysRunnerTimeout, name, timeout, err)
 		} else {
 			err = context.DeadlineExceeded
 		}
@@ -195,7 +196,7 @@ func RunTimeoutStreamed(timeout time.Duration, name string, args ...string) erro
 	// чтобы в журналах была понятная причина, а не «какой-то сигнал».
 	if ctx.Err() == context.DeadlineExceeded {
 		if err != nil {
-			err = fmt.Errorf("команда %s превысила таймаут %s: %w", name, timeout, err)
+			err = fmt.Errorf(i18n.T.SysRunnerTimeout, name, timeout, err)
 		} else {
 			err = context.DeadlineExceeded
 		}

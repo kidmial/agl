@@ -235,5 +235,32 @@ func init() {
 		ArmorRateLimitFail:         "сбой rate-limit правила порта %d: %w",
 		ArmorUfwReloadFail:         "сбой перезагрузки UFW: %w",
 		ArmorMultiTarpitToggleFail: "сбой переключения мульти-ловушки на порту %d: %w",
+		// --- internal/service/inventory_service.go ---
+		InventoryScanFail:      "сбой сканирования периметра: %w",
+		InventoryLoadPortsFail: "сбой загрузки инвентаря портов: %w",
+		InventoryLoadAppsFail:  "сбой загрузки обнаруженных приложений: %w",
+		// --- internal/service/ssh_service.go ---
+		SshCastlingFail: "сбой рокировки SSH: %w",
+		// --- internal/service/tarpit_service.go ---
+		TarpitServiceActivateFail:     "сбой активации ловушки на порту %d: %w",
+		TarpitServiceDeactivateFail:   "сбой деактивации ловушки на порту %d: %w",
+		TarpitServiceDeleteFail:       "сбой удаления ловушки на порту %d: %w",
+		TarpitServiceDaemonEnsureFail: "сбой обеспечения работы демона: %w",
+		TarpitServiceSyncConfigFail:   "сбой синхронизации конфига с базовой ловушкой: %w",
+		TarpitServiceUpdateConfigFail: "сбой обновления конфига ловушки на порту %d: %w",
+		// --- internal/sys/runner.go ---
+		SysRunnerTimeout: "команда %s превысила таймаут %s: %w",
+		// --- internal/sys/tarpit_inventory.go ---
+		TarpitInvReadFail:        "не удалось прочитать инвентарь ловушек %s: %w",
+		TarpitInvParseFail:       "сбой парсинга JSON инвентаря ловушек %s: %w",
+		TarpitInvSerializeFail:   "сбой сериализации инвентаря ловушек: %w",
+		TarpitInvDirCreateFail:   "не удалось создать директорию для инвентаря: %w",
+		TarpitInvTmpCreateFail:   "не удалось создать временный файл инвентаря: %w",
+		TarpitInvDataWriteFail:   "сбой записи данных инвентаря: %w",
+		TarpitInvFsyncFail:       "сбой fsync инвентаря: %w",
+		TarpitInvRenameFail:      "сбой атомарного переименования инвентаря: %w",
+		TarpitInvLockOpenFail:    "не удалось открыть lock-файл инвентаря: %w",
+		TarpitInvLockAcquireFail: "не удалось захватить блокировку инвентаря: %w",
+		TarpitInvTxCurrupted:     "инвентарь повреждён внутри транзакции: %w",
 	}
 }
