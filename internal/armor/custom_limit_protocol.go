@@ -3,6 +3,7 @@ package armor
 
 import (
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/sys" // ИНТЕГРАЦИЯ АУДИТОРА v6.4.0
 	"fmt"
 	"os"
@@ -39,7 +40,7 @@ func SetCustomRateLimit(targetPort int, sysTag, targetName, action string) error
 		// ВАЖНО сохранить присваивание — переменная читается в os.Stat ниже.
 		tarpitMarker := config.TarpitMarkerPath(targetPort)
 		if _, errT := os.Stat(tarpitMarker); errT == nil {
-			return fmt.Errorf("отказ: на порту %d активна дегтярная яма — лимиты запрещены контрактом C1", targetPort)
+			return fmt.Errorf(i18n.T.ArmorLimitTarpitReject, targetPort)
 		}
 		// Очищаем цепочки для исключения наслоения правил.
 		// БЛОК 3.1: прямой exec.Command заменён на sys.RunTimeout.
@@ -97,8 +98,7 @@ func SetCustomRateLimit(targetPort int, sysTag, targetName, action string) error
 		if limitRes.Err != nil {
 			// Возвращаем ошибку наружу, обогащённую stderr внешней команды:
 			// роутер TUI покажет админу реальную причину, а не голый err.
-			return fmt.Errorf("критическая ошибка активации лимита на порту %d: %w; stderr=%s",
-				targetPort, limitRes.Err, strings.TrimSpace(limitRes.Stderr))
+			return fmt.Errorf(i18n.T.ArmorLimitActivateErr, targetPort, limitRes.Err, strings.TrimSpace(limitRes.Stderr))
 		}
 
 		// Создаем летучий маркер в ОЗУ для индикации в TUI
@@ -135,8 +135,7 @@ func SetCustomRateLimit(targetPort int, sysTag, targetName, action string) error
 		allowRes := sys.RunTimeout(10*time.Second, "ufw", "allow", portProtocol, "comment", commentMsg)
 		if allowRes.Err != nil {
 			// Ошибка наружу + stderr внешней команды для диагностики TUI.
-			return fmt.Errorf("ошибка возврата порта %d в штатный режим: %w; stderr=%s",
-				targetPort, allowRes.Err, strings.TrimSpace(allowRes.Stderr))
+			return fmt.Errorf(i18n.T.ArmorLimitDeactivateErr, targetPort, allowRes.Err, strings.TrimSpace(allowRes.Stderr))
 		}
 
 		// Уничтожаем летучий маркер рантайма
@@ -152,10 +151,10 @@ func SetCustomRateLimit(targetPort int, sysTag, targetName, action string) error
 		if _, err := os.Stat(runtimeMarker); err == nil {
 			return nil // Рубеж активен
 		}
-		return fmt.Errorf("рубеж защиты отключен")
+		return fmt.Errorf("%s", i18n.T.ArmorLimitCheckDisabled)
 
 	default:
-		return fmt.Errorf("запрошено неизвестное действие брандмауэра: %s", action)
+		return fmt.Errorf(i18n.T.ArmorLimitUnknownAction, action)
 	}
 }
 
@@ -192,7 +191,7 @@ func IsUfwRulePresent(port, comment string) bool {
 	if ufwStatusDegraded {
 		ufwStatusDegraded = false
 		sys.LogAction("ARMOR", "UFW_STATUS_CACHE", "SUCCESS",
-			"event=ufw.status_restored Статус UFW снова доступен.")
+			i18n.T.ArmorLimitUfwRestored)
 	}
 
 	// Обновляем глобальный кэш в оперативной памяти.
@@ -260,5 +259,5 @@ func PurgeLimitRule(targetPort int) {
 	_ = os.Remove(config.ArmorMarkerPath(targetPort))
 	ResetUfwCacheSnapshot()
 	sys.LogAction("ARMOR", "LIMIT_PURGED", "SUCCESS",
-		fmt.Sprintf("Устаревший лимит на порту %d зачищен без надгробия (контракт C1).", targetPort))
+		fmt.Sprintf(i18n.T.ArmorLimitPurgeSuccess, targetPort))
 }

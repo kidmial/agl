@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"agl/config"
+	"agl/i18n"
 )
 
 // BackupProgress описывает стейт-контракт транзакции для Микро-Консоли TUI.
@@ -64,18 +65,18 @@ func RunSystemBackup() chan BackupProgress {
 			backupRoot = "/backup"
 		}
 
-		progressChan <- BackupProgress{Percent: 1, LogLine: "[КОНТРОЛЬ]: Проверка свободного места на диске хоста..."}
+		progressChan <- BackupProgress{Percent: 1, LogLine: i18n.T.BackupControlDiskCheck}
 
 		// Запуск алгоритма упреждающей FIFO-очистки диска при дефиците места
 		if err := EnsureDiskSpaceSpaceFIFO(backupRoot, progressChan); err != nil {
-			progressChan <- BackupProgress{Percent: 1, LogLine: "[ПРЕДУПРЕЖДЕНИЕ]: " + err.Error()}
+			progressChan <- BackupProgress{Percent: 1, LogLine: i18n.T.BackupWarningPrefix + err.Error()}
 		}
 
 		currentTime := time.Now().Format("2006.01.02_15.04")
 		// Жестко забиваем независимый внешний путь /backup
 		sessionDir := filepath.Join(backupRoot, currentTime)
 		if err := os.MkdirAll(sessionDir, 0700); err != nil {
-			progressChan <- BackupProgress{Percent: 0, LogLine: "[СБОЙ]: Отказ создания директории сессии: " + err.Error()}
+			progressChan <- BackupProgress{Percent: 0, LogLine: i18n.T.BackupFailSessionDirCreate + err.Error()}
 			return
 		}
 
@@ -91,7 +92,7 @@ func RunSystemBackup() chan BackupProgress {
 		// -------------------------------------------------------------
 		// ФАЙЛ 1: Экспорт списка пакетов apt
 		// -------------------------------------------------------------
-		progressChan <- BackupProgress{Percent: 5, LogLine: "[DPKG]: Экспорт списка пакетов apt для Шага 3..."}
+		progressChan <- BackupProgress{Percent: 5, LogLine: i18n.T.BackupDpkgExport}
 
 		// Локальный изолированный контекст безопасности строго для dpkg
 		ctxDpkg, cancelDpkg := context.WithTimeout(context.Background(), 30*time.Second)
@@ -112,17 +113,17 @@ func RunSystemBackup() chan BackupProgress {
 				}
 			}
 			_ = os.WriteFile(packageListPath, []byte(strings.Join(filteredLines, "\n")), 0600)
-			progressChan <- BackupProgress{Percent: 15, LogLine: "[УСПЕХ]: Файл package_list.txt зафиксирован."}
+			progressChan <- BackupProgress{Percent: 15, LogLine: i18n.T.BackupSuccessPackageList}
 		} else {
-			progressChan <- BackupProgress{Percent: 15, LogLine: "[ОШИБКА DPKG]: Ошибка экспорта: " + err.Error()}
+			progressChan <- BackupProgress{Percent: 15, LogLine: i18n.T.BackupErrorDpkgExport + err.Error()}
 		}
 
 		// -------------------------------------------------------------
 		// ФАЙЛ 2: Монолитный архив настроек программ (0% - 60% прогресса TUI)
 		// -------------------------------------------------------------
-		progressChan <- BackupProgress{Percent: 20, LogLine: "[TAR]: Сборка Системного контура восстановления (server_snapshot)..."}
+		progressChan <- BackupProgress{Percent: 20, LogLine: i18n.T.BackupTarSysRecovery}
 		if err := packTargetArray(SystemTargetDirs, sysArchivePath, 20, 60, progressChan); err != nil {
-			progressChan <- BackupProgress{Percent: 20, LogLine: "[КРИТИЧЕСКИЙ СБОЙ SYS-TAR]: " + err.Error()}
+			progressChan <- BackupProgress{Percent: 20, LogLine: i18n.T.BackupCriticalSysTarFail + err.Error()}
 			return
 		}
 
@@ -132,9 +133,9 @@ func RunSystemBackup() chan BackupProgress {
 		// -------------------------------------------------------------
 		// ФАЙЛ 3: Выделенный архив SIEM-логов (60% - 98% прогресса TUI)
 		// -------------------------------------------------------------
-		progressChan <- BackupProgress{Percent: 60, LogLine: "[LOG-TAR]: Сборка Криминалистического контура (forensics_logs)..."}
+		progressChan <- BackupProgress{Percent: 60, LogLine: i18n.T.BackupLogTarForensics}
 		if err := packTargetArray(ForensicsLogFiles, logArchivePath, 60, 98, progressChan); err != nil {
-			progressChan <- BackupProgress{Percent: 60, LogLine: "[КРИТИЧЕСКИЙ СБОЙ LOG-TAR]: " + err.Error()}
+			progressChan <- BackupProgress{Percent: 60, LogLine: i18n.T.BackupCriticalLogTarFail + err.Error()}
 			return
 		}
 
@@ -142,7 +143,7 @@ func RunSystemBackup() chan BackupProgress {
 		_ = os.Chmod(logArchivePath, 0600)
 
 		// Финальная точка: отправляем 100% и даем горутине закрыть канал через defer close
-		progressChan <- BackupProgress{Percent: 100, LogLine: "[УСПЕХ]: Архивы сформированы. Операция завершена."}
+		progressChan <- BackupProgress{Percent: 100, LogLine: i18n.T.BackupSuccessArchivesDone}
 	}()
 
 	return progressChan
@@ -152,7 +153,7 @@ func RunSystemBackup() chan BackupProgress {
 func EnsureDiskSpaceSpaceFIFO(backupRoot string, progressChan chan BackupProgress) error {
 	var stat syscall.Statfs_t
 	if err := syscall.Statfs(backupRoot, &stat); err != nil {
-		return fmt.Errorf("не удалось получить статистику fs: %w", err)
+		return fmt.Errorf(i18n.T.BackupFsStatFailed, err)
 	}
 
 	// Вычисляем процент свободного места на накопителе хоста
@@ -168,12 +169,12 @@ func EnsureDiskSpaceSpaceFIFO(backupRoot string, progressChan chan BackupProgres
 		return nil
 	}
 
-	progressChan <- BackupProgress{Percent: 1, LogLine: fmt.Sprintf("[ДИСК]: Дефицит места (Свободно: %.2f%%). Включение FIFO-ротации...", percentFree)}
+	progressChan <- BackupProgress{Percent: 1, LogLine: fmt.Sprintf(i18n.T.BackupDiskDeficitFifo, percentFree)}
 
 	// Читаем директорию бэкапов для поиска старых сессионных папок
 	entries, err := os.ReadDir(backupRoot)
 	if err != nil {
-		return fmt.Errorf("ошибка чтения корня бэкапов: %w", err)
+		return fmt.Errorf(i18n.T.BackupBackupRootReadErr, err)
 	}
 
 	var sessions []os.DirEntry
@@ -198,27 +199,27 @@ func EnsureDiskSpaceSpaceFIFO(backupRoot string, progressChan chan BackupProgres
 		oldest := sessions[0]
 		targetPath := filepath.Join(backupRoot, oldest.Name())
 
-		progressChan <- BackupProgress{Percent: 1, LogLine: fmt.Sprintf("[FIFO]: Удаление старого архива сессии: %s", oldest.Name())}
+		progressChan <- BackupProgress{Percent: 1, LogLine: fmt.Sprintf(i18n.T.BackupFifoDeleteOld, oldest.Name())}
 		_ = os.RemoveAll(targetPath)
 
 		// Перепроверяем метрики диска после удаления папки
 		if errStat := syscall.Statfs(backupRoot, &stat); errStat == nil {
 			if ((float64(stat.Bavail) / float64(stat.Blocks)) * 100.0) >= 15.0 {
-				progressChan <- BackupProgress{Percent: 1, LogLine: "[FIFO]: Безопасный порог в 15% места успешно восстановлен."}
+				progressChan <- BackupProgress{Percent: 1, LogLine: i18n.T.BackupFifoSafeThreshold}
 				return nil
 			}
 		}
 		sessions = sessions[1:]
 	}
 
-	return fmt.Errorf("FIFO очистка завершена, но не удалось достичь 15%% свободного места")
+	return fmt.Errorf("%s", i18n.T.BackupFifoFailThreshold)
 }
 
 func packTargetArray(targets []string, archivePath string, startPct, endPct int, progressChan chan BackupProgress) error {
 	// Создаем физический файл архива в независимой директории /backup
 	outArchive, err := os.Create(archivePath)
 	if err != nil {
-		return fmt.Errorf("не удалось создать файл архива: %w", err)
+		return fmt.Errorf(i18n.T.BackupArchiveFileCreateFail, err)
 	}
 	defer outArchive.Close()
 
@@ -246,7 +247,7 @@ func packTargetArray(targets []string, archivePath string, startPct, endPct int,
 		progressChan <- BackupProgress{
 			Percent:     currentPct,
 			CurrentFile: shortName,
-			LogLine:     fmt.Sprintf("[TAR] Сжатие объекта: %s ...", target),
+			LogLine:     fmt.Sprintf(i18n.T.BackupTarCompressObject, target),
 			Done:        false,
 		}
 
@@ -255,7 +256,7 @@ func packTargetArray(targets []string, archivePath string, startPct, endPct int,
 		if os.IsNotExist(err) {
 			progressChan <- BackupProgress{
 				Percent: currentPct,
-				LogLine: fmt.Sprintf("[ПРОПУСК]: Объект %s отсутствует на сервере", target),
+				LogLine: fmt.Sprintf(i18n.T.BackupSkipObjectMissing, target),
 				Done:    false,
 			}
 			continue
@@ -304,16 +305,16 @@ func packTargetArray(targets []string, archivePath string, startPct, endPct int,
 		if err != nil {
 			_ = tw.Close()
 			_ = gw.Close()
-			return fmt.Errorf("сбой рекурсивной сборки %s: %w", target, err)
+			return fmt.Errorf(i18n.T.BackupRecursivePackFail, target, err)
 		}
 	}
 	// СИНХРОННЫЙ ФЛАШ ДИСКА: Явно закрываем писатели строго до передачи флага Done
 	// Это принудительно вытолкнет последние байты и контрольные суммы архивов из RAM на диск!
 	if err := tw.Close(); err != nil {
-		return fmt.Errorf("ошибка фиксации TAR: %w", err)
+		return fmt.Errorf(i18n.T.BackupTarFlushFail, err)
 	}
 	if err := gw.Close(); err != nil {
-		return fmt.Errorf("ошибка фиксации GZIP: %w", err)
+		return fmt.Errorf(i18n.T.BackupGzipFlushFail, err)
 	}
 	return nil
 }

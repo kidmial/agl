@@ -73,6 +73,7 @@ type UITranslation struct {
 	CoreSysConsoleBody      string
 	CoreHelpSelectParam     string
 	SysctlDocs              []SysctlHelpDoc
+
 	// --- config/config.go (ошибки конфигурации и диска) ---
 	ConfigErrOpenCenter         string
 	ConfigErrParseStruct        string
@@ -85,6 +86,7 @@ type UITranslation struct {
 	ConfigErrSyncConfig         string
 	ConfigErrCloseTempFile      string
 	ConfigErrRenameConfig       string
+
 	// --- config/config_inventory.go (ошибки и системные сообщения) ---
 	ConfigErrInitScan              string // Ошибка инициализации при сканировании
 	ConfigErrC1Discovery           string // Ошибка Контура 1 (процессы)
@@ -97,6 +99,204 @@ type UITranslation struct {
 	ConfigErrUUIDNotFound          string // UUID не найден в инвентаре
 	ConfigUnknownProcess           string // Фолбэк имени процесса
 	ConfigUnknownProcessSuspicious string // Маркер подозрительной активности
+
+	// --- internal/armor/armorrouter.go ---
+	ArmorRouterAdminStateChange      string
+	ArmorRouterUnknownPerimeter      string
+	ArmorRouterArchFail              string
+	ArmorRouterSysctlFail            string
+	ArmorRouterSysctlSuccess         string
+	ArmorRouterTarpitFail            string
+	ArmorRouterTarpitSuccess         string
+	ArmorRouterCastlingFail          string
+	ArmorRouterCastlingSuccess       string
+	ArmorRouterRateLimitFail         string
+	ArmorRouterRateLimitCriticalFail string
+	ArmorRouterRateLimitSuccess      string
+	ArmorRouterInventoryUpdateFail   string
+	ArmorRouterServiceInvalidEnable  string
+	ArmorRouterServiceInvalidErr     string
+	ArmorRouterAutoShieldActivate    string
+	ArmorRouterServiceInvalidDisable string
+	ArmorRouterAutoShieldDeactivate  string
+	ArmorRouterCheckNoTrajectory     string
+	ArmorRouterCheckReceiptMissing   string
+	ArmorRouterCheckUfwDesync        string
+	ArmorRouterCheckServiceDesync    string
+
+	// --- internal/armor/custom_limit_protocol.go ---
+	ArmorLimitTarpitReject  string
+	ArmorLimitActivateErr   string
+	ArmorLimitDeactivateErr string
+	ArmorLimitCheckDisabled string
+	ArmorLimitUnknownAction string
+	ArmorLimitUfwRestored   string
+	ArmorLimitPurgeSuccess  string
+
+	// --- internal/armor/multitarpit_service_protocol.go ---
+	ArmorMultiTarpitOpenErr       string
+	ArmorMultiTarpitGateOpen      string
+	ArmorMultiTarpitGateClosed    string
+	ArmorMultiTarpitUnknownAction string
+
+	// --- internal/armor/port_move_protocol.go ---
+	PortMoveOriginalAnchorFailedContinue string
+	PortMoveOriginalAnchorCreated        string
+	PortMoveBackupPruned                 string
+	PortMoveCastlingInactive             string
+	PortMoveUnknownAction                string
+	PortMovePortBusy                     string
+	PortMoveBackupCreateFailed           string
+	PortMoveBackupCreated                string
+	PortMoveLimiterSuspend22             string
+	PortMoveGeometryWriteFailed          string
+	PortMoveWatcherInstallFailed         string
+	PortMoveWatcherStarted               string
+	PortMoveRollbackManualRestore        string
+	PortMoveValidationFailedRollback     string
+	PortMoveConfigMovedToCustom          string
+	PortMoveAntiLockoutAdminAdded        string
+	PortMoveAdminIPDetectFailed          string
+	PortMoveSocketMasked                 string
+	PortMoveSshRestartFailed             string
+	PortMoveSshRestartedCustom           string
+	PortMoveLimiterRestoredPort          string
+	PortMovePerimeterRescanOnDone        string
+	PortMoveRollbackStarted              string
+	PortMoveRollbackComplete             string
+	PortMoveLimiterSuspendCustom         string
+	PortMoveWatcherStopped               string
+	PortMoveValidationFailedOff          string
+	PortMoveConfigRestored22             string
+	PortMoveAntiLockoutHiddenRemoved     string
+	PortMoveSocketUnmasked               string
+	PortMoveSshRestored22                string
+	PortMoveLimiterRestored22            string
+	PortMovePerimeterRescanOffDone       string
+	PortMoveSshdConfigReadFailed         string
+	PortMoveSshdConfigWriteFailed        string
+	PortMoveWatcherUnitWriteFailed       string
+
+	// --- internal/armor/ssh_limit_protocol.go ---
+	SshLimitCollisionLockAlert string
+	SshLimitCollisionLockError string
+	SshLimitTargetPortResolved string
+	SshLimitDisabled           string
+	SshLimitUnknownAction      string
+
+	// --- internal/armor/sysctl_tune_protocol.go ---
+	SysctlBaselineReadFailed      string
+	SysctlBaselineWriteFailed     string
+	SysctlBaselineSaved           string
+	SysctlRestoreSourceBaseline   string
+	SysctlRestoreSourceFactory    string
+	SysctlRestoreBaselineDone     string
+	SysctlCoreProtectionApplied   string
+	SysctlOptimizationDisabled    string
+	SysctlKernelIntervalsMismatch string
+	SysctlCoreMisconfiguration    string
+	SysctlUnknownAction           string
+
+	// --- internal/armor/tarpit_service_protocol.go ---
+	TarpitPortCongestionLockAlert  string
+	TarpitPortCongestionLockError  string
+	TarpitNetfilterPrepareDone     string
+	TarpitUfwGateInitFailed        string
+	TarpitUfwGateOpen              string
+	TarpitCtlActivateFail          string
+	TarpitActivateCritical         string
+	TarpitOnComplete               string
+	TarpitCtlDeactivateFail        string
+	TarpitUfwGateClosed            string
+	TarpitGateCloseDegraded        string
+	TarpitPerimeterRestoreDegraded string
+	TarpitPerimeterRestoreStandard string
+	TarpitPerimeterMuting          string
+	TarpitOffComplete              string
+	TarpitDaemonDeactivated        string
+	TarpitInventoryUnavailable     string
+	TarpitCoreTrapNotFound         string
+	TarpitUnknownAction            string
+
+	// --- internal/armor/watcher_protocol.go ---
+	WatcherStarted                     string
+	WatcherConfigReloadFailedContinue  string
+	WatcherSafeReopenedByKnock         string
+	WatcherSafeReopenedBySession       string
+	WatcherSessionAppeared             string
+	WatcherIdleStarted                 string
+	WatcherIdleHalfWarning             string
+	WatcherIdleTimeoutReached          string
+	WatcherSafeClosed                  string
+	WatcherUtmpReadFail                string
+	WatcherCounterWriteFail            string
+	WatcherCounterRenameFail           string
+	WatcherIncinerationStart           string
+	WatcherRuleIncinerated             string
+	WatcherIncinerationComplete        string
+	WatcherWebRescueDirInit            string
+	WatcherWebKnockReadFail            string
+	WatcherWebKnockInvalidIP           string
+	WatcherWebKnockPersistFailContinue string
+	WatcherWebKnockProcessed           string
+	WatcherWebRescueServerDisabled     string
+	WatcherWebRescueServerRestart      string
+
+	// --- internal/armor/web_rescue_server.go --- File ---
+	WebRescueUfwGateOpen       string
+	WebRescueTlsFailClosed     string
+	WebRescueServerFail        string
+	WebRescueServerStart       string
+	WebRescueUfwGateClosed     string
+	WebRescueSignalWriteFail   string
+	WebRescueSignalWritten     string
+	WebRescueBruteforceLockout string
+
+	// --- internal/armor/web_rescue_server.go --- WEB Page ---
+	WebRescuePageInvalidIP     string
+	WebRescuePageFormTitle     string
+	WebRescuePageAccessDenied  string
+	WebRescuePageAuthRequired  string
+	WebRescuePageEnterButton   string
+	WebRescuePageSuccessTitle  string
+	WebRescuePageAccessGranted string
+	WebRescuePageIPAddress     string
+	WebRescuePageRecorded      string
+	WebRescuePageWaiting       string
+
+	// --- internal/armor/web_rescue_tls.go ---
+	TlsCertDirCreateFailed string
+	TlsEcdsaKeyGenFailed   string
+	TlsSerialGenFailed     string
+	TlsCertCreateFailed    string
+	TlsKeyFileFailed       string
+	TlsCertFileFailed      string
+	TlsCertGenerated       string
+
+	// --- internal/backup/backup.go ---
+	BackupControlDiskCheck      string
+	BackupWarningPrefix         string
+	BackupFailSessionDirCreate  string
+	BackupDpkgExport            string
+	BackupSuccessPackageList    string
+	BackupErrorDpkgExport       string
+	BackupTarSysRecovery        string
+	BackupCriticalSysTarFail    string
+	BackupLogTarForensics       string
+	BackupCriticalLogTarFail    string
+	BackupSuccessArchivesDone   string
+	BackupFsStatFailed          string
+	BackupDiskDeficitFifo       string
+	BackupBackupRootReadErr     string
+	BackupFifoDeleteOld         string
+	BackupFifoSafeThreshold     string
+	BackupFifoFailThreshold     string
+	BackupArchiveFileCreateFail string
+	BackupTarCompressObject     string
+	BackupSkipObjectMissing     string
+	BackupRecursivePackFail     string
+	BackupTarFlushFail          string
+	BackupGzipFlushFail         string
 }
 
 // LogTranslation описывает человекочитаемые описания событий для журнала.

@@ -3,6 +3,7 @@ package armor
 
 import (
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/sys" // ИНТЕГРАЦИЯ АУДИТОРА v6.4.0
 	"encoding/json"
 	"fmt"
@@ -89,7 +90,7 @@ func saveSysctlBaseline() {
 		v, err := readSysctlParam(p)
 		if err != nil {
 			sys.LogAction("SYSCTL_TUNE", "BASELINE_READ_FAIL", "WARNING",
-				fmt.Sprintf("Не удалось прочитать %s для базлайна: %v", p, err))
+				fmt.Sprintf(i18n.T.SysctlBaselineReadFailed, p, err))
 			continue
 		}
 		base[p] = v
@@ -100,11 +101,11 @@ func saveSysctlBaseline() {
 	}
 	if err := sys.WriteAtomic(sysctlBaselinePath, data, 0600); err != nil {
 		sys.LogAction("SYSCTL_TUNE", "BASELINE_WRITE_FAIL", "WARNING",
-			fmt.Sprintf("Не удалось сохранить базлайн: %v", err))
+			fmt.Sprintf(i18n.T.SysctlBaselineWriteFailed, err))
 		return
 	}
 	sys.LogAction("SYSCTL_TUNE", "BASELINE_SAVED", "SUCCESS",
-		fmt.Sprintf("Слепок параметров ядра до брони сохранён (%d значений).", len(base)))
+		fmt.Sprintf(i18n.T.SysctlBaselineSaved, len(base)))
 }
 
 // restoreSysctlBaseline возвращает ядро в пре-броневое состояние:
@@ -139,12 +140,12 @@ func restoreSysctlBaseline() {
 		runSysctlCmd(p, strconv.Itoa(v))
 	}
 	_ = os.Remove(sysctlBaselinePath)
-	src := "базлайн ядра"
+	src := i18n.T.SysctlRestoreSourceBaseline
 	if !fromBaseline {
-		src = "заводские эталоны (базлайн не найден)"
+		src = i18n.T.SysctlRestoreSourceFactory
 	}
 	sys.LogAction("SYSCTL_TUNE", "RESTORE_BASELINE_CORE", "SUCCESS",
-		fmt.Sprintf("Сетевой стек ядра возвращён к пре-броневому состоянию. Источник: %s.", src))
+		fmt.Sprintf(i18n.T.SysctlRestoreBaselineDone, src))
 }
 
 // SetSysctlProtocol осуществляет низкоуровневую оптимизацию и защиту сетевого стека ядра.
@@ -172,7 +173,7 @@ func SetSysctlProtocol(action string) error {
 		// Фиксируем маркер успешной активации брони в ОЗУ
 		// АУДИТ: Фиксируем точный числовой слепок параметров, улетевших в ядро Linux
 		sys.LogAction("SYSCTL_TUNE", "APPLY_CORE_PROTECTION", "SUCCESS",
-			fmt.Sprintf("Параметры сетевого стека ядра Linux оптимизированы: SYN_Cookies=%d, FIN_Timeout=%d, Max_Syn_Backlog=%d, Somaxconn=%d",
+			fmt.Sprintf(i18n.T.SysctlCoreProtectionApplied,
 				s.ArmorNetIpv4TcpSyncookies, s.ArmorNetIpv4TcpFinTimeout, s.ArmorNetIpv4TcpMaxSynBacklog, s.ArmorNetCoreSomaxconn))
 
 		_ = sys.WriteAtomic(markerFile, []byte("ON"), 0644)
@@ -188,7 +189,7 @@ func SetSysctlProtocol(action string) error {
 	case "CHECK":
 		// Проверяем наличие рантайм-маркера в ОЗУ. Если файла нет — оптимизация выключена
 		if _, err := os.Stat(markerFile); err != nil {
-			return fmt.Errorf("оптимизация sysctl отключена или сброшена")
+			return fmt.Errorf("%s", i18n.T.SysctlOptimizationDisabled)
 		}
 
 		// Для исключения ложных срабатываний опрашиваем реальное текущее
@@ -202,7 +203,7 @@ func SetSysctlProtocol(action string) error {
 		if res.Err != nil {
 			res.LogWarnIfErr("SYSCTL_TUNE", "SYSCTL_CHECK_READ",
 				"event=sysctl.read_failed param=net.ipv4.tcp_fin_timeout")
-			return fmt.Errorf("интервалы ядра не соответствуют конфигурации")
+			return fmt.Errorf("%s", i18n.T.SysctlKernelIntervalsMismatch)
 		}
 
 		// Разбираем реальное значение из stdout.
@@ -217,9 +218,9 @@ func SetSysctlProtocol(action string) error {
 
 		// АУДИТ ИБ-ИНЦИДЕНТА: Фиксируем рассинхронизацию, если ядро изменили в обход Laboratory
 		sys.LogAction("SYSCTL_TUNE", "CORE_MISCONFIGURATION", "ALERT",
-			fmt.Sprintf("Обнаружено рассогласование параметров ядра! Текущий fin_timeout в ОС=%d, эталонное значение Laboratory=%d", currentTimeout, s.ArmorNetIpv4TcpFinTimeout))
-		return fmt.Errorf("интервалы ядра не соответствуют конфигурации")
+			fmt.Sprintf(i18n.T.SysctlCoreMisconfiguration, currentTimeout, s.ArmorNetIpv4TcpFinTimeout))
+		return fmt.Errorf("%s", i18n.T.SysctlKernelIntervalsMismatch)
 	}
 
-	return fmt.Errorf("запрошено неизвестное действие оптимизации ядра: %s", action)
+	return fmt.Errorf("%s", fmt.Sprintf(i18n.T.SysctlUnknownAction, action))
 }

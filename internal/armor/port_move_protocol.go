@@ -3,6 +3,7 @@ package armor
 
 import (
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/sys"
 	"fmt"
 	"net"
@@ -57,12 +58,12 @@ func ensureSshOriginalAnchor() {
 	res := sys.RunTimeout(5*time.Second, "cp", "/etc/ssh/sshd_config", sshOriginalPath)
 	if res.Err != nil {
 		sys.LogAction("PORT_CASTLING", "SSH_ORIGINAL_ANCHOR_FAIL", "WARNING",
-			fmt.Sprintf("event=ssh.original_anchor_failed err=%v stderr=%s. Кастлинг продолжается: откат обеспечен rolling-бэкапом.",
+			fmt.Sprintf("event=ssh.original_anchor_failed err=%v stderr=%s. "+i18n.T.PortMoveOriginalAnchorFailedContinue,
 				res.Err, strings.TrimSpace(res.Stderr)))
 		return
 	}
 	sys.LogAction("PORT_CASTLING", "SSH_ORIGINAL_ANCHOR_CREATED", "SUCCESS",
-		fmt.Sprintf("Создан неприкосновенный якорь заводского sshd_config: %s", sshOriginalPath))
+		fmt.Sprintf(i18n.T.PortMoveOriginalAnchorCreated, sshOriginalPath))
 }
 
 // pruneSshBackups — ограниченная ротация штампованных бэкапов кастлинга (R-7).
@@ -104,7 +105,7 @@ func pruneSshBackups() {
 			continue
 		}
 		sys.LogAction("PORT_CASTLING", "SSH_BACKUP_PRUNED", "SUCCESS",
-			fmt.Sprintf("event=ssh.backup_pruned file=%s. Ротация: держим %d свежих.", oldest, sshBackupRetention))
+			fmt.Sprintf("event=ssh.backup_pruned file=%s. "+i18n.T.PortMoveBackupPruned, oldest, sshBackupRetention))
 	}
 }
 
@@ -168,9 +169,9 @@ func SetMovePortProtocol(action string) error {
 		if _, err := os.Stat(markerFile); err == nil {
 			return nil // Рокировка активна (SSH на кастомном порту)
 		}
-		return fmt.Errorf("рокировка неактивна")
+		return fmt.Errorf("%s", i18n.T.PortMoveCastlingInactive)
 	}
-	return fmt.Errorf("запрошено неизвестное действие рокировки: %s", action)
+	return fmt.Errorf("%s", fmt.Sprintf(i18n.T.PortMoveUnknownAction, action))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -198,7 +199,7 @@ func prepareCastlingON(customPort string) (backupPath string, limiterWasActive b
 	// v8.2.0 (1.8.5): проверка, что порт для рокировки свободен
 	conn, errListen := net.Listen("tcp", fmt.Sprintf(":%d", config.C.RealSshPort))
 	if errListen != nil {
-		return "", false, fmt.Errorf("порт %d занят, рокировка невозможна: %w", config.C.RealSshPort, errListen)
+		return "", false, fmt.Errorf(i18n.T.PortMovePortBusy, config.C.RealSshPort, errListen)
 	}
 	_ = conn.Close()
 
@@ -211,11 +212,11 @@ func prepareCastlingON(customPort string) (backupPath string, limiterWasActive b
 	// БЛОК 3.1: бэкап через единый интерфейс; при сбое — stderr в ошибке.
 	backupRes := sys.RunTimeout(5*time.Second, "cp", "/etc/ssh/sshd_config", backupPath)
 	if backupRes.Err != nil {
-		return "", false, fmt.Errorf("не удалось создать бэкап sshd_config: %w; stderr=%s",
+		return "", false, fmt.Errorf(i18n.T.PortMoveBackupCreateFailed,
 			backupRes.Err, strings.TrimSpace(backupRes.Stderr))
 	}
 	sys.LogAction("PORT_CASTLING", "SSHD_BACKUP_CREATED", "SUCCESS",
-		fmt.Sprintf("Резервная копия sshd_config создана: %s", backupPath))
+		fmt.Sprintf(i18n.T.PortMoveBackupCreated, backupPath))
 	// R-7 (v8.2.3): ограниченная ротация — держим 3 свежих rolling-бэкапа,
 	// остальные зачищаем прямо сейчас, в момент создания нового.
 	pruneSshBackups()
@@ -225,13 +226,13 @@ func prepareCastlingON(customPort string) (backupPath string, limiterWasActive b
 	if err := SetCustomRateLimit(22, "open_ssh", "Open SSH", "CHECK"); err == nil {
 		limiterWasActive = true
 		_ = SetCustomRateLimit(22, "open_ssh", "Open SSH", "OFF")
-		sys.LogAction("PORT_CASTLING", "LIMITER_SUSPEND", "SUCCESS", "Временная приостановка сетевого лимитера на порту 22 перед началом рокировки порта")
+		sys.LogAction("PORT_CASTLING", "LIMITER_SUSPEND", "SUCCESS", i18n.T.PortMoveLimiterSuspend22)
 	}
 
 	// Фиксируем геометрию кастлинга в гарантированную директорию states
 	_ = os.MkdirAll(filepath.Dir(markerFile), 0755)
 	if err := sys.WriteAtomic(markerFile, []byte(customPort), 0644); err != nil {
-		return "", false, fmt.Errorf("сбой фиксации геометрии рокировки: %w", err)
+		return "", false, fmt.Errorf(i18n.T.PortMoveGeometryWriteFailed, err)
 	}
 
 	// ─────────────────────────────────────────────────────────────
@@ -240,7 +241,7 @@ func prepareCastlingON(customPort string) (backupPath string, limiterWasActive b
 	// ─────────────────────────────────────────────────────────────
 	if err := ensureWatcherUnit(); err != nil {
 		sys.LogAction("PORT_CASTLING", "WATCHER_UNIT_FAIL", "WARNING",
-			fmt.Sprintf("Не удалось установить юнит наблюдателя: %v", err))
+			fmt.Sprintf(i18n.T.PortMoveWatcherInstallFailed, err))
 	}
 
 	// БЛОК 3.1: старт вотчера больше не слепой.
@@ -257,7 +258,7 @@ func prepareCastlingON(customPort string) (backupPath string, limiterWasActive b
 		startWatcherRes.LogWarnIfErr("PORT_CASTLING", "WATCHER_START", "event=systemd.watcher_start_failed")
 	} else {
 		sys.LogAction("PORT_CASTLING", "WATCHER_START", "SUCCESS",
-			"Юнит наблюдателя простоя администратора запущен: agld_watcher.service")
+			i18n.T.PortMoveWatcherStarted)
 	}
 
 	return backupPath, limiterWasActive, nil
@@ -305,14 +306,14 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 			// ОТКАТ НЕ ПОДТВЕРЖДЁН: sshd_config мог остаться битым.
 			// Это ALERT: без ручного восстановления SSH не поднимется.
 			sys.LogAction("PORT_CASTLING", "SSHD_ROLLBACK_FAIL", "ALERT",
-				fmt.Sprintf("event=sshd.rollback_failed err=%v stderr=%s. Восстанови sshd_config вручную из бэкапа: %s",
+				fmt.Sprintf("event=sshd.rollback_failed err=%v stderr=%s. "+i18n.T.PortMoveRollbackManualRestore,
 					rollbackRes.Err, strings.TrimSpace(rollbackRes.Stderr), backupPath))
 		}
 		_ = os.Remove(markerFile)
-		return fmt.Errorf("валидация sshd_config провалилась, откат к бэкапу: %w; stderr=%s",
+		return fmt.Errorf(i18n.T.PortMoveValidationFailedRollback,
 			sshTestRes.Err, strings.TrimSpace(sshTestRes.Stderr))
 	}
-	sys.LogAction("PORT_CASTLING", "SSHD_CONFIG_WRITE", "SUCCESS", fmt.Sprintf("Конфигурация sshd_config успешно переведена на кастомный порт управления %s", customPort))
+	sys.LogAction("PORT_CASTLING", "SSHD_CONFIG_WRITE", "SUCCESS", fmt.Sprintf(i18n.T.PortMoveConfigMovedToCustom, customPort))
 
 	// ─────────────────────────────────────────────────────────────
 	// M1 (v8.1.2): Анти-локаут кастлинга — прерогатива proto_move_port.
@@ -351,12 +352,12 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 			adminRes.LogWarnIfErr("PORT_CASTLING", "ANTI_LOCKOUT_ADMIN", "event=ufw.admin_allow_failed")
 		} else {
 			sys.LogAction("PORT_CASTLING", "ANTI_LOCKOUT_ADMIN", "SUCCESS",
-				fmt.Sprintf("Точечное правило анти-локаута для администратора: IP=%s, порт=%s", adminIP, customPort))
+				fmt.Sprintf(i18n.T.PortMoveAntiLockoutAdminAdded, adminIP, customPort))
 		}
 	} else {
 		// Сбой детекции: НЕ открывать подсеть. Только локальная петля + ALERT.
 		sys.LogAction("PORT_CASTLING", "ANTI_LOCKOUT_ALERT", "ALERT",
-			"Не удалось определить IP администратора (SSH_CONNECTION пуста). Создано только правило локальной петли.")
+			i18n.T.PortMoveAdminIPDetectFailed)
 	}
 
 	// Жестко зачищаем старый периметр порта 22 от старых правил UFW.
@@ -389,7 +390,7 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 		// Сокет не замаскирован: риск, что systemd перехватит порт после рестарта.
 		maskSocketRes.LogWarnIfErr("PORT_CASTLING", "SOCKET_MASK", "event=systemd.socket_mask_failed")
 	} else {
-		sys.LogAction("PORT_CASTLING", "SOCKET_MASK", "SUCCESS", "Системный управляющий сокет ssh.socket успешно остановлен и замаскирован")
+		sys.LogAction("PORT_CASTLING", "SOCKET_MASK", "SUCCESS", i18n.T.PortMoveSocketMasked)
 	}
 
 	reloadBeforeRestart := sys.RunTimeout(10*time.Second, "systemctl", "daemon-reload")
@@ -399,15 +400,15 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 	// Ошибка наружу + stderr для диагностики.
 	restartSshRes := sys.RunTimeout(20*time.Second, "systemctl", "restart", "ssh.service")
 	if restartSshRes.Err != nil {
-		return fmt.Errorf("ошибка перезапуска службы OpenSSH: %w; stderr=%s",
+		return fmt.Errorf(i18n.T.PortMoveSshRestartFailed,
 			restartSshRes.Err, strings.TrimSpace(restartSshRes.Stderr))
 	}
-	sys.LogAction("PORT_CASTLING", "SSH_SERVICE_RESTART", "SUCCESS", fmt.Sprintf("SSH Служба ssh.service успешно перезапущена на кастомном порту %s", customPort))
+	sys.LogAction("PORT_CASTLING", "SSH_SERVICE_RESTART", "SUCCESS", fmt.Sprintf(i18n.T.PortMoveSshRestartedCustom, customPort))
 
 	if limiterWasActive {
 		time.Sleep(restartSleep)
 		_ = SetCustomRateLimit(config.C.RealSshPort, "open_ssh", "Open SSH", "ON")
-		sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "SUCCESS", fmt.Sprintf("Сетевой лимитер защиты успешно восстановлен на новом порту управления %d", config.C.RealSshPort))
+		sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "SUCCESS", fmt.Sprintf(i18n.T.PortMoveLimiterRestoredPort, config.C.RealSshPort))
 	}
 
 	// ВАРИАНТ А (v8.1.3): асинхронный перескан периметра после рокировки.
@@ -417,7 +418,7 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 	go func() {
 		_ = config.RunPerimeterInventoryScan() // ← точное имя из обработчика SCAN_PERIMETER
 		sys.LogAction("PORT_CASTLING", "PERIMETRE_RESCAN", "SUCCESS",
-			"Асинхронное пересканирование периметра после рокировки ON завершено успешно.")
+			i18n.T.PortMovePerimeterRescanOnDone)
 	}()
 
 	return nil
@@ -443,7 +444,7 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 // ОБНОВЛЕНО В v8.2.2 (п. 4.6): Извлечено из SetMovePortProtocol для декомпозиции монолита.
 func rollbackCastlingON(backupPath, customPort string) {
 	sys.LogAction("PORT_CASTLING", "ROLLBACK_START", "WARNING",
-		fmt.Sprintf("Запущен откат рокировки ON из-за критического сбоя. backupPath=%s", backupPath))
+		fmt.Sprintf(i18n.T.PortMoveRollbackStarted, backupPath))
 
 	// Удаляем маркер геометрии
 	_ = os.Remove(markerFile)
@@ -459,7 +460,7 @@ func rollbackCastlingON(backupPath, customPort string) {
 	reloadRes.LogWarnIfErr("PORT_CASTLING", "ROLLBACK_WATCHER", "event=systemd.daemon_reload_failed")
 
 	sys.LogAction("PORT_CASTLING", "ROLLBACK_COMPLETE", "WARNING",
-		"Откат рокировки ON завершён. sshd_config восстановлен из бэкапа.")
+		i18n.T.PortMoveRollbackComplete)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -486,7 +487,7 @@ func prepareCastlingOFF(customPort string) (limiterWasActive bool) {
 	if err := SetCustomRateLimit(config.C.RealSshPort, "open_ssh", "Open SSH", "CHECK"); err == nil {
 		limiterWasActive = true
 		_ = SetCustomRateLimit(config.C.RealSshPort, "open_ssh", "Open SSH", "OFF")
-		sys.LogAction("PORT_CASTLING", "LIMITER_SUSPEND", "SUCCESS", fmt.Sprintf("Временное отключение лимитера на кастомном порту %d перед откатом", config.C.RealSshPort))
+		sys.LogAction("PORT_CASTLING", "LIMITER_SUSPEND", "SUCCESS", fmt.Sprintf(i18n.T.PortMoveLimiterSuspendCustom, config.C.RealSshPort))
 	}
 
 	// Удаляем персистентный маркер геометрии v6.0.0
@@ -505,7 +506,7 @@ func prepareCastlingOFF(customPort string) (limiterWasActive bool) {
 		stopWatcherRes.LogWarnIfErr("PORT_CASTLING", "WATCHER_STOP", "event=systemd.watcher_stop_failed")
 	} else {
 		sys.LogAction("PORT_CASTLING", "WATCHER_STOP", "SUCCESS",
-			"Юнит наблюдателя простоя администратора остановлен: agld_watcher.service")
+			i18n.T.PortMoveWatcherStopped)
 	}
 
 	reloadAfterWatcher := sys.RunTimeout(10*time.Second, "systemctl", "daemon-reload")
@@ -551,10 +552,10 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 	// БЛОК 3.1: валидация отката через единый интерфейс, stderr в ошибке.
 	sshTestOffRes := sys.RunTimeout(10*time.Second, "sshd", "-t")
 	if sshTestOffRes.Err != nil {
-		return fmt.Errorf("валидация sshd_config провалилась при откате: %w; stderr=%s",
+		return fmt.Errorf(i18n.T.PortMoveValidationFailedOff,
 			sshTestOffRes.Err, strings.TrimSpace(sshTestOffRes.Stderr))
 	}
-	sys.LogAction("PORT_CASTLING", "SSHD_CONFIG_RESTORE", "SUCCESS", "Конфигурация sshd_config успешно возвращена на стандартный порт 22")
+	sys.LogAction("PORT_CASTLING", "SSHD_CONFIG_RESTORE", "SUCCESS", i18n.T.PortMoveConfigRestored22)
 
 	// ─────────────────────────────────────────────────────────────
 	// M1 (v8.1.2): OFF — удаление по сигнатурам.
@@ -590,7 +591,7 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 						delHiddenRes.LogWarnIfErr("PORT_CASTLING", "ANTI_LOCKOUT_REMOVE", "event=ufw.hidden_delete_failed")
 					} else {
 						sys.LogAction("PORT_CASTLING", "ANTI_LOCKOUT_REMOVE", "SUCCESS",
-							fmt.Sprintf("Правило анти-локаута (сигнатура SIG_HIDDEN) удалено: порт %s, правило #%s", customPort, numStr))
+							fmt.Sprintf(i18n.T.PortMoveAntiLockoutHiddenRemoved, customPort, numStr))
 					}
 				}
 			}
@@ -622,7 +623,7 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 	if enableSocketRes.Err != nil {
 		enableSocketRes.LogWarnIfErr("PORT_CASTLING", "SOCKET_UNMASK", "event=systemd.socket_enable_failed")
 	} else {
-		sys.LogAction("PORT_CASTLING", "SOCKET_UNMASK", "SUCCESS", "Системный управляющий сокет ssh.socket успешно размаскирован")
+		sys.LogAction("PORT_CASTLING", "SOCKET_UNMASK", "SUCCESS", i18n.T.PortMoveSocketUnmasked)
 	}
 
 	reloadOffSysd := sys.RunTimeout(10*time.Second, "systemctl", "daemon-reload")
@@ -639,7 +640,7 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 	if restartOffRes.Err != nil {
 		restartOffRes.LogWarnIfErr("PORT_CASTLING", "SSH_SERVICE_RESTORE", "event=systemd.ssh_restart_failed")
 	} else {
-		sys.LogAction("PORT_CASTLING", "SSH_SERVICE_RESTORE", "SUCCESS", "SSH Служба ssh.service успешно возвращена на стандартный порт 22")
+		sys.LogAction("PORT_CASTLING", "SSH_SERVICE_RESTORE", "SUCCESS", i18n.T.PortMoveSshRestored22)
 	}
 
 	// И только потом мягко дозапускаем сокет-активатор хоста
@@ -649,7 +650,7 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 	if limiterWasActive {
 		time.Sleep(restartSleep)
 		_ = SetCustomRateLimit(22, "open_ssh", "Open SSH", "ON")
-		sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "SUCCESS", "Сетевой лимитер защиты успешно восстановлен на новом порту управления 22")
+		sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "SUCCESS", i18n.T.PortMoveLimiterRestored22)
 	}
 
 	// ВАРИАНТ А (v8.1.3): перескан и после обратной рокировки —
@@ -657,7 +658,7 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 	go func() {
 		_ = config.RunPerimeterInventoryScan()
 		sys.LogAction("PORT_CASTLING", "PERIMETRE_RESCAN", "SUCCESS",
-			"Асинхронное пересканирование периметра после рокировки OFF завершено успешно.")
+			i18n.T.PortMovePerimeterRescanOffDone)
 	}()
 
 	return nil
@@ -673,7 +674,7 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 func modifySshConfig(port string) error {
 	input, err := os.ReadFile("/etc/ssh/sshd_config")
 	if err != nil {
-		return fmt.Errorf("ошибка доступа к sshd_config: %w", err)
+		return fmt.Errorf(i18n.T.PortMoveSshdConfigReadFailed, err)
 	}
 	lines := strings.Split(string(input), "\n")
 	found := false
@@ -689,7 +690,7 @@ func modifySshConfig(port string) error {
 		lines = append(lines, "Port "+port)
 	}
 	if err := os.WriteFile("/etc/ssh/sshd_config", []byte(strings.Join(lines, "\n")), 0600); err != nil {
-		return fmt.Errorf("ошибка записи sshd_config: %w", err)
+		return fmt.Errorf(i18n.T.PortMoveSshdConfigWriteFailed, err)
 	}
 	return nil
 }
@@ -725,7 +726,7 @@ WantedBy=multi-user.target
 
 	// Записываем юнит на диск
 	if err := os.WriteFile(servicePath, []byte(serviceContent), 0644); err != nil {
-		return fmt.Errorf("сбой записи юнита на диск: %w", err)
+		return fmt.Errorf(i18n.T.PortMoveWatcherUnitWriteFailed, err)
 	}
 	return nil
 }

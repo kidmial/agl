@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"agl/i18n"
 	"agl/internal/sys"
 )
 
@@ -41,12 +42,11 @@ func SetMultiTarpitProtocol(port int, action string) error {
 		//   - добавляем обрезанный stderr, потому что именно там обычно лежит
 		//     реальная причина сбоя: конфликт правил, права, синтаксис UFW.
 		if res.Err != nil {
-			return fmt.Errorf("ошибка открытия порта %d в UFW: %w; stderr=%s",
-				port, res.Err, strings.TrimSpace(res.Stderr))
+			return fmt.Errorf(i18n.T.ArmorMultiTarpitOpenErr, port, res.Err, strings.TrimSpace(res.Stderr))
 		}
 		ResetUfwCacheSnapshot()
 		sys.LogAction("MULTI_TARPIT_SERVICE", "UFW_GATE_OPEN", "SUCCESS",
-			fmt.Sprintf("Шлюз UFW для мульти-ловушки открыт: порт %d", port))
+			fmt.Sprintf(i18n.T.ArmorMultiTarpitGateOpen, port))
 		return nil
 
 	case "OFF":
@@ -78,12 +78,12 @@ func SetMultiTarpitProtocol(port int, action string) error {
 				"event=ufw.multi_tarpit_gate_close_failed")
 		} else {
 			sys.LogAction("MULTI_TARPIT_SERVICE", "UFW_GATE_CLOSED", "SUCCESS",
-				fmt.Sprintf("Шлюз UFW для мульти-ловушки закрыт: порт %d", port))
+				fmt.Sprintf(i18n.T.ArmorMultiTarpitGateClosed, port))
 		}
 		// Сброс кэша UFW-снапшота остаётся безусловным: он дешёвый и безопасный
 		// в обоих исходах (кэш — лишь слепок для сверок, следующий опрос перечитает).
 		ResetUfwCacheSnapshot()
 		return nil
 	}
-	return fmt.Errorf("неизвестное действие: %s", action)
+	return fmt.Errorf(i18n.T.ArmorMultiTarpitUnknownAction, action)
 }

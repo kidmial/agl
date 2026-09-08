@@ -53,6 +53,7 @@ import (
 	"time"
 
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/sys"
 	"agl/internal/tarpitctl"
 )
@@ -176,8 +177,8 @@ func SetTarpitProtocol(action string) error {
 		if sys.DetectActiveSshPort() == fmt.Sprintf("%d", config.C.StandardSshPort) &&
 			strings.ToUpper(os.Getenv("AMBER_FORCE_TARPIT")) != "TRUE" {
 			sys.LogAction("TARPIT_SERVICE", "PORT_CONGESTION_LOCK", "ALERT",
-				"Запуск ловушки заблокирован: легитимный процесс OpenSSH продолжает удерживать порт 22")
-			return fmt.Errorf("блокировка запуска: OpenSSH все еще удерживает порт 22")
+				i18n.T.TarpitPortCongestionLockAlert)
+			return fmt.Errorf("%s", i18n.T.TarpitPortCongestionLockError)
 		}
 
 		// -------------------------------------------------------------
@@ -189,7 +190,7 @@ func SetTarpitProtocol(action string) error {
 		_ = SetCustomRateLimit(22, "open_ssh", "Open SSH", "OFF")
 		time.Sleep(300 * time.Millisecond) // Фирменная пауза стабилизации таблиц ядра
 		sys.LogAction("TARPIT_SERVICE", "NETFILTER_PREPARE", "SUCCESS",
-			"Предварительное изменение лимитеров Netfilter и зачистка порта 22 завершены")
+			i18n.T.TarpitNetfilterPrepareDone)
 
 		// -------------------------------------------------------------
 		// ШАГ 3: ПОДГОТОВКА UFW
@@ -269,7 +270,7 @@ func SetTarpitProtocol(action string) error {
 			stderrDetails := strings.TrimSpace(allowRes.Stderr)
 
 			// Возвращаем ошибку с контекстом: причина + вывод команды.
-			return fmt.Errorf("ошибка инициализации шлюза UFW: %w; stderr=%s", allowRes.Err, stderrDetails)
+			return fmt.Errorf(i18n.T.TarpitUfwGateInitFailed, allowRes.Err, stderrDetails)
 		}
 
 		// -------------------------------------------------------------
@@ -290,7 +291,7 @@ func SetTarpitProtocol(action string) error {
 		// SUCCESS пишем для высокоуровневого шага: правило добавлено,
 		// критичная команда `ufw allow` подтверждена.
 		sys.LogAction("TARPIT_SERVICE", "UFW_GATE_OPEN", "SUCCESS",
-			"Шлюз UFW для Дегтярной Ямы успешно открыт: ufw allow 22/tcp")
+			i18n.T.TarpitUfwGateOpen)
 
 		// -------------------------------------------------------------
 		// ШАГ 4: ДЕЛЕГИРОВАНИЕ В TARPITCTL
@@ -312,15 +313,15 @@ func SetTarpitProtocol(action string) error {
 
 		if err := tarpitctl.ActivateCoreTarpit(coreConfig); err != nil {
 			sys.LogAction("TARPIT_SERVICE", "TARPITCTL_ACTIVATE_FAIL", "ERROR",
-				fmt.Sprintf("Сбой активации через tarpitctl: %v", err))
-			return fmt.Errorf("критический сбой активации ловушки: %w", err)
+				fmt.Sprintf(i18n.T.TarpitCtlActivateFail, err))
+			return fmt.Errorf(i18n.T.TarpitActivateCritical, err)
 		}
 
 		// Сбрасываем кэш UFW для мгновенного обновления сетки TUI
 		ResetUfwCacheSnapshot()
 
 		sys.LogAction("TARPIT_SERVICE", "TARPIT_ON_COMPLETE", "SUCCESS",
-			"Дегтярная Яма на порту 22 успешно активирована через tarpitctl")
+			i18n.T.TarpitOnComplete)
 		return nil
 
 	// =================================================================
@@ -351,7 +352,7 @@ func SetTarpitProtocol(action string) error {
 		// -------------------------------------------------------------
 		if err := tarpitctl.DeactivateCoreTarpit(); err != nil {
 			sys.LogAction("TARPIT_SERVICE", "TARPITCTL_DEACTIVATE_FAIL", "ERROR",
-				fmt.Sprintf("Сбой деактивации через tarpitctl: %v", err))
+				fmt.Sprintf(i18n.T.TarpitCtlDeactivateFail, err))
 			// Не возвращаем ошибку — продолжаем очистку UFW
 		}
 
@@ -408,10 +409,10 @@ func SetTarpitProtocol(action string) error {
 		// Если были сбои — WARNING с машинным кодом деградации.
 		if gateCloseOK {
 			sys.LogAction("TARPIT_SERVICE", "UFW_GATE_CLOSED", "SUCCESS",
-				"Шлюз UFW Дегтярной Ямы закрыт. Правила порта 22 выжжены.")
+				i18n.T.TarpitUfwGateClosed)
 		} else {
 			sys.LogAction("TARPIT_SERVICE", "UFW_GATE_CLOSED", "WARNING",
-				"event=ufw.gate_close_degraded port=22. Закрытие гейта ловушки завершено с некритичными сбоями.")
+				"event=ufw.gate_close_degraded port=22. "+i18n.T.TarpitGateCloseDegraded)
 		}
 
 		// -------------------------------------------------------------
@@ -457,22 +458,22 @@ func SetTarpitProtocol(action string) error {
 			// считаем восстановление периметра деградированным.
 			if allowStdRes.Err != nil || reloadStdRes.Err != nil {
 				sys.LogAction("TARPIT_SERVICE", "PERIMETER_RESTORE", "WARNING",
-					"event=perimeter.restore_degraded port=22. Рокировка не выполнена, но восстановление периметра завершилось с некритичным сбоем.")
+					"event=perimeter.restore_degraded port=22. "+i18n.T.TarpitPerimeterRestoreDegraded)
 			} else {
 				sys.LogAction("TARPIT_SERVICE", "PERIMETER_RESTORE", "SUCCESS",
-					"Рокировка не выполнена. Периметр порта 22 возвращён в стандартный режим OpenSSH")
+					i18n.T.TarpitPerimeterRestoreStandard)
 			}
 		} else {
 			// Рокировка ВЫПОЛНЕНА → порт 22 остаётся замурованным
 			sys.LogAction("TARPIT_SERVICE", "PERIMETER_MUTING", "SUCCESS",
-				"Обнаружена активная рокировка. Периметр порта 22 остается замурованным")
+				i18n.T.TarpitPerimeterMuting)
 		}
 
 		// Сбрасываем кэш UFW для мгновенного обновления сетки TUI
 		ResetUfwCacheSnapshot()
 
 		sys.LogAction("TARPIT_SERVICE", "TARPIT_OFF_COMPLETE", "SUCCESS",
-			"Дегтярная Яма на порту 22 успешно деактивирована. Периметр восстановлен.")
+			i18n.T.TarpitOffComplete)
 		return nil
 
 	// =================================================================
@@ -486,24 +487,24 @@ func SetTarpitProtocol(action string) error {
 	case "CHECK":
 		// 1. Проверяем, жив ли вообще демон
 		if !tarpitctl.IsDaemonAlive() {
-			return fmt.Errorf("демон ловушки деактивирован")
+			return fmt.Errorf("%s", i18n.T.TarpitDaemonDeactivated)
 		}
 
 		// 2. Проверяем, есть ли базовая ловушка (порт 22) в инвентаре и активна ли она
 		inv, err := sys.LoadTarpitInventory(sys.TarpitInventoryPath)
 		if err != nil {
-			return fmt.Errorf("инвентарь недоступен")
+			return fmt.Errorf("%s", i18n.T.TarpitInventoryUnavailable)
 		}
 
 		coreTrapID := sys.GenerateTarpitID(config.C.StandardSshPort) // agl_tarpit_listener_port.22
 		trap, exists := inv.Traps[coreTrapID]
 
 		if !exists || trap.State != sys.StateRunning {
-			return fmt.Errorf("базовая ловушка порта 22 не найдена в инвентаре или остановлена")
+			return fmt.Errorf("%s", i18n.T.TarpitCoreTrapNotFound)
 		}
 
 		return nil // Всё идеально: демон жив и порт 22 в инвентаре заявлен как RUNNING
 	}
 
-	return fmt.Errorf("запрошено неизвестное действие ловушки: %s", action)
+	return fmt.Errorf("%s", fmt.Sprintf(i18n.T.TarpitUnknownAction, action))
 }
