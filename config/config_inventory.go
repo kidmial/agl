@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"agl/i18n" // <-- ДОБАВЛЕНО: пакет локализации
 )
 
 /*
@@ -142,7 +144,7 @@ func RunPerimeterInventoryScan() error {
 	// Загружаем текущее состояние перед сканированием.
 	inv, err := loadInventoryRaw()
 	if err != nil {
-		return fmt.Errorf("ошибка инициализации базы при сканировании: %w", err)
+		return fmt.Errorf(i18n.T.ConfigErrInitScan, err)
 	}
 
 	// Контекст с жестким таймаутом. Все операции будут завершены максимум за 5 секунд.
@@ -158,7 +160,7 @@ func RunPerimeterInventoryScan() error {
 	// ---------------------------------------------------------
 	processMap, err := discoverAllProcesses(ctx)
 	if err != nil {
-		return fmt.Errorf("C1 Error (Process Discovery): %w", err)
+		return fmt.Errorf(i18n.T.ConfigErrC1Discovery, err)
 	}
 
 	// ---------------------------------------------------------
@@ -168,7 +170,7 @@ func RunPerimeterInventoryScan() error {
 	ssCmd := exec.CommandContext(ctx, "ss", "-lntp", "-H") // -l=listening, -n=numeric, -t=tcp, -p=pid/program, -H=no header
 	ssOutBytes, err := ssCmd.Output()
 	if err != nil {
-		return fmt.Errorf("C2 Error (Socket Audit Edge): Failed to execute ss: %w", err)
+		return fmt.Errorf(i18n.T.ConfigErrC2SocketAudit, err)
 	}
 	rawSocketOutput := string(ssOutBytes)
 	// Парсинг выдачи ss в структурированный список.
@@ -180,7 +182,7 @@ func RunPerimeterInventoryScan() error {
 	// ---------------------------------------------------------
 	finalInventory, err := correlateAndEnrich(rawSockets, processMap)
 	if err != nil {
-		return fmt.Errorf("C3 Error (Correlation): %w", err)
+		return fmt.Errorf(i18n.T.ConfigErrC3Correlation, err)
 	}
 
 	// ---------------------------------------------------------
@@ -224,7 +226,7 @@ func discoverAllProcesses(ctx context.Context) (map[int]*ProcessInfo, error) {
 	// Итерация по директории /proc/, где каждый подкаталог - это PID.
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read /proc: %w", err)
+		return nil, fmt.Errorf(i18n.T.ConfigErrReadProc, err)
 	}
 
 	for _, entry := range entries {
@@ -317,7 +319,7 @@ func parseSocketOutput(ssOutput string) []SocketInfo {
 		}
 
 		// Парсинг PID и Имени процесса (подготовка к Контуру 3)
-		processName := "UNKNOWN_PROCESS"
+		processName := i18n.T.ConfigUnknownProcess
 		pid := 0
 
 		if strings.Contains(line, "users:(") {
@@ -359,7 +361,7 @@ func correlateAndEnrich(sockets []SocketInfo, processes map[int]*ProcessInfo) ([
 			// Сценарий 2 (Amber Guard Lab): PID не найден, но порт активен.
 			// Принудительно помечаем как подозрительный и сохраняем сокет,
 			// не удаляя его из инвентаря.
-			socket.ProcessName = "UNKNOWN_PROCESS (Suspicious Activity Detect)"
+			socket.ProcessName = i18n.T.ConfigUnknownProcessSuspicious
 			// Сокет всегда сохраняется, так как он представляет собой открытую дверь.
 			enrichedSockets = append(enrichedSockets, socket)
 		}
@@ -376,7 +378,7 @@ func readProcessInfo(pid int) (name string, path string, status string, err erro
 	statusPath := filepath.Join("/proc", strconv.Itoa(pid), "status")
 	statusContent, err := os.ReadFile(statusPath)
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to read status: %w", err)
+		return "", "", "", fmt.Errorf(i18n.T.ConfigErrReadStatus, err)
 	}
 
 	lines := strings.Split(string(statusContent), "\n")
@@ -507,7 +509,7 @@ func saveInventoryRaw(inv *PerimeterInventory) error {
 	// данные из оперативной памяти ядра (buffer) на физический накопитель.
 	// Это устраняет риск потери данных при внезапном отключении питания.
 	if err = f.Sync(); err != nil {
-		return fmt.Errorf("failed to sync file to disk: %w", err)
+		return fmt.Errorf(i18n.T.ConfigErrSyncDisk, err)
 	}
 
 	// 4. Выполняем атомарную смену имени.
@@ -532,7 +534,7 @@ func AddPort(uuid, name string, port int, protocol string) error {
 	// Проверка на дублирование.
 	for _, p := range inv.ProtectedPorts {
 		if p.Port == port && p.Protocol == protocol {
-			return fmt.Errorf("рубеж для порта %d/%s уже существует", port, protocol)
+			return fmt.Errorf(i18n.T.ConfigErrPortExists, port, protocol)
 		}
 	}
 	newTarget := PortTarget{
@@ -563,7 +565,7 @@ func UpdatePortStatus(uuid, mode, status string) error {
 			return saveInventoryRaw(inv)
 		}
 	}
-	return fmt.Errorf("рубеж с UUID %s не найден", uuid)
+	return fmt.Errorf(i18n.T.ConfigErrUUIDNotFound, uuid)
 }
 
 // DeletePort атомарно удаляет порт брандмауэра по UUID.
@@ -585,7 +587,7 @@ func DeletePort(uuid string) error {
 		updatedPorts = append(updatedPorts, p)
 	}
 	if !found {
-		return fmt.Errorf("рубеж с UUID %s не найден", uuid)
+		return fmt.Errorf(i18n.T.ConfigErrUUIDNotFound, uuid)
 	}
 	inv.ProtectedPorts = updatedPorts
 	return saveInventoryRaw(inv)

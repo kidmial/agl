@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"sync"
+
+	"agl/i18n" // <-- ДОБАВЛЕНО: пакет локализации (проверь префикс модуля в go.mod)
 )
 
 // SysctlCoreConfig изолирует двухуровневые параметры тюнинга сетевого стека ядра Linux.
@@ -149,14 +151,14 @@ func LoadConfig(filePath string) error {
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("критическая ошибка Amber Guard Lab: не удалось открыть конфигурационный центр: %v", err)
+		return fmt.Errorf(i18n.T.ConfigErrOpenCenter, err)
 	}
 	defer file.Close()
 
 	decoder := json.NewDecoder(file)
 	// ← Decode в local, не в &C
 	if err := decoder.Decode(local); err != nil {
-		return fmt.Errorf("критическая ошибка парсинга структуры v6.3.9: %v", err)
+		return fmt.Errorf(i18n.T.ConfigErrParseStruct, err)
 	}
 
 	// БЛОК 3.7: Жёсткие фолбэки для критичных параметров после парсинга.
@@ -198,7 +200,7 @@ func LoadConfig(filePath string) error {
 		// ВАЖНО: используем saveConfigLocked, так как local не является глобальным state
 		if err := saveConfigLocked(filePath, local); err != nil {
 			// Добавление обработки ошибки, если сохранение после миграции не удалось
-			return fmt.Errorf("критическая ошибка при сохранении после миграции: %v", err)
+			return fmt.Errorf(i18n.T.ConfigErrSaveAfterMigration, err)
 		}
 	}
 
@@ -214,7 +216,7 @@ func LoadConfig(filePath string) error {
 
 	// --- Автоматическая стабилизация окружения на сервере ---
 	if err := os.MkdirAll(DirLib, 0755); err != nil {
-		return fmt.Errorf("авария геометрии диска: невозможно создать %s: %v", DirLib, err)
+		return fmt.Errorf(i18n.T.ConfigErrDiskGeometry, DirLib, err)
 	}
 	// Папка в ОЗУ /var/run/amberguard должна быть доступна (обычно создается systemd, но страхуем рантайм)
 	_ = os.MkdirAll(DirRun, 0750)
@@ -225,7 +227,7 @@ func LoadConfig(filePath string) error {
 	}
 
 	if local.RealSshPort <= 0 || local.RealSshPort > 65535 {
-		return fmt.Errorf("конфигурационный сбой: скрытый порт SSH (%d) выходит за рамки TCP", local.RealSshPort)
+		return fmt.Errorf(i18n.T.ConfigErrInvalidSshPort, local.RealSshPort)
 	}
 
 	// ФИКС: Вместо критического падения — применяем мягкое восстановление лимита
@@ -310,30 +312,30 @@ func SaveConfig(filePath string) error {
 func saveConfigLocked(filePath string, cfg *Config) error {
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return fmt.Errorf("авария сериализации конфига: %v", err)
+		return fmt.Errorf(i18n.T.ConfigErrSerialization, err)
 	}
 	tmpPath := filePath + ".tmp"
 	f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("авария создания временного файла конфига: %v", err)
+		return fmt.Errorf(i18n.T.ConfigErrCreateTempFile, err)
 	}
 	if _, err := f.Write(data); err != nil {
 		f.Close()
 		_ = os.Remove(tmpPath)
-		return fmt.Errorf("авария записи конфигурации: %v", err)
+		return fmt.Errorf(i18n.T.ConfigErrWriteConfig, err)
 	}
 	if err := f.Sync(); err != nil {
 		f.Close()
 		_ = os.Remove(tmpPath)
-		return fmt.Errorf("авария синхронизации конфигурации с диском: %v", err)
+		return fmt.Errorf(i18n.T.ConfigErrSyncConfig, err)
 	}
 	if err := f.Close(); err != nil {
 		_ = os.Remove(tmpPath)
-		return fmt.Errorf("авария закрытия временного файла конфига: %v", err)
+		return fmt.Errorf(i18n.T.ConfigErrCloseTempFile, err)
 	}
 	if err := os.Rename(tmpPath, filePath); err != nil {
 		_ = os.Remove(tmpPath)
-		return fmt.Errorf("авария атомарного переименования конфигурации: %v", err)
+		return fmt.Errorf(i18n.T.ConfigErrRenameConfig, err)
 	}
 	return nil
 }
