@@ -65,6 +65,7 @@ import (
 	"time"
 
 	"agl/config"
+	"agl/i18n"
 )
 
 // ============================================================================
@@ -114,19 +115,18 @@ func RunTarpitForensics() {
 	}
 
 	fmt.Println("\n==============================================================")
-	fmt.Println("         КРИМИНАЛИСТИЧЕСКАЯ ХРОНИКА ДЕГТЯРНОЙ ЯМЫ")
+	fmt.Println("           " + i18n.T.ForensicsReportTitle)
 	fmt.Println("==============================================================")
-	fmt.Printf("  Дата генерации: %s\n", time.Now().Format("2006-01-02 15:04:05"))
-	fmt.Printf("  Целевой лог:    %s\n", rptLog)
+	fmt.Printf("  "+i18n.T.ForensicsGenDate+"\n", time.Now().Format("2006-01-02 15:04:05"))
+	fmt.Printf("  "+i18n.T.ForensicsTargetLog+"\n", rptLog)
 	fmt.Println("--------------------------------------------------------------")
-	fmt.Println("    ВРЕМЯ   |    ЛОВУШКА    |    IP-АДРЕС   | ПЛАН/ФАКТ  | ПОВЕДЕНИЕ  | СТРАНА")
+	fmt.Printf("  %-9s | %-13s | %-15s | %-10s | %-10s | %s\n", i18n.T.ForensicsColTime, i18n.T.ForensicsColTrap, i18n.T.ForensicsColIP, i18n.T.ForensicsColPlanFact, i18n.T.ForensicsColBehavior, i18n.T.ForensicsColCountry)
 	fmt.Println("--------------------------------------------------------------")
 
 	// Открываем лог-файл для чтения
 	file, err := os.Open(rptLog)
 	if err != nil {
-		fmt.Println("  [ИНФО]: Исторический журнал пуст или недоступен.")
-		fmt.Println("  На периметре штиль. Боты ещё не пробовали на прочность.")
+		fmt.Println("  " + i18n.T.ForensicsLogEmptyOrUnavailable)
 		fmt.Println("==============================================================")
 		return
 	}
@@ -143,7 +143,7 @@ func RunTarpitForensics() {
 
 	// Если лог пуст — выводим заглушку
 	if len(historyLines) == 0 {
-		fmt.Println("  [ИНФО]: Исторический журнал пуст. На периметре штиль.")
+		fmt.Println("  " + i18n.T.ForensicsLogEmpty)
 		fmt.Println("==============================================================")
 		return
 	}
@@ -176,8 +176,8 @@ func RunTarpitForensics() {
 		}
 
 		// Форматируем план/факт для компактного отображения
-		planShort := strings.ReplaceAll(planRaw, " sec", "с")
-		factShort := strings.ReplaceAll(factRaw, " sec", "с")
+		planShort := strings.ReplaceAll(planRaw, " sec", i18n.T.ForensicsSecShort)
+		factShort := strings.ReplaceAll(factRaw, " sec", i18n.T.ForensicsSecShort)
 		timeWindow := planShort + "/" + factShort
 
 		// Сокращаем метку поведения для компактности
@@ -203,7 +203,7 @@ func RunTarpitForensics() {
 	}
 
 	fmt.Println("--------------------------------------------------------------")
-	fmt.Printf("  Всего записей в журнале: %d. Отображено: %d.\n", len(historyLines), displayCount)
+	fmt.Printf("  "+i18n.T.ForensicsTotalRecords+"\n", len(historyLines), displayCount)
 	fmt.Println("==============================================================")
 }
 
@@ -265,7 +265,7 @@ func GetTarpitLiveRows() []string {
 		// Это нормальная ситуация для первого старта, когда ловушка
 		// ещё не поймала ни одного бота.
 		rows = append(rows, fmt.Sprintf(
-			" %s[Ловушка пуста. Ожидание первого контакта...]%s",
+			" %s"+i18n.T.ForensicsTrapEmpty+"%s",
 			colorYellow, colorReset))
 		return rows
 	}
@@ -284,7 +284,7 @@ func GetTarpitLiveRows() []string {
 	// Если лог пуст — возвращаем заглушку
 	if len(historyLines) == 0 {
 		rows = append(rows, fmt.Sprintf(
-			" %s[Ловушка пуста. Ожидание первого контакта...]%s",
+			" %s"+i18n.T.ForensicsTrapEmpty+"%s",
 			colorYellow, colorReset))
 		return rows
 	}
@@ -320,7 +320,7 @@ func GetTarpitLiveRows() []string {
 
 		// Извлекаем переменные по строго утверждённым индексам
 		tsFull := parts[0]      // [0] Дата/Время начала атаки
-		tarpitID := parts[1]    // [1] Идентификатор ловушки (TARPIT:22 / TARPIT:8080)
+		tarpitID := parts[1]    // [1] Идентификатор ловушки (TARPIT:22 / TARPIT:2222)
 		ip := parts[2]          // [2] IP-адрес атакующего
 		planRaw := parts[3]     // [3] ПЛАНИРУЕМОЕ удержание (джиттер)
 		factRaw := parts[4]     // [4] ФАКТИЧЕСКОЕ удержание
@@ -340,8 +340,8 @@ func GetTarpitLiveRows() []string {
 		// Заменяем " sec" на "с" для экономии ширины колонки.
 		// ОБНОВЛЕНО В v8.0.1: В новой архитектуре `planRaw` = запланированный
 		// джиттер, `factRaw` = фактическое удержание. Оба значения корректны.
-		planShort := strings.ReplaceAll(planRaw, " sec", "с")
-		factShort := strings.ReplaceAll(factRaw, " sec", "с")
+		planShort := strings.ReplaceAll(planRaw, " sec", i18n.T.ForensicsSecShort)
+		factShort := strings.ReplaceAll(factRaw, " sec", i18n.T.ForensicsSecShort)
 		formattedTimeWindow := planShort + "/" + factShort
 
 		// Очищаем страну от пробелов (для корректного отображения в таблице)
@@ -368,7 +368,7 @@ func GetTarpitLiveRows() []string {
 		// Формат: 🟢 [CLOSED] │ Время │ Ловушка │ IP │ План/Факт │ Поведение │ Страна
 		// Цвет накладывается строго на текст [CLOSED], эмодзи идёт отдельно.
 		// ОБНОВЛЕНО В v8.0.1. v8.2.3: добавлена колонка идентификатора ловушки.
-		line := fmt.Sprintf(" 🟢 [CLOSED](fg:green,mod:bold) │ %s │ %-12s │ %-15s │ %-7s │ %-7s │ %s",
+		line := fmt.Sprintf(" 🟢 "+i18n.T.ForensicsStatusClosed+"(fg:green,mod:bold) │ %s │ %-12s │ %-15s │ %-7s │ %-7s │ %s",
 			timePart, idShort, ip, formattedTimeWindow, behaviorShort, countryClean)
 
 		rows = append(rows, line)
@@ -380,7 +380,7 @@ func GetTarpitLiveRows() []string {
 	// ОБНОВЛЕНО В v8.0.1.
 	if len(rows) == 0 {
 		rows = append(rows, fmt.Sprintf(
-			" %s[Ловушка пуста. Ожидание первого контакта...]%s",
+			" %s"+i18n.T.ForensicsTrapEmpty+"%s",
 			colorYellow, colorReset))
 	}
 
