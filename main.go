@@ -189,7 +189,7 @@ func acquireSingletonLock(role string) {
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		_ = f.Close()
 		sys.LogAction("AGL_CORE", "SINGLETON_LOCK_BUSY", "ALERT",
-			fmt.Sprintf("event=singleton.lock_busy role=%s pid=%d. Второй экземпляр демон-режима отклонён.", role, os.Getpid()))
+			i18n.TrEventf("singleton.lock_busy", role, os.Getpid()))
 		fmt.Fprintf(os.Stderr, "AGL: роль [%s] уже выполняется другим процессом. Запуск отклонён предохранителем R-6.\n", role)
 		os.Exit(1)
 	}
@@ -197,7 +197,7 @@ func acquireSingletonLock(role string) {
 	// Успех: fd уходит в глобальную ссылку, блокировка живёт до выхода процесса.
 	singletonLocks = append(singletonLocks, f)
 	sys.LogAction("AGL_CORE", "SINGLETON_LOCK_HELD", "SUCCESS",
-		fmt.Sprintf("event=singleton.lock_held role=%s pid=%d. Экземпляр демон-режима единственный.", role, os.Getpid()))
+		i18n.TrEventf("singleton.lock_held", role, os.Getpid()))
 }
 
 // ============================================================================
@@ -366,13 +366,13 @@ func main() {
 		go func() {
 			sig := <-sigChan
 			sys.LogAction("TARPIT_MANAGER", "SHUTDOWN_SIGNAL", "PENDING",
-				fmt.Sprintf("Демон получил сигнал %v. Инициировано корректное завершение.", sig))
+				i18n.TrEventf("main.shutdown_signal", sig))
 			cancel()
 		}()
 
 		// ИБ-АУДИТ: Фиксируем старт демона
 		sys.LogAction("TARPIT_MANAGER", "DAEMON_START", "SUCCESS",
-			"Демон ловушек запущен. Инициализация Reconciliation Loop.")
+			i18n.TrEvent("main.daemon_start"))
 
 		// Запуск менеджера ловушек (БЛОКИРУЮЩИЙ вызов).
 		// Менеджер читает `tarpit_inventory.json` и управляет ВСЕМИ воркерами.
@@ -385,7 +385,7 @@ func main() {
 		// ОБНОВЛЕНО В v8.0.1.
 		tarpit.RemoveShm()
 		sys.LogAction("TARPIT_MANAGER", "DAEMON_STOPPED", "SUCCESS",
-			"Демон ловушек корректно завершён. Все воркеры остановлены.")
+			i18n.TrEvent("main.daemon_stopped"))
 		return
 	}
 
@@ -423,7 +423,7 @@ func main() {
 		i18n.InitLanguage(watcherLang)
 		// ИБ-АУДИТ: Фиксируем старт наблюдателя
 		sys.LogAction("WATCHER", "PROCESS_START", "SUCCESS",
-			"Процесс наблюдателя простоя администратора запущен.")
+			i18n.TrEvent("main.watcher_process_start"))
 		// Запуск 60-сек тикера (БЛОКИРУЮЩИЙ вызов)
 		armor.StartWatcherProtocol()
 		return
@@ -575,7 +575,7 @@ func ReconcileSystemStates() {
 	// M4-гигиена (v8.1.3): вход в панель логируется ВСЕГДА,
 	// независимо от наличия активных ловушек.
 	sys.LogAction("RECONCILE", "SESSION_START", "INFO",
-		"Выполнен вход в TUI-панель.")
+		i18n.TrEvent("main.reconcile_session_start"))
 
 	// -------------------------------------------------------------
 	// КОНТУР 1: АУДИТ РОКИРОВКИ ПОРТОВ OpenSSH (без изменений)
@@ -591,14 +591,14 @@ func ReconcileSystemStates() {
 			_ = os.MkdirAll(filepath.Dir(markerCastling), 0755)
 			_ = sys.WriteAtomic(markerCastling, []byte(activeSshPort), 0644)
 			sys.LogAction("RECONCILE", "CASTLING_MARKER_RESTORE", "SUCCESS",
-				fmt.Sprintf("Восстановлен маркер рокировки: порт %s", activeSshPort))
+				i18n.TrEventf("main.castling_marker_restore", activeSshPort))
 		}
 	} else {
 		// Порт не совпадает → рокировка неактивна → маркер должен быть удалён
 		if _, err := os.Stat(markerCastling); err == nil {
 			_ = os.Remove(markerCastling)
 			sys.LogAction("RECONCILE", "CASTLING_MARKER_PURGE", "SUCCESS",
-				"Маркер рокировки удалён: рокировка неактивна")
+				i18n.TrEvent("main.castling_marker_purge"))
 		}
 	}
 
@@ -624,7 +624,7 @@ func ReconcileSystemStates() {
 		// Если файла нет — это нормально для первого старта.
 		// Ловушки ещё не настроены.
 		sys.LogAction("RECONCILE", "INVENTORY_NOT_FOUND", "INFO",
-			"Инвентарь ловушек не найден. Первый старт или ловушки не настроены.")
+			i18n.TrEvent("main.inventory_not_found"))
 		return
 	}
 
@@ -639,10 +639,10 @@ func ReconcileSystemStates() {
 		// =============================================================
 		if err := tarpitctl.EnsureDaemonRunning(); err != nil {
 			sys.LogAction("RECONCILE", "DAEMON_START_FAIL", "ERROR",
-				fmt.Sprintf("Сбой обеспечения работы демона: %v", err))
+				i18n.TrEventf("main.daemon_start_fail", err))
 		} else {
 			sys.LogAction("RECONCILE", "DAEMON_VERIFIED", "SUCCESS",
-				fmt.Sprintf("Демон проверен/запущен. Активных ловушек: %d", activeCount))
+				i18n.TrEventf("main.daemon_verified", activeCount))
 		}
 	} else {
 		// =============================================================
@@ -652,7 +652,7 @@ func ReconcileSystemStates() {
 		// Здесь мы ничего не делаем.
 		// =============================================================
 		sys.LogAction("RECONCILE", "NO_ACTIVE_TRAPS", "INFO",
-			"Активных ловушек в инвентаре нет — демон в режиме ожидания.")
+			i18n.TrEvent("main.no_active_traps"))
 	}
 	// -------------------------------------------------------------
 	// КОНТУР 3: СВЕРКА БРОНИ (M4 / K-23)
@@ -678,7 +678,7 @@ func checkAndInstallGeoTool() {
 	// предохранитель защищает от будущих рефакторингов порядка вызовов.
 	if daemonMode {
 		sys.LogAction("GEO_INSTALL", "GEO_SKIP_DAEMON", "WARNING",
-			"event=geo.install_skipped reason=daemon_mode. Интерактивная установка гео-инструмента в демон-режиме недоступна; продолжаем без геолокации.")
+			i18n.TrEvent("geo.install_skipped"))
 		return
 	}
 	geoToolName := "geoiplookup"
@@ -714,8 +714,7 @@ func checkAndInstallGeoTool() {
 		if updateRes.Err != nil {
 			// Машинное событие в журнал AGL: списки не обновились.
 			sys.LogAction("GEO_INSTALL", "APT_UPDATE_FAIL", "WARNING",
-				fmt.Sprintf("event=apt.update_failed err=%v stderr=%s",
-					updateRes.Err, strings.TrimSpace(updateRes.Stderr)))
+				i18n.TrEventf("apt.update_failed", updateRes.Err, strings.TrimSpace(updateRes.Stderr)))
 			// Консольное сообщение админу: продолжаем без свежих списков.
 			fmt.Println("⚠️ Не удалось обновить списки пакетов. Пробую установку по текущим спискам...")
 		}
@@ -728,7 +727,7 @@ func checkAndInstallGeoTool() {
 		if err := sys.RunTimeoutStreamed(600*time.Second, "apt-get", "install", "-y", "geoip-bin", "geoip-database"); err != nil {
 			// Машинное событие в журнал AGL: установка пакетов провалилась.
 			sys.LogAction("GEO_INSTALL", "APT_INSTALL_FAIL", "ERROR",
-				fmt.Sprintf("event=apt.install_failed err=%v", err))
+				i18n.TrEventf("apt.install_failed", err))
 			log.Printf("[%s] [ERROR] Сбой установки geoip-bin: %v",
 				time.Now().Format("2006-01-02 15:04:05"), err)
 			fmt.Printf("\n❌ Ошибка установки: %v. Запуск в ограниченном режиме...\n", err)
@@ -736,7 +735,7 @@ func checkAndInstallGeoTool() {
 		} else {
 			// Машинное событие: пакеты встали успешно.
 			sys.LogAction("GEO_INSTALL", "APT_INSTALL_OK", "SUCCESS",
-				"event=apt.install_success packages=geoip-bin,geoip-database")
+				i18n.TrEvent("apt.install_success"))
 			log.Printf("[%s] [INFO] Пакет geoip-bin успешно установлен.",
 				time.Now().Format("2006-01-02 15:04:05"))
 			fmt.Println("\n✅ Установка завершена успешно!")
@@ -793,7 +792,7 @@ func ReconcileArmorStates() {
 	apps, err := config.LoadDetectedApps()
 	if err != nil {
 		sys.LogAction("RECONCILE_ARMOR", "INVENTORY_LOAD_FAIL", "WARNING",
-			fmt.Sprintf("Не удалось загрузить инвентарь периметра для сверки брони: %v", err))
+			i18n.TrEventf("main.armor_inventory_load_fail", err))
 		return
 	}
 
@@ -835,7 +834,7 @@ func ReconcileArmorStates() {
 			if ruleExists {
 				armor.PurgeLimitRule(app.Port)
 				sys.LogAction("RECONCILE_ARMOR", "C1_CLEANUP", "SUCCESS",
-					fmt.Sprintf("event=c1.cleanup port=%d Лимит на порту-ловушке удалён: капкан должен оставаться доступным.", app.Port))
+					i18n.TrEventf("c1.cleanup", app.Port))
 			}
 			continue
 		}
@@ -846,16 +845,16 @@ func ReconcileArmorStates() {
 			// Это происходит после ребута или после ручного сброса правил.
 			// =============================================================
 			sys.LogAction("RECONCILE_ARMOR", "RULE_MISSING", "PENDING",
-				fmt.Sprintf("Обнаружен рассинхрон: квитанция есть, правила нет. Порт %d (%s). Восстановление...", app.Port, app.Name))
+				i18n.TrEventf("main.armor_rule_missing", app.Port, app.Name))
 
 			dynamicID := fmt.Sprintf("port_auto_%d", app.Port)
 			if errAct := armor.ExecuteArmorRoute(dynamicID, "ON"); errAct != nil {
 				sys.LogAction("RECONCILE_ARMOR", "RESTORE_FAIL", "ERROR",
-					fmt.Sprintf("Сбой восстановления брони на порту %d: %v", app.Port, errAct))
+					i18n.TrEventf("main.armor_restore_fail", app.Port, errAct))
 			} else {
 				recoveredCount++
 				sys.LogAction("RECONCILE_ARMOR", "RULE_RESTORED", "SUCCESS",
-					fmt.Sprintf("Броня на порту %d (%s) успешно восстановлена.", app.Port, app.Name))
+					i18n.TrEventf("main.armor_rule_restored", app.Port, app.Name))
 			}
 		} else if !receiptExists && ruleExists {
 			// =============================================================
@@ -865,12 +864,12 @@ func ReconcileArmorStates() {
 			// =============================================================
 			warningCount++
 			sys.LogAction("RECONCILE_ARMOR", "RULE_WITHOUT_RECEIPT", "WARNING",
-				fmt.Sprintf("Обнаружено правило брони без квитанции: порт %d (%s). Правило сохранено (ручное создание?).", app.Port, app.Name))
+				i18n.TrEventf("main.armor_rule_without_receipt", app.Port, app.Name))
 		}
 	}
 
 	if recoveredCount > 0 || warningCount > 0 {
 		sys.LogAction("RECONCILE_ARMOR", "RECONCILE_SUMMARY", "SUCCESS",
-			fmt.Sprintf("Сверка брони завершена. Восстановлено правил: %d. Предупреждений: %d.", recoveredCount, warningCount))
+			i18n.TrEventf("main.armor_reconcile_summary", recoveredCount, warningCount))
 	}
 }
