@@ -266,6 +266,11 @@ type UITranslation struct {
 	TarpitInvLockOpenFail    string
 	TarpitInvLockAcquireFail string
 	TarpitInvTxCurrupted     string
+	// --- internal/tarpit/tarpit_manager.go ---
+	TarpitManagerTrapRemovedFromInventory string
+	TarpitManagerTrapMissingFromInventory string
+	TarpitManagerMarkerSerializeFail      string
+	TarpitManagerMarkerWriteDiskFail      string
 }
 
 // LogTranslation описывает человекочитаемые описания событий для журнала.

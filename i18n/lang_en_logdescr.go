@@ -93,6 +93,26 @@ func init() {
 			"tarpit_service.perimeter_restore_standard": "Castling not performed. Port 22 perimeter returned to standard OpenSSH mode",
 			"tarpit_service.perimeter_muting":           "Active castling detected. Port 22 perimeter remains walled up",
 			"tarpit_service.tarpit_off_complete":        "Tar Pit on port 22 successfully deactivated. Perimeter restored.",
+			// --- internal/tarpit/tarpit_listener.go ---
+			"geo.restored": "event=geo.restored Geo analytics available again.",
+			// --- internal/tarpit/tarpit_manager.go ---
+			"tarpit_manager.fuse_reject":                "Trap %s rejected: %s",
+			"tarpit_manager.declaration_rejected_fuse":  "Declaration %s rejected by fuse: %s (attempts: 3). state→STOPPED. Retry only intentionally via card.",
+			"tarpit_manager.daemon_start":               "Tarpit daemon started. Initializing Reconciliation Loop.",
+			"tarpit_manager.daemon_shutdown":            "Tarpit daemon received shutdown signal. Stopping all workers.",
+			"tarpit_manager.orphan_cleanup":             "Orphan worker %s detected. Removing from pool.",
+			"tarpit_manager.socket_bind_fail":           "Failed to bind port %d for worker %s: %v",
+			"tarpit_manager.declaration_rejected_bind":  "Declaration %s rejected: port %d busy (attempts: %d). state→STOPPED. Retry only intentionally via card.",
+			"tarpit_manager.marker_write_fail":          "Marker write failure for worker %s: %v",
+			"tarpit_manager.worker_start":               "Worker %s started on port %d. PID=%d, MaxConn=%d",
+			"tarpit_manager.worker_stop":                "Worker %s stopped on port %d. Marker removed.",
+			"tarpit_manager.all_workers_stopped":        "All workers stopped. Daemon terminating.",
+			"tarpit_manager.inventory_update_fail":      "Inventory write failure during runtime update: %v",
+			"inventory.update_failed":                   "event=inventory.update_failed trap=%s err=%v",
+			"tarpit_manager.reject_reason_core_blocked": "castling not performed — port 22 occupied by legitimate OpenSSH",
+			"tarpit_manager.reject_reason_rescue_port":  "port %d — web rescue channel (C8 contract)",
+			"tarpit_manager.reject_reason_ssh_port":     "port %d — active hidden SSH port (C8 contract)",
+			"tarpit_manager.config_reload_fail":         "event=config.reload_failed err=%v. Continuing with the previous snapshot.",
 		},
 	}
 }

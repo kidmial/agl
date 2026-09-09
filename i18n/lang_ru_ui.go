@@ -262,5 +262,10 @@ func init() {
 		TarpitInvLockOpenFail:    "не удалось открыть lock-файл инвентаря: %w",
 		TarpitInvLockAcquireFail: "не удалось захватить блокировку инвентаря: %w",
 		TarpitInvTxCurrupted:     "инвентарь повреждён внутри транзакции: %w",
+		// --- internal/tarpit/tarpit_manager.go ---
+		TarpitManagerTrapRemovedFromInventory: "ловушка %s удалена из инвентаря",
+		TarpitManagerTrapMissingFromInventory: "ловушка %s отсутствует в инвентаре (удалена клиентом)",
+		TarpitManagerMarkerSerializeFail:      "сбой сериализации маркера: %w",
+		TarpitManagerMarkerWriteDiskFail:      "сбой записи маркера на диск: %w",
 	}
 }

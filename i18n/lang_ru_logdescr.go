@@ -93,6 +93,26 @@ func init() {
 			"tarpit_service.perimeter_restore_standard": "Рокировка не выполнена. Периметр порта 22 возвращён в стандартный режим OpenSSH",
 			"tarpit_service.perimeter_muting":           "Обнаружена активная рокировка. Периметр порта 22 остается замурованным",
 			"tarpit_service.tarpit_off_complete":        "Дегтярная Яма на порту 22 успешно деактивирована. Периметр восстановлен.",
+			// --- internal/tarpit/tarpit_listener.go ---
+			"geo.restored": "event=geo.restored Гео-аналитика снова доступна.",
+			// --- internal/tarpit/tarpit_manager.go ---
+			"tarpit_manager.fuse_reject":                "Ловушка %s отклонена: %s",
+			"tarpit_manager.declaration_rejected_fuse":  "Декларация %s отклонена предохранителем: %s (попыток: 3). state→STOPPED. Повтор — только осознанно через карточку.",
+			"tarpit_manager.daemon_start":               "Демон ловушек запущен. Инициализация Reconciliation Loop.",
+			"tarpit_manager.daemon_shutdown":            "Демон ловушек получил сигнал завершения. Остановка всех воркеров.",
+			"tarpit_manager.orphan_cleanup":             "Обнаружен воркер-призрак %s. Удаление из пула.",
+			"tarpit_manager.socket_bind_fail":           "Не удалось занять порт %d воркером %s: %v",
+			"tarpit_manager.declaration_rejected_bind":  "Декларация %s отклонена: порт %d занят (попыток: %d). state→STOPPED. Повторное включение — только осознанно через карточку.",
+			"tarpit_manager.marker_write_fail":          "Сбой записи маркера для воркера %s: %v",
+			"tarpit_manager.worker_start":               "Воркер %s запущен на порту %d. PID=%d, MaxConn=%d",
+			"tarpit_manager.worker_stop":                "Воркер %s остановлен на порту %d. Маркер удалён.",
+			"tarpit_manager.all_workers_stopped":        "Все воркеры остановлены. Демон завершается.",
+			"tarpit_manager.inventory_update_fail":      "Сбой записи инвентаря при обновлении рантайма: %v",
+			"inventory.update_failed":                   "event=inventory.update_failed trap=%s err=%v",
+			"tarpit_manager.reject_reason_core_blocked": "рокировка не выполнена — порт 22 занят легитимным OpenSSH",
+			"tarpit_manager.reject_reason_rescue_port":  "порт %d — канал спасения веб-стука (контракт C8)",
+			"tarpit_manager.reject_reason_ssh_port":     "порт %d — активный скрытый порт SSH (контракт C8)",
+			"tarpit_manager.config_reload_fail":         "event=config.reload_failed err=%v. Продолжаю работу с предыдущим снапшотом.",
 		},
 	}
 }

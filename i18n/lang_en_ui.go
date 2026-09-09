@@ -262,5 +262,10 @@ func init() {
 		TarpitInvLockOpenFail:    "failed to open inventory lock file: %w",
 		TarpitInvLockAcquireFail: "failed to acquire inventory lock: %w",
 		TarpitInvTxCurrupted:     "inventory corrupted inside transaction: %w",
+		// --- internal/tarpit/tarpit_manager.go ---
+		TarpitManagerTrapRemovedFromInventory: "trap %s removed from inventory",
+		TarpitManagerTrapMissingFromInventory: "trap %s missing from inventory (deleted by client)",
+		TarpitManagerMarkerSerializeFail:      "marker serialization failure: %w",
+		TarpitManagerMarkerWriteDiskFail:      "marker disk write failure: %w",
 	}
 }
