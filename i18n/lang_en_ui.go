@@ -267,5 +267,20 @@ func init() {
 		TarpitManagerTrapMissingFromInventory: "trap %s missing from inventory (deleted by client)",
 		TarpitManagerMarkerSerializeFail:      "marker serialization failure: %w",
 		TarpitManagerMarkerWriteDiskFail:      "marker disk write failure: %w",
+		// --- internal/tarpitctl/tarpit_controller.go ---
+		TarpitCtlInventoryWriteCriticalFail: "critical tarpit inventory write failure: %w",
+		TarpitCtlDaemonStartFail:            "inventory written, but daemon start failure: %w",
+		TarpitCtlTrapNotFound:               "trap %s not found in inventory",
+		TarpitCtlTrapActiveStop:             "trap %s is active. Stop it first (STOP)",
+		TarpitCtlDaemonStillStopping:        "daemon still completing trap %s shutdown. Retry in a few seconds",
+		TarpitCtlTrapActiveEdit:             "trap %s is active. Stop it before editing",
+		TarpitCtlTrapNotFoundByPort:         "trap on port %d not found in inventory",
+		TarpitCtlUnitGenerateFail:           "daemon unit generation failure: %w",
+		TarpitCtlDaemonStartCriticalFail:    "critical tarpit daemon start failure: %w; stderr=%s",
+		TarpitCtlUnitWriteDiskFail:          "unit disk write failure: %w",
+		TarpitCtlPortOccupiedByProcess:      "port %d occupied by legitimate process %s. Trap deployment impossible",
+		TarpitCtlPortOccupiedByKernel:       "port %d already occupied in OS kernel (ground truth): %w",
+		TarpitCtlCastlingNotDone:            "startup blocked: port castling not performed. Legitimate OpenSSH still holds port 22. Perform castling first",
+		TarpitCtlCastlingDesync:             "startup blocked: castling marker exists, but detector shows OpenSSH still on port %s. State desynchronization",
 	}
 }

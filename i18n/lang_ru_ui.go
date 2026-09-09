@@ -267,5 +267,19 @@ func init() {
 		TarpitManagerTrapMissingFromInventory: "ловушка %s отсутствует в инвентаре (удалена клиентом)",
 		TarpitManagerMarkerSerializeFail:      "сбой сериализации маркера: %w",
 		TarpitManagerMarkerWriteDiskFail:      "сбой записи маркера на диск: %w",
-	}
+		// --- internal/tarpitctl/tarpit_controller.go ---
+		TarpitCtlInventoryWriteCriticalFail: "критический сбой записи инвентаря ловушек: %w",
+		TarpitCtlDaemonStartFail:            "инвентарь записан, но сбой запуска демона: %w",
+		TarpitCtlTrapNotFound:               "ловушка %s не найдена в инвентаре",
+		TarpitCtlTrapActiveStop:             "ловушка %s активна. Сначала остановите её (STOP)",
+		TarpitCtlDaemonStillStopping:        "демон ещё завершает остановку ловушки %s. Повторите через несколько секунд",
+		TarpitCtlTrapActiveEdit:             "ловушка %s активна. Остановите её перед редактированием",
+		TarpitCtlTrapNotFoundByPort:         "ловушка на порту %d не найдена в инвентаре",
+		TarpitCtlUnitGenerateFail:           "сбой генерации юнита демона: %w",
+		TarpitCtlDaemonStartCriticalFail:    "критический сбой запуска демона ловушек: %w; stderr=%s",
+		TarpitCtlUnitWriteDiskFail:          "сбой записи юнита на диск: %w",
+		TarpitCtlPortOccupiedByProcess:      "порт %d занят легитимным процессом %s. Развертывание ловушки невозможно",
+		TarpitCtlPortOccupiedByKernel:       "порт %d уже занят в ядре ОС (ground truth): %w",
+		TarpitCtlCastlingNotDone:            "блокировка запуска: рокировка портов не выполнена. Легитимный OpenSSH всё ещё удерживает порт 22. Сначала выполните рокировку (Кастлинг)",
+		TarpitCtlCastlingDesync:             "блокировка запуска: маркер рокировки существует, но детектор показывает, что OpenSSH всё ещё на порту %s. Рассинхронизация состояния"}
 }

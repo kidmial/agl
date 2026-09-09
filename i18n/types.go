@@ -271,6 +271,21 @@ type UITranslation struct {
 	TarpitManagerTrapMissingFromInventory string
 	TarpitManagerMarkerSerializeFail      string
 	TarpitManagerMarkerWriteDiskFail      string
+	// --- internal/tarpitctl/tarpit_controller.go ---
+	TarpitCtlInventoryWriteCriticalFail string
+	TarpitCtlDaemonStartFail            string
+	TarpitCtlTrapNotFound               string
+	TarpitCtlTrapActiveStop             string
+	TarpitCtlDaemonStillStopping        string
+	TarpitCtlTrapActiveEdit             string
+	TarpitCtlTrapNotFoundByPort         string
+	TarpitCtlUnitGenerateFail           string
+	TarpitCtlDaemonStartCriticalFail    string
+	TarpitCtlUnitWriteDiskFail          string
+	TarpitCtlPortOccupiedByProcess      string
+	TarpitCtlPortOccupiedByKernel       string
+	TarpitCtlCastlingNotDone            string
+	TarpitCtlCastlingDesync             string
 }
 
 // LogTranslation описывает человекочитаемые описания событий для журнала.
