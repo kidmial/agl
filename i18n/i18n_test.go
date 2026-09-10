@@ -106,4 +106,14 @@ func TestTrEventFallback(t *testing.T) {
 	if strings.Contains(got, "%!") {
 		t.Errorf("TrEventf produced Sprintf artifact: %q", got)
 	}
+
+	// 5. Защита в глубину (TD-hotfix): TrEventf с аргументами на несуществующем коде
+	// возвращает код ДОСЛОВНО, без хвоста %!(EXTRA ...).
+	got = TrEventf("nonexistent.code", 42, "arg")
+	if got != "nonexistent.code" {
+		t.Errorf("TrEventf fallback with args broken: got %q, want %q", got, "nonexistent.code")
+	}
+	if strings.Contains(got, "%!") {
+		t.Errorf("TrEventf fallback produced Sprintf artifact: %q", got)
+	}
 }
