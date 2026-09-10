@@ -115,14 +115,14 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	if errSysctl := service.CheckSysctlProtocol(); errSysctl != nil {
 		statusSysctl = "[[ DISARM ]](fg:red,mod:bold)"
 	}
-	rows = append(rows, fmt.Sprintf(i18n.T.ViewArmorListSysctl, statusSysctl))
+	rows = append(rows, fmt.Sprintf(" SYSCTL          │ %s │ %s", statusSysctl, i18n.T.ViewArmorListSysctl))
 
 	// 2. НОВОЕ В v8.0.2: Кнопка пересканирования периметра (перенесена из SETTINGS)
 	// Размещена сразу после SYSCTL для быстрого доступа к актуализации инвентаря.
-	rows = append(rows, i18n.T.ViewArmorListScanPerimeter)
+	rows = append(rows, " SCAN_PERIMETER  │ [  SCAN  ] │ "+i18n.T.ViewArmorListScanPerimeter)
 
 	// 3. Ссылка на подменю детальной настройки (CORE_SETTINGS)
-	rows = append(rows, i18n.T.ViewArmorListCoreSettings)
+	rows = append(rows, " CORE_SETTINGS   │ [  EDIT  ] │ "+i18n.T.ViewArmorListCoreSettings)
 
 	// -------------------------------------------------------------
 	// АВТО-ОБНАРУЖЕННЫЕ ПОРТЫ ИЗ ИНВЕНТАРЯ ПЕРИМЕТРА
@@ -157,7 +157,7 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 			if len(paddedSysTag) > 15 {
 				paddedSysTag = paddedSysTag[:15]
 			}
-			rows = append(rows, fmt.Sprintf(i18n.T.ViewArmorListManualPort, paddedSysTag, statusPort, target.Port, target.Service))
+			rows = append(rows, fmt.Sprintf(" %s │ %s │ "+i18n.T.ViewArmorListManualPort, paddedSysTag, statusPort, target.Port, target.Service))
 		}
 	}
 
@@ -219,17 +219,16 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 			// rows = append(rows, fmt.Sprintf(" %s │ %s │ Найдена служба %s на порту %d (%s)",
 			// 	paddedID, statusPort, formattedAppName, defPort, appStateLabel))
 			// Новая версия вывода
-			rows = append(rows, fmt.Sprintf(i18n.T.ViewArmorListAutoService,
-				paddedID, statusPort, appStateLabel, displayName))
+			rows = append(rows, fmt.Sprintf(" %s │ %s │ [ STATUS: %s ] %s", paddedID, statusPort, appStateLabel, displayName))
 		}
 	}
 
 	// -------------------------------------------------------------
 	// 6. ГЛОБАЛЬНЫЕ ТРИГГЕРЫ (Всегда в конце списка)
 	// -------------------------------------------------------------
-	rows = append(rows, i18n.T.ViewArmorListArmorOn)
-	rows = append(rows, i18n.T.ViewArmorListArmorOff)
-	rows = append(rows, i18n.T.ViewArmorListBack)
+	rows = append(rows, " ARMOR_ON        │ "+i18n.T.ViewArmorListArmorOn)
+	rows = append(rows, " ARMOR_OFF       │ "+i18n.T.ViewArmorListArmorOff)
+	rows = append(rows, " BACK            │ "+i18n.T.ViewArmorListBack)
 
 	// Синхронизируем строки с глобальной памятью для роутера клавиш
 	GlobalArmorMenuRows = rows
@@ -247,7 +246,7 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	timeStr := time.Now().Format("15:04:05")
 	dateStr := time.Now().Format("2006-01-02")
 	ArmorHeader.Title = i18n.T.ViewArmorHeaderTitle
-	ArmorHeader.Text = fmt.Sprintf(i18n.T.ViewArmorHeaderTextTpl, dateStr, timeStr)
+	ArmorHeader.Text = fmt.Sprintf(" %s │ [%s](fg:yellow,mod:bold) │ [%s](fg:yellow,mod:bold)", i18n.T.ViewArmorHeaderDesc, dateStr, timeStr)
 
 	// -------------------------------------------------------------
 	// СПИСОК МЕНЮ (Фиксированная высота 14 строк: y: 4 - 18)
@@ -276,7 +275,7 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	// -------------------------------------------------------------
 	sysConsole := widgets.NewParagraph()
 	sysConsole.Title = i18n.T.ViewArmorConsoleTitle
-	sysConsole.Text = i18n.T.ViewArmorConsoleBody
+	sysConsole.Text = fmt.Sprintf(" [%s]: %s   │   [%s]: %s\n [%s]: %s\n [%s]: %s", i18n.T.ViewArmorLabelNav, i18n.T.ViewArmorLabelNavArrows, i18n.T.ViewArmorLabelActivation, i18n.T.ViewArmorLabelActivationHint, i18n.T.ViewArmorLabelInfo, i18n.T.ViewArmorLabelScrollInfo, i18n.T.ViewArmorLabelExit, i18n.T.ViewArmorLabelExitHint)
 	sysConsole.SetRect(2, 25, 102, 30) // ЖЕСТКАЯ ФИКСАЦИЯ
 	sysConsole.BorderStyle.Fg = ui.ColorGreen
 	sysConsole.TextStyle.Fg = ui.ColorCyan

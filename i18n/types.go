@@ -325,16 +325,22 @@ type UITranslation struct {
 	ViewArmorListManualPort       string
 	ViewArmorPrefixService        string
 	ViewArmorListWebKnockPort     string
-	ViewArmorListAutoService      string
 	ViewArmorListArmorOn          string
 	ViewArmorListArmorOff         string
 	ViewArmorListBack             string
 	ViewArmorHeaderTitle          string
-	ViewArmorHeaderTextTpl        string
 	ViewArmorListTitle            string
 	ViewArmorInfoBoxTitle         string
 	ViewArmorConsoleTitle         string
-	ViewArmorConsoleBody          string
+	ViewArmorHeaderDesc           string
+	ViewArmorLabelNav             string
+	ViewArmorLabelNavArrows       string
+	ViewArmorLabelActivation      string
+	ViewArmorLabelActivationHint  string
+	ViewArmorLabelInfo            string
+	ViewArmorLabelScrollInfo      string
+	ViewArmorLabelExit            string
+	ViewArmorLabelExitHint        string
 	// --- tui/view_backup.go ---
 	ViewBackupGaugeTitle          string
 	ViewBackupGaugeObjectTitleTpl string
@@ -352,23 +358,26 @@ type UITranslation struct {
 	ViewCoreSettingsRowResetToFactory    string
 	ViewCoreSettingsRowBackToArmor       string
 	ViewCoreSettingsEditModeTitle        string
-	ViewCoreSettingsEditModeTextTpl      string
+	ViewCoreSettingsLabelParam           string
+	ViewCoreSettingsLabelEnterNew        string
 	ViewCoreSettingsErrEmptyValue        string
 	ViewCoreSettingsErrOutOfBounds       string
 	ViewCoreSettingsErrSaveFailPrefix    string
 	ViewCoreSettingsSuccessSaved         string
 	ViewCoreSettingsErrWriteRejectPrefix string
 	// --- tui/view_forensics.go ---
-	ViewForensicsHeaderTitle    string
-	ViewForensicsHeaderTextTpl  string
-	ViewForensicsListTitle      string
-	ViewForensicsRowThreatMap   string
-	ViewForensicsRowSshLog      string
-	ViewForensicsRowWebLog      string
-	ViewForensicsRowBotnet      string
-	ViewForensicsRowIpForensics string
-	ViewForensicsRowBack        string
-	ViewForensicsInfoBoxTitle   string
+	ViewForensicsHeaderTitle       string
+	ViewForensicsLabelCollectMode  string
+	ViewForensicsLabelAutoParallel string
+	ViewForensicsLabelSiemRegistry string
+	ViewForensicsListTitle         string
+	ViewForensicsRowThreatMap      string
+	ViewForensicsRowSshLog         string
+	ViewForensicsRowWebLog         string
+	ViewForensicsRowBotnet         string
+	ViewForensicsRowIpForensics    string
+	ViewForensicsRowBack           string
+	ViewForensicsInfoBoxTitle      string
 	// --- tui/view_main.go ---
 	ViewMainLabelMainMenu      string
 	ViewMainLabelDate          string

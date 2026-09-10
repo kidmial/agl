@@ -35,19 +35,17 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	cfg := config.C.SysctlCore
 	lang := config.C.Lang
 	t := i18n.Languages[lang]
-
-	// Динамически подставляем числовые параметры из глобального ОЗУ-состояния синглтона
-	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowSyncookies, cfg.ArmorNetIpv4TcpSyncookies))
-	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowFinTimeout, cfg.ArmorNetIpv4TcpFinTimeout))
-	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowSynRetries, cfg.ArmorNetIpv4TcpSynRetries))
-	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowSynackRetries, cfg.ArmorNetIpv4TcpSynackRetries))
-	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowSomaxconn, cfg.ArmorNetCoreSomaxconn))
-	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowMaxSynBacklog, cfg.ArmorNetIpv4TcpMaxSynBacklog))
-	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowRpFilter, cfg.ArmorNetIpv4ConfAllRpFilter))
-
-	menuRows = append(menuRows, t.ViewCoreSettingsRowResetToFactory)
-	menuRows = append(menuRows, t.ViewCoreSettingsRowBackToArmor)
-
+	// Динамически подставляем числовые параметры из глобального ОЗУ-состояния синглтона.
+	// TD-1: геометрия (номера, теги, [ %d ], │) живёт в коде; описание — в i18n.
+	menuRows = append(menuRows, fmt.Sprintf(" 1. tcp_syncookies      │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpSyncookies, t.ViewCoreSettingsRowSyncookies))
+	menuRows = append(menuRows, fmt.Sprintf(" 2. tcp_fin_timeout     │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpFinTimeout, t.ViewCoreSettingsRowFinTimeout))
+	menuRows = append(menuRows, fmt.Sprintf(" 3. tcp_syn_retries     │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpSynRetries, t.ViewCoreSettingsRowSynRetries))
+	menuRows = append(menuRows, fmt.Sprintf(" 4. tcp_synack_retries  │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpSynackRetries, t.ViewCoreSettingsRowSynackRetries))
+	menuRows = append(menuRows, fmt.Sprintf(" 5. somaxconn           │ [%d] │ %s", cfg.ArmorNetCoreSomaxconn, t.ViewCoreSettingsRowSomaxconn))
+	menuRows = append(menuRows, fmt.Sprintf(" 6. tcp_max_syn_backlog │ [%d] │ %s", cfg.ArmorNetIpv4TcpMaxSynBacklog, t.ViewCoreSettingsRowMaxSynBacklog))
+	menuRows = append(menuRows, fmt.Sprintf(" 7. rp_filter (All)     │ [ %d ] │ %s", cfg.ArmorNetIpv4ConfAllRpFilter, t.ViewCoreSettingsRowRpFilter))
+	menuRows = append(menuRows, " RESET_TO_FACTORY       │ "+t.ViewCoreSettingsRowResetToFactory)
+	menuRows = append(menuRows, " BACK_TO_ARMOR          │ "+t.ViewCoreSettingsRowBackToArmor)
 	GlobalCoreMenuRows = menuRows
 
 	// 1. Фиксированная шапка (Высота 3 строки)
@@ -124,7 +122,7 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 		sysConsole.Title = t.ViewCoreSettingsEditModeTitle
 
 		paramName := config.GetSysctlParamNameByIndex(selectedRow)
-		sysConsole.Text = fmt.Sprintf(t.ViewCoreSettingsEditModeTextTpl, paramName, CurrentCoreInputBuf)
+		sysConsole.Text = fmt.Sprintf("  %s: %s\n  %s: [ %s_ ](fg:white,mod:bold)", t.ViewCoreSettingsLabelParam, paramName, t.ViewCoreSettingsLabelEnterNew, CurrentCoreInputBuf)
 		sysConsole.BorderStyle.Fg = ui.ColorGreen // Рамка становится зеленой при вводе
 		sysConsole.TextStyle.Fg = ui.ColorWhite
 		sysConsole.WrapText = false
@@ -137,7 +135,7 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 				sysConsole.BorderStyle.Fg = ui.ColorGreen
 				sysConsole.TextStyle.Fg = ui.ColorWhite
 			} else {
-				sysConsole.Text = t.ViewCoreSettingsErrWriteRejectPrefix + CoreAlertMessage
+				sysConsole.Text = "\n  ⚠️ [" + t.ViewCoreSettingsErrWriteRejectPrefix + "](fg:red,mod:bold): " + CoreAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorRed // Красная подсветка при ошибке границ
 				sysConsole.TextStyle.Fg = ui.ColorYellow
 			}

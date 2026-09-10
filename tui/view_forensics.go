@@ -13,7 +13,9 @@ import (
 func DrawForensicsMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	header := widgets.NewParagraph()
 	header.Title = i18n.T.ViewForensicsHeaderTitle
-	header.Text = fmt.Sprintf(i18n.T.ViewForensicsHeaderTextTpl, ColorYellow, ColorYellow)
+	header.Text = fmt.Sprintf("  [%s]: [ %s ]%s\n  [%s]: [ /var/log/amberguard/ ]%s",
+		i18n.T.ViewForensicsLabelCollectMode, i18n.T.ViewForensicsLabelAutoParallel, ColorYellow,
+		i18n.T.ViewForensicsLabelSiemRegistry, ColorYellow)
 	header.SetRect(2, 1, 102, 5)
 	header.BorderStyle.Fg = ui.ColorCyan
 	header.TitleStyle.Fg = ui.ColorYellow
@@ -21,12 +23,12 @@ func DrawForensicsMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int
 	menuList := widgets.NewList()
 	menuList.Title = i18n.T.ViewForensicsListTitle
 	menuList.Rows = []string{
-		i18n.T.ViewForensicsRowThreatMap,
-		i18n.T.ViewForensicsRowSshLog,
-		i18n.T.ViewForensicsRowWebLog,
-		i18n.T.ViewForensicsRowBotnet,
-		i18n.T.ViewForensicsRowIpForensics,
-		i18n.T.ViewForensicsRowBack,
+		fmt.Sprintf("  THREAT_MAP   │ %s", i18n.T.ViewForensicsRowThreatMap),
+		fmt.Sprintf("  SSH_LOG      │ %s", i18n.T.ViewForensicsRowSshLog),
+		fmt.Sprintf("  WEB_LOG      │ %s", i18n.T.ViewForensicsRowWebLog),
+		fmt.Sprintf("  BOTNET       │ %s", i18n.T.ViewForensicsRowBotnet),
+		fmt.Sprintf("  IP_FORENSICS │ %s", i18n.T.ViewForensicsRowIpForensics),
+		fmt.Sprintf("  BACK         │ %s", i18n.T.ViewForensicsRowBack),
 	}
 	menuList.SetRect(2, 5, 102, 15)
 	menuList.BorderStyle.Fg = ui.ColorCyan
