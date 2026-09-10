@@ -42,7 +42,12 @@ func DrawBackupProgressGrid() {
 	// 3. Выделенное нижнее окно подтверждения высотой в 6 символов под 30-ю границу футера
 	confirmBox := widgets.NewParagraph()
 	confirmBox.Title = i18n.T.ViewBackupConfirmTitle
-	confirmBox.Text = i18n.T.ViewBackupConfirmText
+	confirmBox.Text = fmt.Sprintf("\n  [[ %s ]](fg:green,mod:bold) %s\n  %s [ ESC ](fg:yellow,mod:bold) %s [ Q ](fg:yellow,mod:bold) %s",
+		i18n.T.ViewBackupLabelSuccess,
+		i18n.T.ViewBackupConfirmSuccessText,
+		i18n.T.ViewBackupConfirmPressKey,
+		i18n.T.ViewBackupConfirmOr,
+		i18n.T.ViewBackupConfirmReturnMenu)
 	confirmBox.SetRect(2, 23, 102, 29)
 	confirmBox.BorderStyle.Fg = ui.ColorYellow
 	confirmBox.TextStyle.Fg = ui.ColorCyan

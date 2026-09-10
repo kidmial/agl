@@ -306,11 +306,15 @@ type UITranslation struct {
 	ViewArmorCtlCoreSaveFailPrefix    string
 	ViewArmorCtlCoreResetSuccess      string
 	// --- tui/view_armor_progress.go ---
-	ViewArmorProgressWindowTitleTpl string
-	ViewArmorProgressInitText       string
-	ViewArmorProgressFinalStatus    string
-	ViewArmorProgressFinalSuccess   string
-	ViewArmorProgressHintExit       string
+	ViewArmorProgressTransactionLabel  string
+	ViewArmorProgressInitKernel        string
+	ViewArmorProgressLabelSystemStatus string
+	ViewArmorProgressNetfilterRebuilt  string
+	ViewArmorProgressLabelSuccess      string
+	ViewArmorProgressArmorTransferred  string
+	ViewArmorProgressHintExit          string
+	ViewArmorProgressHintOr            string
+	ViewArmorProgressHintReturn        string
 	// --- tui/view_armor.go ---
 	ViewArmorHintSysctl           string
 	ViewArmorHintScanPerimeter    string
@@ -346,7 +350,11 @@ type UITranslation struct {
 	ViewBackupGaugeObjectTitleTpl string
 	ViewBackupConsoleTitle        string
 	ViewBackupConfirmTitle        string
-	ViewBackupConfirmText         string
+	ViewBackupLabelSuccess        string
+	ViewBackupConfirmSuccessText  string
+	ViewBackupConfirmPressKey     string
+	ViewBackupConfirmOr           string
+	ViewBackupConfirmReturnMenu   string
 	// --- tui/view_core_settings.go ---
 	ViewCoreSettingsRowSyncookies        string
 	ViewCoreSettingsRowFinTimeout        string

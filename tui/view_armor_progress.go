@@ -22,13 +22,13 @@ func ShowArmorProgressWindow(actionName string, progressChan chan string) {
 	// 1. БРОНЕБОЙНАЯ ГЕОМЕТРИЯ v6.2.7 (Ширина 80 символов, Высота 11 строк)
 	// Идеально центрировано на холсте 102х30, дает огромный внутренний запас для длинных имен служб
 	progressBox := widgets.NewParagraph()
-	progressBox.Title = fmt.Sprintf(i18n.T.ViewArmorProgressWindowTitleTpl, strings.ToUpper(actionName))
+	progressBox.Title = fmt.Sprintf(" [ %s: %s ] ", i18n.T.ViewArmorProgressTransactionLabel, strings.ToUpper(actionName))
 	progressBox.SetRect(12, 9, 92, 20)
 	progressBox.BorderStyle.Fg = ui.ColorRed
 	progressBox.TextStyle.Fg = ui.ColorWhite
 	progressBox.WrapText = false // Отключает автоперенос
 
-	progressBox.Text = i18n.T.ViewArmorProgressInitText
+	progressBox.Text = "\n  " + i18n.T.ViewArmorProgressInitKernel
 	ui.Render(progressBox)
 
 	// 2. ЧИТАЕМ ЖИВОЙ ПОТОК ОПЕРАЦИЙ
@@ -64,12 +64,12 @@ func ShowArmorProgressWindow(actionName string, progressChan chan string) {
 	// Готовим строки финального отчёта (без префикса времени)
 	finalLines := []string{
 		"",
-		i18n.T.ViewArmorProgressFinalStatus,
+		"\n  [[" + i18n.T.ViewArmorProgressLabelSystemStatus + "]](fg:yellow,mod:bold): " + i18n.T.ViewArmorProgressNetfilterRebuilt,
 		"  --------------------------------------------------------------------------",
-		i18n.T.ViewArmorProgressFinalSuccess,
+		"  [[" + i18n.T.ViewArmorProgressLabelSuccess + "]](fg:green,mod:bold) " + i18n.T.ViewArmorProgressArmorTransferred,
 		"",
 		"",
-		i18n.T.ViewArmorProgressHintExit,
+		"  " + i18n.T.ViewArmorProgressHintExit + " [[ ESC ]](fg:green,mod:bold) " + i18n.T.ViewArmorProgressHintOr + " [[ Q ]](fg:green,mod:bold) " + i18n.T.ViewArmorProgressHintReturn,
 	}
 
 	// Меняем цвет рамки на зелёный сразу
