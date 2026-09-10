@@ -53,12 +53,12 @@ var TrapEditDraft = TrapDraft{}
 func LoadTrapIntoEditor(port int) error {
 	inv, err := sys.LoadTarpitInventory(sys.TarpitInventoryPath)
 	if err != nil {
-		return fmt.Errorf("не удалось загрузить инвентарь: %w", err)
+		return fmt.Errorf(i18n.T.ViewTrapEditorErrLoadInventory, err)
 	}
 	trapID := sys.GenerateTarpitID(port)
 	trap, exists := inv.Traps[trapID]
 	if !exists {
-		return fmt.Errorf("ловушка %s не найдена в инвентаре", trapID)
+		return fmt.Errorf("%s", fmt.Sprintf(i18n.T.ViewTrapEditorErrNotFound, trapID))
 	}
 	// Заполняем черновик из существующей конфигурации.
 	// Порт фиксируется (только чтение).
