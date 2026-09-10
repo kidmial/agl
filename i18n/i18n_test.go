@@ -3,6 +3,7 @@ package i18n
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -72,5 +73,37 @@ func TestTranslationsParity(t *testing.T) {
 
 	for lang, tr := range UILanguages {
 		checkUITranslation(lang, tr)
+	}
+}
+
+// TestTrEventFallback проверяет контракт А.2: при отсутствии кода или пустом
+// шаблоне возвращается сам машинный код; строка журнала никогда не пуста.
+func TestTrEventFallback(t *testing.T) {
+	savedT, savedL := T, L
+	defer func() { T, L = savedT, savedL }()
+	InitLanguage("ru")
+
+	// 1. Несуществующий код -> возвращается сам код, не пустая строка.
+	if got := TrEvent("nonexistent.code"); got != "nonexistent.code" {
+		t.Errorf("TrEvent fallback broken: got %q, want %q", got, "nonexistent.code")
+	}
+	// 2. TrEventf без аргументов на несуществующем коде -> сам код, без хвостов Sprintf.
+	if got := TrEventf("nonexistent.code"); got != "nonexistent.code" {
+		t.Errorf("TrEventf fallback broken: got %q, want %q", got, "nonexistent.code")
+	}
+	// 3. Пустой шаблон в Events -> тоже фолбэк в код (ветка ok && val != "").
+	L.Events["test.empty_template"] = ""
+	if got := TrEvent("test.empty_template"); got != "test.empty_template" {
+		t.Errorf("TrEvent empty-template fallback broken: got %q", got)
+	}
+	delete(L.Events, "test.empty_template")
+
+	// 4. TrEventf форматирует аргументы по локализованному шаблону (без двойного Sprintf).
+	got := TrEventf("watcher.idle_half_warning", 5, 7)
+	if got == "watcher.idle_half_warning" || !strings.Contains(got, "5") || !strings.Contains(got, "7") {
+		t.Errorf("TrEventf formatting broken: got %q", got)
+	}
+	if strings.Contains(got, "%!") {
+		t.Errorf("TrEventf produced Sprintf artifact: %q", got)
 	}
 }
