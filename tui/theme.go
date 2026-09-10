@@ -8,6 +8,6 @@ const (
 	ColorYellow = "(fg:yellow,mod:bold)"
 	ColorCyan   = "(fg:cyan)"
 	ColorWhite  = "(fg:white,mod:bold)" // Добавлен сочный белый цвет для выделения важных данных
-	ColorGray   = "(fg:gray)"            // Скрытый приглушенный серый для второстепенных текстов
+	ColorGray   = "(fg:gray)"           // Скрытый приглушенный серый для второстепенных текстов
 	ColorReset  = "[-]"
 )
