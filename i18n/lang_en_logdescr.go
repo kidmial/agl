@@ -101,6 +101,7 @@ func init() {
 			"main.daemon_stopped":             "Trap daemon gracefully terminated. All workers stopped.",
 			"main.watcher_process_start":      "Admin idle watcher process started.",
 			"main.reconcile_session_start":    "Entered TUI panel.",
+			"main.tui_exit":                   "Exited TUI panel.",
 			"main.castling_marker_restore":    "Castling marker restored: port %s",
 			"main.castling_marker_purge":      "Castling marker removed: castling inactive",
 			"main.inventory_not_found":        "Trap inventory not found. First start or traps not configured.",

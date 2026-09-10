@@ -101,6 +101,7 @@ func init() {
 			"main.daemon_stopped":             "Демон ловушек корректно завершён. Все воркеры остановлены.",
 			"main.watcher_process_start":      "Процесс наблюдателя простоя администратора запущен.",
 			"main.reconcile_session_start":    "Выполнен вход в TUI-панель.",
+			"main.tui_exit":                   "Выполнен выход из TUI-панели.",
 			"main.castling_marker_restore":    "Восстановлен маркер рокировки: порт %s",
 			"main.castling_marker_purge":      "Маркер рокировки удалён: рокировка неактивна",
 			"main.inventory_not_found":        "Инвентарь ловушек не найден. Первый старт или ловушки не настроены.",
