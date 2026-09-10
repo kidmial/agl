@@ -36,6 +36,7 @@ import (
 	"strings"
 	"time"
 
+	"agl/i18n"
 	"agl/internal/service"
 	"agl/internal/sys"
 
@@ -83,14 +84,14 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 
 	// Порт — только чтение
 	menuRows = append(menuRows, fmt.Sprintf(
-		" Сетевой порт ловушки    (Port)       │ [ %d ] │ ТОЛЬКО ЧТЕНИЕ (изменение запрещено)",
-		TrapEditDraft.Port))
+		"%s│ [ %d ] │ %s",
+		i18n.T.ViewTrapEditorRowPortLabel, TrapEditDraft.Port, i18n.T.ViewTrapEditorRowPortReadOnlyDesc))
 	menuRows = append(menuRows, fmt.Sprintf(
-		" Базовое время удержания (DelayStep)  │ [ %d сек ] │ Время задержки одного шага цикла",
-		TrapEditDraft.DelayStep))
+		"%s│ [ %d %s ] │ %s",
+		i18n.T.ViewTrapEditorRowDelayStepLabel, TrapEditDraft.DelayStep, i18n.T.ViewTrapEditorLabelSec, i18n.T.ViewTrapEditorRowDelayStepDesc))
 	menuRows = append(menuRows, fmt.Sprintf(
-		" Вариативность разброса  (Variance)   │ [ %d сек ] │ Случайный разброс сна (Delay ± Variance)",
-		TrapEditDraft.DelayVariance))
+		"%s│ [ %d %s ] │ %s",
+		i18n.T.ViewTrapEditorRowVarianceLabel, TrapEditDraft.DelayVariance, i18n.T.ViewTrapEditorLabelSec, i18n.T.ViewTrapEditorRowVarianceDesc))
 
 	// Короткое имя пресета баннера
 	presetName := "Ubuntu Standard"
@@ -103,28 +104,30 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 		presetName = "Stealth Void"
 	}
 	menuRows = append(menuRows, fmt.Sprintf(
-		" Имитируемый профиль     (SSHVersion) │ [ %s ] │ Нажми ENTER для смены шаблона службы",
-		presetName))
+		"%s│ [ %s ] │ %s",
+		i18n.T.ViewTrapEditorRowBannerLabel, presetName, i18n.T.ViewTrapEditorRowBannerDesc))
 	menuRows = append(menuRows, fmt.Sprintf(
-		" Лимит сессий в ОЗУ      (MaxConn)    │ [ %d ] │ Защита RAM от перегрузки ботнетом",
-		TrapEditDraft.MaxConn))
+		"%s│ [ %d ] │ %s",
+		i18n.T.ViewTrapEditorRowMaxConnLabel, TrapEditDraft.MaxConn, i18n.T.ViewTrapEditorRowMaxConnDesc))
 	menuRows = append(menuRows,
-		" [ GENERATE AND ACTIVATE ]            │ Сохранить изменения и вернуться к карточке")
+		fmt.Sprintf(" [ GENERATE AND ACTIVATE ]            │ %s", i18n.T.ViewTrapEditorRowSave))
 	menuRows = append(menuRows,
-		" [ CANCEL ]                           │ Отменить изменения и вернуться к карточке")
+		fmt.Sprintf(" [ CANCEL ]                           │ %s", i18n.T.ViewTrapEditorRowCancel))
 
 	// -------------------------------------------------------------
 	// ШАПКА
 	// -------------------------------------------------------------
 	header := widgets.NewParagraph()
-	header.Title = fmt.Sprintf(" [ Редактор Ловушки │ Порт %d ] ", TrapEditDraft.Port)
+	header.Title = fmt.Sprintf(" [ %s │ %s %d ] ", i18n.T.ViewTrapEditorHeaderTitle, i18n.T.ViewTrapEditorLabelPort, TrapEditDraft.Port)
 	timeStr := time.Now().Format("15:04:05")
 	dateStr := time.Now().Format("2006-01-02")
 	header.Text = fmt.Sprintf(
-		"  Дата: [%s](fg:yellow,mod:bold)  │  Время: [%s](fg:yellow,mod:bold)\n"+
-			"  Редактирование параметров существующей ловушки. Порт зафиксирован.\n"+
-			"  Изменения применяются через атомарную запись в инвентарь (POSIX).",
-		dateStr, timeStr)
+		"  %s: [%s](fg:yellow,mod:bold)  │  %s: [%s](fg:yellow,mod:bold)\n"+
+			"  %s\n"+
+			"  %s",
+		i18n.T.ViewTrapEditorLabelDate, dateStr, i18n.T.ViewTrapEditorLabelTime, timeStr,
+		i18n.T.ViewTrapEditorHeaderDesc1,
+		i18n.T.ViewTrapEditorHeaderDesc2)
 	header.SetRect(2, 1, 102, 5)
 	header.BorderStyle.Fg = ui.ColorCyan
 	header.TitleStyle.Fg = ui.ColorYellow
@@ -135,7 +138,7 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 	// СПИСОК ПАРАМЕТРОВ
 	// -------------------------------------------------------------
 	paramList := widgets.NewList()
-	paramList.Title = " Параметры ловушки (порт — только чтение): "
+	paramList.Title = i18n.T.ViewTrapEditorListTitle
 	paramList.Rows = menuRows
 	paramList.SetRect(2, 5, 102, 14)
 	paramList.BorderStyle.Fg = ui.ColorCyan
@@ -148,32 +151,24 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 	var helpText string
 	switch selectedRow {
 	case 0:
-		helpText = " Порт ловушки зафиксирован и не подлежит изменению.\n" +
-			" Изменение порта потребовало бы пересоздания идентификатора, маркера и UFW-правила.\n" +
-			" Для смены порта удалите ловушку (DELETE) и создайте новую."
+		helpText = i18n.T.ViewTrapEditorHelpPort
 	case 1:
-		helpText = " Базовый интервал удержания одного TCP-соединения бота.\n" +
-			" Рекомендуемый диапазон: от 5 до 60 секунд."
+		helpText = i18n.T.ViewTrapEditorHelpDelayStep
 	case 2:
-		helpText = " Вариативность разброса джиттера.\n" +
-			" Итоговый сон: DelayStep ± DelayVariance.\n" +
-			" Значение не может превышать базовый сон DelayStep."
+		helpText = i18n.T.ViewTrapEditorHelpVariance
 	case 3:
 		helpText = fmt.Sprintf(
-			" Текстовый баннер, отдаваемый боту после Handshake.\n"+
-				" Текущая строка: [ %s ](fg:cyan,mod:bold)",
+			i18n.T.ViewTrapEditorHelpBanner+"[ %s ](fg:cyan,mod:bold)",
 			SSHVersionPresets[TrapEditDraft.BannerIndex])
 	case 4:
-		helpText = " Максимальное количество одновременных горутин-потоков.\n" +
-			" Допустимый диапазон: от 1 до 1000."
+		helpText = i18n.T.ViewTrapEditorHelpMaxConn
 	case 5:
-		helpText = " Сохранить изменения в инвентарь и вернуться к карточке ловушки.\n" +
-			" Если ловушка запущена, изменения применятся после перезапуска (STOP → START)."
+		helpText = i18n.T.ViewTrapEditorHelpSave
 	case 6:
-		helpText = " Отменить все изменения и вернуться к карточке ловушки без записи."
+		helpText = i18n.T.ViewTrapEditorHelpCancel
 	}
 	infoBox := widgets.NewParagraph()
-	infoBox.Title = " Контекстная справка параметра "
+	infoBox.Title = i18n.T.ViewTrapEditorInfoBoxTitle
 	infoBox.Text = helpText
 	infoBox.SetRect(2, 14, 102, 24)
 	infoBox.BorderStyle.Fg = ui.ColorYellow
@@ -186,37 +181,39 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 	sysConsole := widgets.NewParagraph()
 	sysConsole.SetRect(2, 24, 102, 30)
 	if IsTrapEditMode {
-		sysConsole.Title = " [ РЕЖИМ ИЗМЕНЕНИЯ ПАРАМЕТРА ЛОВУШКИ ] "
+		sysConsole.Title = i18n.T.ViewTrapEditorEditTitle
 		var pName string
 		switch selectedRow {
 		case 1:
-			pName = "DelayStep (Базовое время сна)"
+			pName = i18n.T.ViewTrapEditorParamDelayStep
 		case 2:
-			pName = "DelayVariance (Разброс вариативности)"
+			pName = i18n.T.ViewTrapEditorParamVariance
 		case 4:
-			pName = "MaxConn (Лимит соединений)"
+			pName = i18n.T.ViewTrapEditorParamMaxConn
 		}
 		sysConsole.Text = fmt.Sprintf(
-			"  Редактируемый узел: %s\n  Введите новое числовое значение: [ %s_ ](fg:white,mod:bold)",
-			pName, CurrentTrapInputBuf)
+			"  %s: %s\n  %s: [ %s_ ](fg:white,mod:bold)",
+			i18n.T.ViewTrapEditorLabelEditNode, pName,
+			i18n.T.ViewTrapEditorLabelEnterNewValue, CurrentTrapInputBuf)
 		sysConsole.BorderStyle.Fg = ui.ColorGreen
 		sysConsole.TextStyle.Fg = ui.ColorWhite
 		sysConsole.WrapText = false
 	} else {
-		sysConsole.Title = " Консоль редактирования ловушки "
+		sysConsole.Title = i18n.T.ViewTrapEditorNavTitle
 		if TrapAlertMessage != "" {
 			if strings.HasPrefix(TrapAlertMessage, "[УСПЕХ]") {
 				sysConsole.Text = "\n " + TrapAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorGreen
 				sysConsole.TextStyle.Fg = ui.ColorWhite
 			} else {
-				sysConsole.Text = "\n  ⚠️ [ОТКАЗ ВАЛИДАЦИИ](fg:red,mod:bold): " + TrapAlertMessage
+				sysConsole.Text = "\n  ⚠️ [" + i18n.T.ViewTrapEditorValidationRejectPrefix + "](fg:red,mod:bold): " + TrapAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorRed
 				sysConsole.TextStyle.Fg = ui.ColorYellow
 			}
 		} else {
-			sysConsole.Text = "  [Навигация]: Стрелки [Up/Down] │ [Enter] — редактировать / переключить.\n" +
-				"  [Действие]: Выберите SAVE для сохранения или CANCEL для отмены."
+			sysConsole.Text = fmt.Sprintf("  [%s]: %s [Up/Down] │ [Enter] — %s.\n  [%s]: %s",
+				i18n.T.ViewTrapEditorLabelNav, i18n.T.ViewTrapEditorLabelNavArrows,
+				i18n.T.ViewTrapEditorLabelEnterHint, i18n.T.ViewTrapEditorLabelAction, i18n.T.ViewTrapEditorLabelActionHint)
 			sysConsole.BorderStyle.Fg = ui.ColorGreen
 			sysConsole.TextStyle.Fg = ui.ColorCyan
 		}
@@ -231,16 +228,16 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 func ValidateAndStoreEditParam(index int, value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return "Вводимое значение не может быть пустым!"
+		return i18n.T.ViewTrapEditorErrEmpty
 	}
 	if !trapDigitOnlyRegex.MatchString(value) {
-		return "Ошибка валидации типа: Допускаются только целые положительные числа!"
+		return i18n.T.ViewTrapEditorErrNotDigit
 	}
 	valInt, _ := strconv.Atoi(value)
 	switch index {
 	case 1:
 		if valInt < 1 || valInt > 300 {
-			return "Критическое значение задержки! Допускается диапазон от 1 до 300 секунд."
+			return i18n.T.ViewTrapEditorErrDelayRange
 		}
 		TrapEditDraft.DelayStep = valInt
 		if TrapEditDraft.DelayVariance > valInt {
@@ -249,13 +246,13 @@ func ValidateAndStoreEditParam(index int, value string) string {
 	case 2:
 		if valInt < 0 || valInt > TrapEditDraft.DelayStep {
 			return fmt.Sprintf(
-				"DelayVariance не может быть отрицательным или превышать базовый сон DelayStep (%d сек)!",
+				i18n.T.ViewTrapEditorErrVarianceRangeTpl,
 				TrapEditDraft.DelayStep)
 		}
 		TrapEditDraft.DelayVariance = valInt
 	case 4:
 		if valInt < 1 || valInt > 1000 {
-			return "Недопустимый лимит сессий! Установите границы от 1 до 1000 горутин."
+			return i18n.T.ViewTrapEditorErrMaxConnRange
 		}
 		TrapEditDraft.MaxConn = valInt
 	}

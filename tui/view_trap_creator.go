@@ -44,6 +44,7 @@ import (
 	"time"
 
 	"agl/config"
+	"agl/i18n"
 
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
@@ -157,17 +158,17 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 	// Строим динамические строки списка на основе текущего стейта черновика.
 	// ОБНОВЛЕНО В v8.0.1: `DelayVariance` вместо `Jitter`.
 	menuRows = append(menuRows, fmt.Sprintf(
-		" Сетевой порт ловушки    (Port)       │ [ %d ] │ Свободный TCP-порт хоста Linux",
-		CurrentTrapDraft.Port))
+		"%s│ [ %d ] │ %s",
+		i18n.T.ViewTrapCreatorRowPortLabel, CurrentTrapDraft.Port, i18n.T.ViewTrapCreatorRowPortDesc))
 
 	menuRows = append(menuRows, fmt.Sprintf(
-		" Базовое время удержания (DelayStep)  │ [ %d сек ] │ Время задержки одного шага цикла",
-		CurrentTrapDraft.DelayStep))
+		"%s│ [ %d %s ] │ %s",
+		i18n.T.ViewTrapCreatorRowDelayStepLabel, CurrentTrapDraft.DelayStep, i18n.T.ViewTrapCreatorLabelSec, i18n.T.ViewTrapCreatorRowDelayStepDesc))
 
 	// ОБНОВЛЕНО В v8.0.1: Метка изменена с «Jitter» на «DelayVariance»
 	menuRows = append(menuRows, fmt.Sprintf(
-		" Вариативность разброса  (Variance)   │ [ %d сек ] │ Случайный разброс сна (Delay ± Variance)",
-		CurrentTrapDraft.DelayVariance))
+		"%s│ [ %d %s ] │ %s",
+		i18n.T.ViewTrapCreatorRowVarianceLabel, CurrentTrapDraft.DelayVariance, i18n.T.ViewTrapCreatorLabelSec, i18n.T.ViewTrapCreatorRowVarianceDesc))
 
 	// Для баннера выводим короткое имя пресета, чтобы строка не улетала за границы холста
 	presetName := "Ubuntu Standard"
@@ -180,30 +181,32 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 		presetName = "Stealth Void"
 	}
 	menuRows = append(menuRows, fmt.Sprintf(
-		" Имитируемый профиль     (SSHVersion) │ [ %s ] │ Нажми ENTER для смены шаблона службы",
-		presetName))
+		"%s│ [ %s ] │ %s",
+		i18n.T.ViewTrapCreatorRowBannerLabel, presetName, i18n.T.ViewTrapCreatorRowBannerDesc))
 
 	menuRows = append(menuRows, fmt.Sprintf(
-		" Лимит сессий в ОЗУ      (MaxConn)    │ [ %d ] │ Защита RAM от перегрузки ботнетом",
-		CurrentTrapDraft.MaxConn))
+		"%s│ [ %d ] │ %s",
+		i18n.T.ViewTrapCreatorRowMaxConnLabel, CurrentTrapDraft.MaxConn, i18n.T.ViewTrapCreatorRowMaxConnDesc))
 
 	menuRows = append(menuRows,
-		" [ GENERATE AND ACTIVATE ]            │ ЗАПИСАТЬ В JSON И ЗАПУСТИТЬ РУБЕЖ ОБОРОНЫ")
+		fmt.Sprintf(" [ GENERATE AND ACTIVATE ]            │ %s", i18n.T.ViewTrapCreatorRowGenerate))
 	menuRows = append(menuRows,
-		" [ CANCEL ]                           │ Отменить создание ловушки и вернуться назад")
+		fmt.Sprintf(" [ CANCEL ]                           │ %s", i18n.T.ViewTrapCreatorRowCancel))
 
 	// -------------------------------------------------------------
 	// 1. ФИКСИРОВАННАЯ ШАПКА МАСТЕРА (Высота 3 строки)
 	// -------------------------------------------------------------
 	header := widgets.NewParagraph()
-	header.Title = " [ Мастер Развертывания Нового Рубежа │ TRAP_CREATOR ] "
+	header.Title = fmt.Sprintf(" [ %s │ TRAP_CREATOR ] ", i18n.T.ViewTrapCreatorHeaderTitle)
 	timeStr := time.Now().Format("15:04:05")
 	dateStr := time.Now().Format("2006-01-02")
 	header.Text = fmt.Sprintf(
-		"  Текущая дата: [%s](fg:yellow,mod:bold)  │  Системное время: [%s](fg:yellow,mod:bold)\n"+
-			"  Конфигурация параметров горутины-воркера оборонительного пула Multi-Tarpit.\n"+
-			"  Все ловушки этого мастера имеют флаг is_core = false (мульти-ловушки).",
-		dateStr, timeStr)
+		"  %s: [%s](fg:yellow,mod:bold)  │  %s: [%s](fg:yellow,mod:bold)\n"+
+			"  %s\n"+
+			"  %s",
+		i18n.T.ViewTrapCreatorLabelDate, dateStr, i18n.T.ViewTrapCreatorLabelTime, timeStr,
+		i18n.T.ViewTrapCreatorHeaderDesc1,
+		i18n.T.ViewTrapCreatorHeaderDesc2)
 	header.SetRect(2, 1, 102, 5)
 	header.BorderStyle.Fg = ui.ColorCyan
 	header.TitleStyle.Fg = ui.ColorYellow
@@ -214,7 +217,7 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 	// 2. БЛОК СПИСКА ПАРАМЕТРОВ (Высота 9 строк)
 	// -------------------------------------------------------------
 	paramList := widgets.NewList()
-	paramList.Title = " Линейно-интерактивный список изменяемых параметров воркера: "
+	paramList.Title = i18n.T.ViewTrapCreatorListTitle
 	paramList.Rows = menuRows
 	paramList.SetRect(2, 5, 102, 14)
 	paramList.BorderStyle.Fg = ui.ColorCyan
@@ -229,41 +232,26 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 	var helpText string
 	switch selectedRow {
 	case 0:
-		helpText = " Укажите легитимный, не занятый другими службами порт хоста (1-65535).\n" +
-			" Рекомендуется использовать порты популярных уязвимых сервисов (например: 23, 2222, 8022).\n" +
-			" Запрещено указывать порты, занятые легитимным ПО (см. экран PORT_MAP).\n" +
-			" При активации система автоматически проверит инвентарь периметра на занятость порта."
+		helpText = i18n.T.ViewTrapCreatorHelpPort
 	case 1:
-		helpText = " Задает базовый интервал удержания входящего TCP-соединения бота на одну операцию.\n" +
-			" Чем выше значение, тем дольше атакующий скрипт будет находиться в состоянии ожидания,\n" +
-			" расходуя ресурсы атакующей стороны. Рекомендуемый диапазон: от 5 до 60 секунд."
+		helpText = i18n.T.ViewTrapCreatorHelpDelayStep
 	case 2:
 		// ОБНОВЛЕНО В v8.0.1: Терминология изменена на `DelayVariance`
-		helpText = " Добавляет криптографическую псевдослучайность в интервалы ответов ловушки.\n" +
-			" Защищает капкан от обнаружения продвинутыми ИБ-сканерами по таймингам (Timing Attacks).\n" +
-			" Алгоритм ядра автоматически вычисляет итоговый сон горутины в пределах:\n" +
-			" (DelayStep ± DelayVariance). Значение не может превышать базовый сон DelayStep."
+		helpText = i18n.T.ViewTrapCreatorHelpVariance
 	case 3:
 		helpText = fmt.Sprintf(
-			" Выбор текстового баннера, который ловушка отдаст боту сразу после Handshake.\n"+
-				" Текущая строка отправки в сокет:\n [ %s ](fg:cyan,mod:bold)",
+			i18n.T.ViewTrapCreatorHelpBanner+"[ %s ](fg:cyan,mod:bold)",
 			SSHVersionPresets[CurrentTrapDraft.BannerIndex])
 	case 4:
-		helpText = " Максимальное количество одновременных горутин-потоков для данного порта ловушки.\n" +
-			" Защищает сервер от DDoS-атак, направленных на исчерпание дескрипторов файлов (FD)\n" +
-			" и перегрузку ОЗУ. При достижении лимита новые сессии ботов будут ожидать освобождения слота."
+		helpText = i18n.T.ViewTrapCreatorHelpMaxConn
 	case 5:
-		helpText = " [ВНИМАНИЕ]: Запуск генерации запишет декларативный стейт в /etc/amberguard/tarpit_inventory.json.\n" +
-			" Демон подхватит декларацию и активирует сокет автоматически в течение 15 секунд.\n" +
-			" Маркер состояния будет создан ДЕМОНОМ после реального поднятия слушателя.\n" +
-			" Клиент НЕ создаёт и НЕ удаляет маркеры."
+		helpText = i18n.T.ViewTrapCreatorHelpGenerate
 	default:
-		helpText = " Отмена операции. Все текущие рантайм-изменения параметров черновика в памяти будут стерты,\n" +
-			" физическая конфигурация JSON-инвентаря останется в исходном неизмененном виде."
+		helpText = i18n.T.ViewTrapCreatorHelpAbort
 	}
 
 	infoBox := widgets.NewParagraph()
-	infoBox.Title = " Контекстная криминалистическая справка параметра "
+	infoBox.Title = i18n.T.ViewTrapCreatorInfoBoxTitle
 	infoBox.Text = helpText
 	infoBox.SetRect(2, 14, 102, 24)
 	infoBox.BorderStyle.Fg = ui.ColorYellow
@@ -278,41 +266,40 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 
 	if IsTrapEditMode {
 		// Режим числового ввода: отображаем буфер и имя редактируемого параметра
-		sysConsole.Title = " [ РЕЖИМ ИЗМЕНЕНИЯ ПАРАМЕТРА ЛОВУШКИ ] "
+		sysConsole.Title = i18n.T.ViewTrapCreatorEditTitle
 		var pName string
 		switch selectedRow {
 		case 0:
-			pName = "Port (Номер сетевого порта)"
+			pName = i18n.T.ViewTrapCreatorParamPort
 		case 1:
-			pName = "DelayStep (Базовое время сна)"
+			pName = i18n.T.ViewTrapCreatorParamDelayStep
 		case 2:
-			pName = "DelayVariance (Разброс вариативности)" // ОБНОВЛЕНО В v8.0.1
+			pName = i18n.T.ViewTrapCreatorParamVariance // ОБНОВЛЕНО В v8.0.1
 		case 4:
-			pName = "MaxConn (Лимит соединений)"
+			pName = i18n.T.ViewTrapCreatorParamMaxConn
 		}
 		sysConsole.Text = fmt.Sprintf(
-			"  Редактируемый узел: %s\n  Введите новое числовое значение: [ %s_ ](fg:white,mod:bold)",
-			pName, CurrentTrapInputBuf)
+			"  %s: %s\n  %s: [ %s_ ](fg:white,mod:bold)",
+			i18n.T.ViewTrapCreatorLabelEditNode, pName,
+			i18n.T.ViewTrapCreatorLabelEnterNewValue, CurrentTrapInputBuf)
 		sysConsole.BorderStyle.Fg = ui.ColorGreen
 		sysConsole.TextStyle.Fg = ui.ColorWhite
 		sysConsole.WrapText = false
 	} else {
 		// Режим навигации: отображаем подсказки и алармы
-		sysConsole.Title = " Консоль интерактивного изменения и навигации Laboratory "
+		sysConsole.Title = i18n.T.ViewTrapCreatorNavTitle
 		if TrapAlertMessage != "" {
 			if strings.HasPrefix(TrapAlertMessage, "[УСПЕХ]") {
 				sysConsole.Text = "\n " + TrapAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorGreen
 				sysConsole.TextStyle.Fg = ui.ColorWhite
 			} else {
-				sysConsole.Text = "\n  ⚠️ [ОТКАЗ ВАЛИДАЦИИ](fg:red,mod:bold): " + TrapAlertMessage
+				sysConsole.Text = "\n  ⚠️ [" + i18n.T.ViewTrapCreatorValidationRejectPrefix + "](fg:red,mod:bold): " + TrapAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorRed
 				sysConsole.TextStyle.Fg = ui.ColorYellow
 			}
 		} else {
-			sysConsole.Text = "  [Навигация]: Стрелки [Up/Down] — перемещение по опциям. [Enter] — редактировать / переключить.\n" +
-				"  [Управление]: Нажмите ENTER на строке параметра для изменения значения.\n" +
-				"  [Действие]  : Выберите строку GENERATE для активации или ABORT для отмены операции."
+			sysConsole.Text = i18n.T.ViewTrapCreatorNavBody
 			sysConsole.BorderStyle.Fg = ui.ColorGreen
 			sysConsole.TextStyle.Fg = ui.ColorCyan
 		}
@@ -343,12 +330,12 @@ func ValidateAndStoreDraftParam(index int, value string) string {
 
 	// Проверка на пустой ввод
 	if value == "" {
-		return "Вводимое значение не может быть пустым!"
+		return i18n.T.ViewTrapCreatorErrEmpty
 	}
 
 	// Проверка на числовой формат
 	if !trapDigitOnlyRegex.MatchString(value) {
-		return "Ошибка валидации типа: Допускаются только целые положительные числа!"
+		return i18n.T.ViewTrapCreatorErrNotDigit
 	}
 
 	valInt, _ := strconv.Atoi(value)
@@ -362,20 +349,20 @@ func ValidateAndStoreDraftParam(index int, value string) string {
 		// в `service.ActivateTrap()` через инвентарь периметра.
 		// -------------------------------------------------------------
 		if valInt < 1 || valInt > 65535 {
-			return "Недопустимый сетевой порт! Разрешенный диапазон: от 1 до 65535."
+			return i18n.T.ViewTrapCreatorErrPortRange
 		}
 		// ИБ-ПРЕДОХРАНИТЕЛЬ: Запрещаем создавать мульти-ловушку на порту 22.
 		// Порт 22 — это базовая ловушка (is_core = true), управляемая отдельно.
 		// ОБНОВЛЕНО В v8.0.1.
 		if valInt == config.C.StandardSshPort {
-			return "Порт 22 зарезервирован для базовой ловушки (is_core). Используйте экран TARPIT → TARPIT_ON."
+			return i18n.T.ViewTrapCreatorErrPort22Reserved
 		}
 		// C8 (v8.1.3): канал спасения и скрытый SSH не могут быть капканами.
 		if valInt == config.C.WebRescuePort {
-			return fmt.Sprintf("Порт %d зарезервирован под канал спасения веб-стука (геном: «Каналы спасения обязательны»). Ловушка на нём заперла бы сейф навсегда.", valInt)
+			return fmt.Sprintf(i18n.T.ViewTrapCreatorErrRescuePortTpl, valInt)
 		}
 		if _, errM := os.Stat(config.MarkerSshMoved); errM == nil && valInt == config.C.RealSshPort {
-			return fmt.Sprintf("Порт %d — текущий скрытый порт SSH (рокировка активна). Ловушка на порту управления запрещена.", valInt)
+			return fmt.Sprintf(i18n.T.ViewTrapCreatorErrHiddenSshPortTpl, valInt)
 		}
 		CurrentTrapDraft.Port = valInt
 
@@ -385,7 +372,7 @@ func ValidateAndStoreDraftParam(index int, value string) string {
 		// Допустимый диапазон: от 1 до 300 секунд.
 		// -------------------------------------------------------------
 		if valInt < 1 || valInt > 300 {
-			return "Критическое значение задержки! Допускается диапазон от 1 до 300 секунд."
+			return i18n.T.ViewTrapCreatorErrDelayRange
 		}
 		CurrentTrapDraft.DelayStep = valInt
 		// Если DelayStep уменьшился ниже текущего DelayVariance,
@@ -403,7 +390,7 @@ func ValidateAndStoreDraftParam(index int, value string) string {
 		// -------------------------------------------------------------
 		if valInt < 0 || valInt > CurrentTrapDraft.DelayStep {
 			return fmt.Sprintf(
-				"DelayVariance не может быть отрицательным или превышать базовый сон DelayStep (%d сек)!",
+				i18n.T.ViewTrapCreatorErrVarianceRangeTpl,
 				CurrentTrapDraft.DelayStep)
 		}
 		CurrentTrapDraft.DelayVariance = valInt // ОБНОВЛЕНО В v8.0.1
@@ -414,7 +401,7 @@ func ValidateAndStoreDraftParam(index int, value string) string {
 		// Допустимый диапазон: от 1 до 1000 горутин.
 		// -------------------------------------------------------------
 		if valInt < 1 || valInt > 1000 {
-			return "Недопустимый лимит сессий! Установите границы от 1 до 1000 горутин."
+			return i18n.T.ViewTrapCreatorErrMaxConnRange
 		}
 		CurrentTrapDraft.MaxConn = valInt
 	}

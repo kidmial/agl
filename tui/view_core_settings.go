@@ -35,19 +35,18 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	cfg := config.C.SysctlCore
 	lang := config.C.Lang
 	t := i18n.Languages[lang]
-	isEn := lang == "en"
 
 	// Динамически подставляем числовые параметры из глобального ОЗУ-состояния синглтона
-	menuRows = append(menuRows, fmt.Sprintf(" 1. tcp_syncookies      │ [ %d ] │ Защита от SYN-флуда (0/1)", cfg.ArmorNetIpv4TcpSyncookies))
-	menuRows = append(menuRows, fmt.Sprintf(" 2. tcp_fin_timeout     │ [ %d ] │ Время удержания сокетов FIN-WAIT-2 (сек)", cfg.ArmorNetIpv4TcpFinTimeout))
-	menuRows = append(menuRows, fmt.Sprintf(" 3. tcp_syn_retries     │ [ %d ] │ Количество повторов исходящих SYN-пакетов", cfg.ArmorNetIpv4TcpSynRetries))
-	menuRows = append(menuRows, fmt.Sprintf(" 4. tcp_synack_retries  │ [ %d ] │ Количество повторов ответов SYN-ACK ядра", cfg.ArmorNetIpv4TcpSynackRetries))
-	menuRows = append(menuRows, fmt.Sprintf(" 5. somaxconn           │ [%d] │ Очередь accept() готовых сессий сокетов", cfg.ArmorNetCoreSomaxconn))
-	menuRows = append(menuRows, fmt.Sprintf(" 6. tcp_max_syn_backlog │ [%d] │ Макс. очередь полуоткрытых SYN соединений", cfg.ArmorNetIpv4TcpMaxSynBacklog))
-	menuRows = append(menuRows, fmt.Sprintf(" 7. rp_filter (All)     │ [ %d ] │ Обратный фильтр маршрутов (защита от Spoofing)", cfg.ArmorNetIpv4ConfAllRpFilter))
+	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowSyncookies, cfg.ArmorNetIpv4TcpSyncookies))
+	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowFinTimeout, cfg.ArmorNetIpv4TcpFinTimeout))
+	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowSynRetries, cfg.ArmorNetIpv4TcpSynRetries))
+	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowSynackRetries, cfg.ArmorNetIpv4TcpSynackRetries))
+	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowSomaxconn, cfg.ArmorNetCoreSomaxconn))
+	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowMaxSynBacklog, cfg.ArmorNetIpv4TcpMaxSynBacklog))
+	menuRows = append(menuRows, fmt.Sprintf(t.ViewCoreSettingsRowRpFilter, cfg.ArmorNetIpv4ConfAllRpFilter))
 
-	menuRows = append(menuRows, " RESET_TO_FACTORY       │ СБРОСИТЬ ВСЕ ПАРАМЕТРЫ К ЭТАЛОННЫМ БОЕВЫМ НАСТРОЙКАМ AMBER GUARD LAB") // РЕБРЕНДИНГ
-	menuRows = append(menuRows, " BACK_TO_ARMOR          │ Вернуться в главное меню Брони Периметра")
+	menuRows = append(menuRows, t.ViewCoreSettingsRowResetToFactory)
+	menuRows = append(menuRows, t.ViewCoreSettingsRowBackToArmor)
 
 	GlobalCoreMenuRows = menuRows
 
@@ -122,13 +121,10 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	sysConsole.SetRect(2, 24, 102, 30)
 
 	if IsCoreEditMode {
-		sysConsole.Title = " [ РЕЖИМ ИЗМЕНЕНИЯ ПАРАМЕТРА ЯДРА ] "
-		if isEn {
-			sysConsole.Title = " [ KERNEL PARAMETER EDIT MODE ] "
-		}
+		sysConsole.Title = t.ViewCoreSettingsEditModeTitle
 
 		paramName := config.GetSysctlParamNameByIndex(selectedRow)
-		sysConsole.Text = fmt.Sprintf("  Параметр: %s\n  Введите новое значение: [ %s_ ](fg:white,mod:bold)", paramName, CurrentCoreInputBuf)
+		sysConsole.Text = fmt.Sprintf(t.ViewCoreSettingsEditModeTextTpl, paramName, CurrentCoreInputBuf)
 		sysConsole.BorderStyle.Fg = ui.ColorGreen // Рамка становится зеленой при вводе
 		sysConsole.TextStyle.Fg = ui.ColorWhite
 		sysConsole.WrapText = false
@@ -141,7 +137,7 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 				sysConsole.BorderStyle.Fg = ui.ColorGreen
 				sysConsole.TextStyle.Fg = ui.ColorWhite
 			} else {
-				sysConsole.Text = "\n  ⚠️ [ОТКАЗ ЗАПИСИ](fg:red,mod:bold): " + CoreAlertMessage
+				sysConsole.Text = t.ViewCoreSettingsErrWriteRejectPrefix + CoreAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorRed // Красная подсветка при ошибке границ
 				sysConsole.TextStyle.Fg = ui.ColorYellow
 			}
@@ -159,14 +155,10 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 func SaveCoreSettingToDisk(index int, value string) string {
 	value = strings.TrimSpace(value)
 	lang := config.C.Lang
-	isEn := lang == "en"
 	t := i18n.Languages[lang]
 
 	if value == "" {
-		if isEn {
-			return "Input value cannot be empty!"
-		}
-		return "Вводимое значение не может быть пустым!"
+		return t.ViewCoreSettingsErrEmptyValue
 	}
 	if !coreDigitOnlyRegex.MatchString(value) {
 		return i18n.Languages[lang].SettingsErrDigits
@@ -177,10 +169,7 @@ func SaveCoreSettingToDisk(index int, value string) string {
 
 	// Проверяем жесткие ИБ-границы безопасности для конкретного параметра ядра
 	if valInt < doc.MinVal || valInt > doc.MaxVal {
-		if isEn {
-			return fmt.Sprintf("Value out of boundaries! Allowed range: %d to %d", doc.MinVal, doc.MaxVal)
-		}
-		return fmt.Sprintf("Значение выходит за допустимые границы! Разрешено: от %d до %d", doc.MinVal, doc.MaxVal)
+		return fmt.Sprintf(t.ViewCoreSettingsErrOutOfBounds, doc.MinVal, doc.MaxVal)
 	}
 
 	// v8.2.2 (волна гонки 2.3): мутация через config.Update —
@@ -205,7 +194,7 @@ func SaveCoreSettingToDisk(index int, value string) string {
 			c.SysctlCore.ArmorNetIpv4ConfAllRpFilter = valInt
 		}
 	}); err != nil {
-		return "Ошибка сохранения конфигурации: " + err.Error()
+		return t.ViewCoreSettingsErrSaveFailPrefix + err.Error()
 	}
 
 	// Если брандмауэр ядра сейчас активен, мгновенно накатываем новые лимиты в рантайм
@@ -213,8 +202,5 @@ func SaveCoreSettingToDisk(index int, value string) string {
 		_ = service.ToggleSysctlProtocol("ON")
 	}
 
-	if isEn {
-		return "[SUCCESS]: Parameter modified and synchronized with kernel."
-	}
-	return "[УСПЕХ]: Параметр успешно изменен и синхронизирован с ядром Linux."
+	return t.ViewCoreSettingsSuccessSaved
 }

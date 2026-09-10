@@ -70,9 +70,9 @@ func InitSettingsRegistry() {
 		{Key: "web_rescue_port", LabelRu: "Порт автономного сервера веб-стука", LabelEn: "Autonomous web-knock server port", Group: "LIMITS", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.WebRescuePort) }},
 		{Key: "web_rescue_password", LabelRu: "Пароль веб-стука (псевдо-2FA)", LabelEn: "Web-knock password (pseudo-2FA)", Group: "LIMITS", ValueGetter: func() string {
 			if config.C.WebRescuePasswordHash != "" {
-				return "Пароль установлен"
+				return i18n.T.ViewSettingsPasswordSet
 			}
-			return "Не задан"
+			return i18n.T.ViewSettingsPasswordNotSet
 		}},
 
 		// --- ГРУППА 4: ИНВЕНТАРИЗАЦИЯ И СЕРВИСНЫЕ КОМАНДЫ ---
@@ -312,24 +312,15 @@ func SaveSettingValueToDisk(key, value string) string {
 		// M3g (v8.1.3): минимум 8, технический потолок 128.
 		// Храним ТОЛЬКО SHA-256 хэш; plaintext в синглтоне не задерживается.
 		if len(value) < 8 {
-			if isEn {
-				return "Password too short! Minimum 8 characters."
-			}
-			return "Пароль слишком короткий! Минимум 8 символов — это канал спасения."
+			return i18n.T.ViewSettingsErrPasswordTooShort
 		}
 		if len(value) > 128 {
-			if isEn {
-				return "Password too long! Technical limit 128 characters."
-			}
-			return "Пароль слишком длинный! Технический потолок 128 символов."
+			return i18n.T.ViewSettingsErrPasswordTooLong
 		}
 		// v8.2.0 (1.7): bcrypt с солью внутри хэша вместо SHA-256.
 		hash, errB := bcrypt.GenerateFromPassword([]byte(value), bcrypt.DefaultCost)
 		if errB != nil {
-			if isEn {
-				return "Failed to generate password hash."
-			}
-			return "Сбой генерации хэша пароля."
+			return i18n.T.ViewSettingsErrHashGenerationFail
 		}
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
 			c.WebRescuePasswordHash = string(hash)
@@ -347,17 +338,17 @@ func SaveSettingValueToDisk(key, value string) string {
 		if key == "standard_ssh_port" || key == "real_ssh_port" {
 			// 1. Проверяем дублирование портов в памяти во избежание паники сокетов ядра
 			if key == "standard_ssh_port" && valInt == config.C.RealSshPort {
-				return "Вводной капкан и скрытый порт OpenSSH не могут занимать один и тот же порт!"
+				return i18n.T.ViewSettingsErrPortsConflictStandardReal
 			}
 			if key == "real_ssh_port" && valInt == config.C.StandardSshPort {
-				return "Скрытый порт OpenSSH не может совпадать с портом вводного капкана!"
+				return i18n.T.ViewSettingsErrPortsConflictRealStandard
 			}
 			// 2. Блокируем изменение сетевой геометрии, если прямо сейчас развернуты активные рубежи защиты
 			if _, errCheck := os.Stat(config.TarpitMarkerPath(22)); errCheck == nil { // РЕБРЕНДИНГ
-				return "Запрещено менять порты при активной Дегтярной яме! Сначала остановите капкан."
+				return i18n.T.ViewSettingsErrPortsChangeTarpitActive
 			}
 			if _, errMoved := os.Stat(config.MarkerSshMoved); errMoved == nil { // РЕБРЕНДИНГ
-				return "Запрещено менять порты при активном Кастлинге! Выполните обратную рокировку."
+				return i18n.T.ViewSettingsErrPortsChangeCastlingActive
 			}
 		}
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
@@ -403,7 +394,7 @@ func SaveSettingValueToDisk(key, value string) string {
 	// пост-синхронизации не выполняются (та же семантика, что и в оригинале
 	// при ошибке SaveConfig).
 	if updateErr != nil {
-		return "Ошибка сохранения конфигурации: " + updateErr.Error()
+		return i18n.T.ViewSettingsErrSavePrefix + updateErr.Error()
 	}
 
 	// АКТИВАЦИЯ КОНТУРА SELF-HEALING (САМОВОССТАНОВЛЕНИЯ)

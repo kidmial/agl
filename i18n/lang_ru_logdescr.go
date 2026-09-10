@@ -162,6 +162,17 @@ func init() {
 			"tarpitctl.daemon_stopped":             "Все ловушки деактивированы. Демон остановлен.",
 			"tarpitctl.unit_removed":               "Юнит agld_tarpit.service деинсталлирован из системы.",
 			"tarpitctl.perimeter_check_skip":       "Инвентарь периметра недоступен: %v. Проверка порта пропущена.",
+			// --- tui/view_main.go ---
+			"ufw.status_restored":            "event=ufw.status_restored Опрос UFW снова доступен.",
+			"systemd.watcher_probe_restored": "event=systemd.watcher_probe_restored Опрос юнита вотчера снова доступен.",
+			// --- tui/view_router.go ---
+			"tui_router.trap_card_open":          "Открыта карточка ловушки %s",
+			"tui_router.trap_card_start_blocked": "Ловушка %s НЕ запущена: %v",
+			"tui_router.trap_card_start":         "Ловушка %s запущена, UFW открыт",
+			"tui_router.trap_card_stop":          "Ловушка %s остановлена, UFW закрыт",
+			"tui_router.trap_card_delete":        "Ловушка %s удалена",
+			"tui_router.trap_edit_save":          "Параметры ловушки порт %d обновлены",
+			"armor_router.scan_success":          "Асинхронное пересканирование периметра завершено успешно.",
 		},
 	}
 }

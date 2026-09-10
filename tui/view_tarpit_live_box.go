@@ -5,6 +5,7 @@ import (
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
 
+	"agl/i18n"
 	"agl/internal/forensics"
 )
 
@@ -16,7 +17,7 @@ var LiveTable *widgets.List
 // Нативно инициализирует List-компонент termui и осуществляет жесткий сброс курсора на нулевую строку.
 func DrawTarpitLiveBoxGrid() []ui.Drawable {
 	header := widgets.NewParagraph()
-	header.Text = " Хроника Истощения и Анализа Сканеров (TARPIT_LIVE_BOX)"
+	header.Text = i18n.T.ViewTarpitLiveBoxHeaderText
 	header.SetRect(2, 1, 102, 4)
 	header.BorderStyle.Fg = ui.ColorCyan
 	header.TextStyle.Fg = ui.ColorYellow
@@ -29,17 +30,17 @@ func DrawTarpitLiveBoxGrid() []ui.Drawable {
 		LiveTable.BorderStyle.Fg = ui.ColorCyan
 		LiveTable.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
 	}
-	
+
 	// Синхронизируем строки с массивом сырых SIEM-логов Судьи.
-	LiveTable.Title = " Хроника инцидентов (Свежие атаки сверху) "
+	LiveTable.Title = i18n.T.ViewTarpitLiveBoxListTitle
 	LiveTable.Rows = forensics.GetTarpitLiveRows()
-	
+
 	// СБРОС КУРСОРА СТРОГО ОДИН РАЗ — ПРИ РУЧНОМ ВХОДЕ НА ЭКРАН!
 	// Предотвращает залипание каретки выделения в хвосте списка при повторных сессиях.
-	LiveTable.SelectedRow = 0 
+	LiveTable.SelectedRow = 0
 
 	hint := widgets.NewParagraph()
-	hint.Text = " [ Нажмите ESC или Q для закрытия LIVE_BOX и возврата ] "
+	hint.Text = i18n.T.ViewTarpitLiveBoxHintExit
 	hint.SetRect(2, 26, 102, 29)
 	hint.BorderStyle.Fg = ui.ColorYellow
 	hint.TextStyle.Fg = ui.ColorCyan

@@ -2,6 +2,7 @@
 package tui
 
 import (
+	"agl/i18n"
 	"agl/internal/service"
 	"context"
 	"fmt"
@@ -18,7 +19,7 @@ func DrawBackupProgressGrid() {
 
 	// 1а. Внешняя рамка-контейнер прогресса (задает монолитные границы на экране)
 	gaugeBorder := widgets.NewParagraph()
-	gaugeBorder.Title = " Синхронный Снапшот Системы и Логов Amber Guard Lab v6.0 " // РЕБРЕНДИНГ
+	gaugeBorder.Title = i18n.T.ViewBackupGaugeTitle
 	gaugeBorder.SetRect(2, 1, 102, 4)
 	gaugeBorder.Border = true
 
@@ -33,15 +34,15 @@ func DrawBackupProgressGrid() {
 
 	// 2. Модернизированный List для логов (Автоперенос отключен нативно)
 	consoleList := widgets.NewList()
-	consoleList.Title = " Потоковый SIEM-Журнал Упаковщика (Live Log Stream) "
+	consoleList.Title = i18n.T.ViewBackupConsoleTitle
 	consoleList.SetRect(2, 4, 102, 23)
 	consoleList.BorderStyle.Fg = ui.ColorCyan
 	consoleList.TextStyle.Fg = ui.ColorWhite
 
 	// 3. Выделенное нижнее окно подтверждения высотой в 6 символов под 30-ю границу футера
 	confirmBox := widgets.NewParagraph()
-	confirmBox.Title = " [ ПОДТВЕРЖДЕНИЕ ОПЕРАЦИИ ] "
-	confirmBox.Text = "\n  [[ УСПЕХ ]](fg:green,mod:bold) Резервное копирование успешно завершено.\n  Нажмите [ ESC ](fg:yellow,mod:bold) или [ Q ](fg:yellow,mod:bold) для возврата в Главное меню."
+	confirmBox.Title = i18n.T.ViewBackupConfirmTitle
+	confirmBox.Text = i18n.T.ViewBackupConfirmText
 	confirmBox.SetRect(2, 23, 102, 29)
 	confirmBox.BorderStyle.Fg = ui.ColorYellow
 	confirmBox.TextStyle.Fg = ui.ColorCyan
@@ -61,7 +62,7 @@ func DrawBackupProgressGrid() {
 		pGauge.Percent = stat.Percent
 		if stat.CurrentFile != "" {
 			// Изменяем заголовок у внешнего контейнера, так как рамка теперь на нем
-			gaugeBorder.Title = fmt.Sprintf(" Упаковка объекта: [ %s ] ", stat.CurrentFile)
+			gaugeBorder.Title = fmt.Sprintf(i18n.T.ViewBackupGaugeObjectTitleTpl, stat.CurrentFile)
 		}
 
 		if stat.LogLine != "" {

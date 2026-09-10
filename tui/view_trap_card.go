@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 
+	"agl/i18n"
 	"agl/internal/sys"
 
 	ui "github.com/gizak/termui/v3"
@@ -59,12 +60,11 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 	// ШАПКА: детали ловушки и трёхфакторный статус
 	// -------------------------------------------------------------
 	header := widgets.NewParagraph()
-	header.Title = fmt.Sprintf(" [ Карточка Ловушки │ Порт %d ] ", SelectedTrapPort)
+	header.Title = fmt.Sprintf(" [ %s │ %s %d ] ", i18n.T.ViewTrapCardHeaderTitle, i18n.T.ViewTrapCardLabelPort, SelectedTrapPort)
 
 	var headerText string
 	if !trapExists {
-		headerText = "  [ОШИБКА]: Ловушка не найдена в инвентаре.\n" +
-			"  Возможно, она была удалена. Вернитесь назад."
+		headerText = i18n.T.ViewTrapCardErrNotFound
 	} else {
 		declaredStr := "[ STOPPED ](fg:red)"
 		if isRunning {
@@ -80,15 +80,14 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 		}
 
 		headerText = fmt.Sprintf(
-			"  Идентификатор: %s\n"+
-				"  SSH-баннер   : %s\n"+
-				"  Удержание    : %d сек ± %d сек │ Лимит сессий: %d\n"+
-				"  Статус  %s    : DAEMON: %s │ MARKER: %s | Ядро: %v",
-			trap.TarpitID,
-			trap.ConfigConfig.SSHVersion,
-			trap.ConfigConfig.DelayStep, trap.ConfigConfig.DelayVariance,
-			trap.ConfigConfig.MaxConn,
-			markerStr, declaredStr, daemonStr, trap.IsCore)
+			"  %s: %s\n"+
+				"  %s   : %s\n"+
+				"  %s    : %d %s ± %d %s │ %s: %d\n"+
+				"  %s  %s    : DAEMON: %s │ MARKER: %s | %s: %v",
+			i18n.T.ViewTrapCardLabelIdentifier, trap.TarpitID,
+			i18n.T.ViewTrapCardLabelSshBanner, trap.ConfigConfig.SSHVersion,
+			i18n.T.ViewTrapCardLabelRetention, trap.ConfigConfig.DelayStep, i18n.T.ViewTrapCardLabelSec, trap.ConfigConfig.DelayVariance, i18n.T.ViewTrapCardLabelSec, i18n.T.ViewTrapCardLabelSessionLimit, trap.ConfigConfig.MaxConn,
+			i18n.T.ViewTrapCardLabelStatus, markerStr, declaredStr, daemonStr, i18n.T.ViewTrapCardLabelCore, trap.IsCore)
 	}
 	header.Text = headerText
 	header.SetRect(2, 1, 102, 8)
@@ -102,40 +101,40 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 	// -------------------------------------------------------------
 	var menuRows []string
 	if !trapExists {
-		menuRows = append(menuRows, "  [ BACK ]   │ Вернуться в список")
+		menuRows = append(menuRows, fmt.Sprintf("  [ BACK ]   │ %s", i18n.T.ViewTrapCardRowBackToList))
 	} else {
 		// START
 		if !isRunning {
-			menuRows = append(menuRows, "  [ START ]  │ Активация ловушки")
+			menuRows = append(menuRows, fmt.Sprintf("  [ START ]  │ %s", i18n.T.ViewTrapCardRowStartActivate))
 		} else {
-			menuRows = append(menuRows, "  [ START ]  │ Ловушка уже активна")
+			menuRows = append(menuRows, fmt.Sprintf("  [ START ]  │ %s", i18n.T.ViewTrapCardRowStartAlreadyActive))
 		}
 		// STOP
 		if isRunning {
-			menuRows = append(menuRows, "  [ STOP ]   │ Остановка ловушки")
+			menuRows = append(menuRows, fmt.Sprintf("  [ STOP ]   │ %s", i18n.T.ViewTrapCardRowStopDeactivate))
 		} else {
-			menuRows = append(menuRows, "  [ STOP ]   │ Ловушка уже остановлена")
+			menuRows = append(menuRows, fmt.Sprintf("  [ STOP ]   │ %s", i18n.T.ViewTrapCardRowStopAlreadyStopped))
 		}
 		// EDIT
 		if !isRunning {
-			menuRows = append(menuRows, "  [ EDIT ]   │ Редактировать параметры ловушки")
+			menuRows = append(menuRows, fmt.Sprintf("  [ EDIT ]   │ %s", i18n.T.ViewTrapCardRowEditParams))
 		} else {
-			menuRows = append(menuRows, "  [ EDIT ]   │ Требуется STOP для редактирования")
+			menuRows = append(menuRows, fmt.Sprintf("  [ EDIT ]   │ %s", i18n.T.ViewTrapCardRowEditRequiresStop))
 		}
 		// DELETE
 		if !isRunning && !markerExists {
-			menuRows = append(menuRows, "  [ DELETE ] │ Полностью удалить из инвентаря")
+			menuRows = append(menuRows, fmt.Sprintf("  [ DELETE ] │ %s", i18n.T.ViewTrapCardRowDeleteFull))
 		} else if !isRunning && markerExists {
-			menuRows = append(menuRows, "  [ DELETE ] │ Ожидание завершения демона...")
+			menuRows = append(menuRows, fmt.Sprintf("  [ DELETE ] │ %s", i18n.T.ViewTrapCardRowDeleteWaiting))
 		} else {
-			menuRows = append(menuRows, "  [ DELETE ] │ Требуется STOP для удаления")
+			menuRows = append(menuRows, fmt.Sprintf("  [ DELETE ] │ %s", i18n.T.ViewTrapCardRowDeleteRequiresStop))
 		}
 		// BACK
-		menuRows = append(menuRows, "  [ BACK ]   │ Вернуться к списку")
+		menuRows = append(menuRows, fmt.Sprintf("  [ BACK ]   │ %s", i18n.T.ViewTrapCardRowBackToPool))
 	}
 
 	actionList := widgets.NewList()
-	actionList.Title = " Действия с ловушкой: "
+	actionList.Title = i18n.T.ViewTrapCardListTitle
 	actionList.Rows = menuRows
 	actionList.SetRect(2, 8, 102, 16)
 	actionList.BorderStyle.Fg = ui.ColorCyan
@@ -146,7 +145,7 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 	// КОНТЕСТНАЯ ПОДСКАЗКА
 	// -------------------------------------------------------------
 	hintBox := widgets.NewParagraph()
-	hintBox.Title = " Контекстная справка "
+	hintBox.Title = i18n.T.ViewTrapCardHintTitle
 	hintBox.Text = getTrapCardHint(selectedRow, trapExists, isRunning, markerExists)
 	hintBox.SetRect(2, 16, 102, 22)
 	hintBox.BorderStyle.Fg = ui.ColorYellow
@@ -160,44 +159,44 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 func getTrapCardHint(row int, trapExists, isRunning, markerExists bool) string {
 	if !trapExists {
 		// Базовая справка, максимальная краткость
-		return " Ловушка не найдена в инвентаре. Нажмите BACK для возврата."
+		return i18n.T.ViewTrapCardHintNotFound
 	}
 	switch row {
 	case TrapCardStart:
 		if isRunning {
-			return " Ловушка уже активна.\n Подробнее: Проверьте статус в списке."
+			return i18n.T.ViewTrapCardHintStartAlreadyActive
 		}
 		// Подробная информация о процессе запуска
-		return " Запуск ловушки.\n 1. Изменяется статус в инвентаре (RUNNING).\n 2. Открывается порт через Firewall.\n 3. Демон поднимает слушатель в течение нескольких секунд."
+		return i18n.T.ViewTrapCardHintStartInfo
 
 	case TrapCardStop:
 		if !isRunning {
-			return " Ловушка уже остановлена."
+			return i18n.T.ViewTrapCardHintStopAlreadyStopped
 		}
 		// Подробная информация о процессе остановки
-		return " Остановка ловушки.\n 1. Изменяется статус в инвентаре (STOPPED).\n 2. Порт закрывается (Firewall).\n 3. Демон удаляет слушатель и квитанцию ловушки."
+		return i18n.T.ViewTrapCardHintStopInfo
 
 	case TrapCardEdit:
 		if isRunning {
 			// Причина блокировки действий
-			return " [[ИНФО]](fg:yellow,mod:bold) Редактирование недоступно.\n Редактирование параметров ловушки возможно только после её остановки.\n (STOP -> EDIT)"
+			return " [[ИНФО]](fg:yellow,mod:bold) " + i18n.T.ViewTrapCardHintEditBlocked
 		}
 		// Список изменяемых параметров
-		return " Редактирование параметров:\n - SSH Version (Баннер), DelayStep / DelayVariance (Удержание), Max Connections (Сессии)\n [Важно] Порт ловушки не меняется после создания."
+		return i18n.T.ViewTrapCardHintEditInfo
 
 	case TrapCardDelete:
 		if isRunning {
-			return " [[ИНФО]](fg:yellow,mod:bold) Удаление недоступно.\n Удалить ловушку возможно только после её остановки.\n (STOP -> DELETE)"
+			return " [[ИНФО]](fg:yellow,mod:bold) " + i18n.T.ViewTrapCardHintDeleteBlocked
 		}
 		if markerExists {
-			return " Ожидание завершения.\n Демон ещё очищает служебные файлы.\n Повторите через несколько секунд."
+			return i18n.T.ViewTrapCardHintDeleteWaiting
 		}
-		return " Полное удаление ловушки из инвентаря.\n ДЕЙСТВИЕ НЕОБРАТИМО.\n Если это была последняя ловушка, демон остановится автоматически."
+		return i18n.T.ViewTrapCardHintDeleteInfo
 
 	case TrapCardBack:
 		// Здесь можно убрать вообще, если это стандартный элемент TUI,
 		// но если оставить, пусть будет кратко:
-		return " Возврат в главный диспетчер пула MULTI TARPIT."
+		return i18n.T.ViewTrapCardHintBack
 	}
 	return ""
 }

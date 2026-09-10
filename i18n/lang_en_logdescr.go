@@ -162,6 +162,17 @@ func init() {
 			"tarpitctl.daemon_stopped":             "All traps deactivated. Daemon stopped.",
 			"tarpitctl.unit_removed":               "agld_tarpit.service unit uninstalled from system.",
 			"tarpitctl.perimeter_check_skip":       "Perimeter inventory unavailable: %v. Port check skipped.",
+			// --- tui/view_main.go ---
+			"ufw.status_restored":            "event=ufw.status_restored UFW probe is available again.",
+			"systemd.watcher_probe_restored": "event=systemd.watcher_probe_restored Watcher unit probe is available again.",
+			// --- tui/view_router.go ---
+			"tui_router.trap_card_open":          "Trap card %s opened",
+			"tui_router.trap_card_start_blocked": "Trap %s NOT started: %v",
+			"tui_router.trap_card_start":         "Trap %s started, UFW opened",
+			"tui_router.trap_card_stop":          "Trap %s stopped, UFW closed",
+			"tui_router.trap_card_delete":        "Trap %s deleted",
+			"tui_router.trap_edit_save":          "Trap parameters for port %d updated",
+			"armor_router.scan_success":          "Asynchronous perimeter rescan completed successfully.",
 		},
 	}
 }

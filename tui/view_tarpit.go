@@ -43,6 +43,7 @@ import (
 	"time"
 
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/service"
 	"agl/internal/sys"
 	"agl/internal/tarpit"
@@ -104,14 +105,14 @@ func getLastLogLines(path string, maxLines int) []string {
 func readLogTail(path string, maxLines int) []string {
 	file, err := os.Open(path)
 	if err != nil {
-		return []string{"  [СИСТЕМА]: Журналы капкана временно недоступны или пусты."}
+		return []string{i18n.T.ViewTarpitLogUnavailable}
 	}
 	defer file.Close()
 
 	const tailSize = 64 * 1024
 	fi, err := file.Stat()
 	if err != nil || fi.Size() == 0 {
-		return []string{"  [СИСТЕМА]: Журналы капкана временно недоступны или пусты."}
+		return []string{i18n.T.ViewTarpitLogUnavailable}
 	}
 	start := int64(0)
 	if fi.Size() > tailSize {
@@ -241,10 +242,10 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	if idleTimeout <= 0 {
 		idleTimeout = 10
 	}
-	idleLabel := fmt.Sprintf("%d/%d мин", idleMinutes, idleTimeout)
+	idleLabel := fmt.Sprintf("%d/%d "+i18n.T.ViewTarpitLabelMin, idleMinutes, idleTimeout)
 	if idleMinutes >= idleTimeout-2 {
 		// Подсвечиваем критический простой перед испепелением правил
-		idleLabel = fmt.Sprintf("[%d/%d мин](fg:red,mod:bold)", idleMinutes, idleTimeout)
+		idleLabel = fmt.Sprintf("[%d/%d "+i18n.T.ViewTarpitLabelMin+"](fg:red,mod:bold)", idleMinutes, idleTimeout)
 	}
 
 	// -------------------------------------------------------------
@@ -252,25 +253,23 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	// Высота: 6 строк (y: 1 - 7)
 	// -------------------------------------------------------------
 	header := widgets.NewParagraph()
-	header.Title = fmt.Sprintf(
-		" Контрольная Панель «Дегтярная Яма» (SSH Deception Tar-pit) │ %s │ %s ",
-		dateStr, timeStr)
+	header.Title = fmt.Sprintf(" %s │ %s │ %s ", i18n.T.ViewTarpitHeaderTitle, dateStr, timeStr)
 
 	// ВЫРАВНИВАНИЕ КОЛОНОК ПО СЕТКЕ С УЧЁТОМ СЧЁТЧИКА AGL_CRON_WATCHER
 	// ОБНОВЛЕНО В v8.0.1: Без изменений формата.
 	header.Text = fmt.Sprintf(
-		"  Текущий порт OpenSSH: %-5s     Рокировка (Кастлинг): %s\n"+
-			"  Джиттер  ловушки сек: %2dc ± %-2dc    Статус работы ямы: %s\n"+
-			"  Диапазон   удержания: %d - %-2d сек    В капкане сейчас: %d\n"+
-			"  Time Out счётчик сессии администратора : %s",
+		"  %s %-5s     %s %s\n"+
+			"  %s %2dc ± %-2dc    %s %s\n"+
+			"  %s %d - %-2d %s    %s %d\n"+
+			"  %s %s",
 		// Строка 01
-		activeSshPort, statusMove,
+		i18n.T.ViewTarpitLabelCurrentSshPort, activeSshPort, i18n.T.ViewTarpitLabelCastling, statusMove,
 		// Строка 02
-		config.C.DelayStep, config.C.DelayVariance, statusEngine,
+		i18n.T.ViewTarpitLabelJitterSec, config.C.DelayStep, config.C.DelayVariance, i18n.T.ViewTarpitLabelEngineStatus, statusEngine,
 		// Строка 03
-		minDelay, maxDelay, liveBots,
+		i18n.T.ViewTarpitLabelRetentionRange, minDelay, maxDelay, i18n.T.ViewTarpitLabelSec, i18n.T.ViewTarpitLabelBotsInTrap, liveBots,
 		// Строка 04
-		idleLabel,
+		i18n.T.ViewTarpitLabelAdminIdleCounter, idleLabel,
 	)
 
 	header.SetRect(2, 1, 102, 7)
@@ -282,16 +281,15 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	// Высота: 7 строк (y: 7 - 14)
 	// -------------------------------------------------------------
 	tarpitList := widgets.NewList()
-	tarpitList.Title = " Модификация параметров удержания ботнет-сканеров: "
+	tarpitList.Title = i18n.T.ViewTarpitListTitle
 	tarpitList.Rows = []string{
-		"  LIVE_BOX    │ Смотритель ловушки (SIEM Хроника удержания ботов)",
-		"  SETTINGS    │ Глобальные настройки параметров Дегтярной Ямы",
-		"  MOVE_PORT   │ Выполнить переезд OpenSSH на скрытый порт " +
-			fmt.Sprintf("%d", config.C.RealSshPort),
-		"  TARPIT_ON   │ Запуск ловушки на стандартном порту 22",
-		"  TARPIT_OFF  │ Отключение ловушки на стандартном порту 22",
-		"  HELP        │ Справка: Инструкция и описание жесткого алгоритма",
-		"  BACK        │ Назад в главное меню сервера",
+		fmt.Sprintf("  LIVE_BOX    │ %s", i18n.T.ViewTarpitRowLiveBoxDesc),
+		fmt.Sprintf("  SETTINGS    │ %s", i18n.T.ViewTarpitRowSettingsDesc),
+		fmt.Sprintf("  MOVE_PORT   │ "+i18n.T.ViewTarpitRowMovePortDesc, config.C.RealSshPort),
+		fmt.Sprintf("  TARPIT_ON   │ %s", i18n.T.ViewTarpitRowOnDesc),
+		fmt.Sprintf("  TARPIT_OFF  │ %s", i18n.T.ViewTarpitRowOffDesc),
+		fmt.Sprintf("  HELP        │ %s", i18n.T.ViewTarpitRowHelpDesc),
+		fmt.Sprintf("  BACK        │ %s", i18n.T.ViewTarpitRowBackDesc),
 	}
 	tarpitList.SetRect(2, 7, 102, 14)
 	tarpitList.BorderStyle.Fg = ui.ColorCyan
@@ -305,7 +303,7 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	// Высота: 4 строки (y: 14 - 18)
 	// -------------------------------------------------------------
 	infoBox := widgets.NewParagraph()
-	infoBox.Title = " Регламент подсистемы "
+	infoBox.Title = i18n.T.ViewTarpitInfoBoxTitle
 	infoBox.Text = hintText
 	infoBox.SetRect(2, 14, 102, 18)
 	infoBox.BorderStyle.Fg = ui.ColorYellow
@@ -333,7 +331,7 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 		liveTerminal.BorderStyle.Fg = ui.ColorCyan
 		liveTerminal.TitleStyle.Fg = ui.ColorYellow
 	}
-	liveTerminal.Title = " Мониторинг касаний сокетов в реальном времени (LIVE) "
+	liveTerminal.Title = i18n.T.ViewTarpitLiveTerminalTitle
 	liveTerminal.Rows = getLastLogLines(connLogPath, 4)
 	liveTerminal.SetRect(2, 18, 102, 24)
 
@@ -391,9 +389,7 @@ func UpdateTarpitMenuCounters() {
 
 	// Атомарно подменяем строку заголовка без мерцания интерфейса панели.
 	// ReportTerminal — финальный отчёт ЗАВЕРШЁННЫХ сессий: его логика не меняется.
-	ReportTerminal.Title = fmt.Sprintf(
-		" Хроника истощения ботнетов (Ботов в капкане сейчас: %d) ",
-		liveBots)
+	ReportTerminal.Title = fmt.Sprintf(i18n.T.ViewTarpitReportTerminalTitleTpl, liveBots)
 
 	// v8.2.3 (R-8): динамический цвет рамки liveTerminal — glanceable-индикатор боя.
 	// Меняем ТОЛЬКО рамку живого терминала касаний; ReportTerminal не трогаем.
