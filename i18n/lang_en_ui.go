@@ -498,7 +498,7 @@ func init() {
 		SettingsUiInputPrompt:                    "VALUE  ",
 		SettingsUiHintNav1:                       "[ NAVIGATION ]: Arrows ↑/↓ │ [ MODIFY ]: Press ENTER to open parameter  ",
 		SettingsUiHintNav2:                       "[ EXIT ]: Choose BACK row or press ESC to close config  ",
-		SettingsUiHintEsc:                        "Press  [ESC](fg:yellow,mod:bold)  at any time to cancel changes. ",
+		SettingsUiHintEsc:                        "Press  %s  at any time to cancel changes. ",
 		SettingsUiStatusConsoleTitle:             " SYSTEM CONSOLE   ",
 		SettingsUiEmptyVal:                       "Value cannot be empty!  ",
 		SettingsUiOutOfBounds:                    "Value is out of valid bounds (1-65535)!  ",

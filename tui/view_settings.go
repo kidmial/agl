@@ -197,7 +197,7 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 				" %s\n %s\n %s",
 				i18n.T.SettingsUiHintNav1,
 				i18n.T.SettingsUiHintNav2,
-				i18n.T.SettingsUiHintEsc,
+				fmt.Sprintf(i18n.T.SettingsUiHintEsc, "[ESC](fg:yellow,mod:bold)"),
 			)
 			statusBox.BorderStyle.Fg = ui.ColorYellow
 			statusBox.TextStyle.Fg = ui.ColorCyan

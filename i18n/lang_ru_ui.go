@@ -498,7 +498,7 @@ func init() {
 		SettingsUiInputPrompt:                    "ЗНАЧЕНИЕ  ",
 		SettingsUiHintNav1:                       "[ НАВИГАЦИЯ ]: Стрелки ↑/↓ │ [ ИЗМЕНЕНИЕ ]: Нажмите ENTER, чтобы открыть параметр  ",
 		SettingsUiHintNav2:                       "[ ВЫХОД ]: Выберите строку НАЗАД или нажмите ESC для закрытия конфигуратора  ",
-		SettingsUiHintEsc:                        "Нажмите  [ESC](fg:yellow,mod:bold)  в любой момент для отмены изменений. ",
+		SettingsUiHintEsc:                        "Нажмите  %s  в любой момент для отмены изменений. ",
 		SettingsUiStatusConsoleTitle:             " СИСТЕМНАЯ КОНСОЛЬ   ",
 		SettingsUiEmptyVal:                       "Значение не может быть пустым!  ",
 		SettingsUiOutOfBounds:                    "Выход за допустимые системные границы (1-65535)!  ",
