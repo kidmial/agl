@@ -483,6 +483,42 @@ type UITranslation struct {
 	ViewSettingsErrSavePrefix                string
 	ViewSettingsPasswordSet                  string
 	ViewSettingsPasswordNotSet               string
+	SettingsLabelLang                        string
+	SettingsLabelStandardSshPort             string
+	SettingsLabelRealSshPort                 string
+	SettingsLabelDelayStep                   string
+	SettingsLabelDelayVariance               string
+	SettingsLabelTarpitMaxConn               string
+	SettingsLabelAdminIdleTimeout            string
+	SettingsLabelWebRescueEnabled            string
+	SettingsLabelWebRescuePort               string
+	SettingsLabelWebRescuePassword           string
+	SettingsLabelBack                        string
+	SettingsUiTitleBox                       string
+	SettingsUiHeaderDesc                     string
+	SettingsUiFormTitle                      string
+	SettingsUiEditingMode                    string
+	SettingsUiEnterNew                       string
+	SettingsUiInputPrompt                    string
+	SettingsUiHintNav1                       string
+	SettingsUiHintNav2                       string
+	SettingsUiHintEsc                        string
+	SettingsUiStatusConsoleTitle             string
+	SettingsUiEmptyVal                       string
+	SettingsUiOutOfBounds                    string
+	SettingsUiLangSupport                    string
+	SettingsGroupLang                        string
+	SettingsGroupTarpit                      string
+	SettingsGroupLimits                      string
+	SettingsGroupSystem                      string
+	SettingsGroupDefault                     string
+	// --- tui/view_core_settings.go (TD-2: подписи справки) ---
+	CoreDocDesc    string
+	CoreDocAttack  string
+	CoreDocRisks   string
+	CoreDocCurVal  string
+	CoreDocLimit   string
+	CoreDocFactory string
 	// --- tui/view_tarpit_controller.go ---
 	ViewTarpitCtlLockCritical           string
 	ViewTarpitCtlLockReason             string
@@ -671,12 +707,6 @@ var (
 	L            LogTranslation
 )
 
-// Временные алиасы для совместимости с существующим кодом (tui/, main.go).
-// Будут удалены после завершения задачи 6.7.
-type Translation = UITranslation
-
-var Languages = UILanguages
-
 // InitLanguage инициализирует активный язык панели при старте системы
 func InitLanguage(currentLang string) {
 	if val, ok := UILanguages[currentLang]; ok {
@@ -725,87 +755,4 @@ func TrEventf(eventCode string, args ...interface{}) string {
 		return tpl
 	}
 	return fmt.Sprintf(tpl, args...)
-}
-
-func GetSettingsGroupHeader(group string, isEn bool) string {
-	switch group {
-	case "LANG":
-		if isEn {
-			return "─── LOCALIZATION  & INTERFACE MANAGEMENT "
-		}
-		return "─── РЕГЛАМЕНТ ЛОКАЛИЗАЦИИ И ЯЗЫК ИНТЕРФЕЙСА "
-	case "TARPIT":
-		if isEn {
-			return "─── SSH DECEPTION TARPIT INTERVALS (PORT 22) "
-		}
-		return "─── ПАРАМЕТРЫ ЯДРА ДЕГТЯРНОЙ ЯМЫ SSH (ПОРТ 22)  "
-	case "LIMITS":
-		if isEn {
-			return "─── ANTI-DDOS BOUNDARIES  & FIREWALL LIMITS "
-		}
-		return "─── СИСТЕМНЫЕ ЛИМИТЫ И АНТИ-DDOS-ОБОРOНА "
-	case "SYSTEM":
-		if isEn {
-			return "─── CORE MANAGEMENT SERVICES "
-		}
-		return "─── СЕРВИСНЫЕ И УПРАВЛЯЮЩИЕ КОМАНДЫ "
-	default:
-		return "────────────────────────────────────────────── "
-	}
-}
-
-func GetSettingsStatusText(key string, isEn bool) string {
-	translations := map[string][]string{
-		"title_box":            {" Раздел конфигурации системы  ", " System configuration sector  "},
-		"header_desc":          {"Глобальная Конфигурация Периметра (SETTINGS) ", "Global Perimeter Configuration (SETTINGS) "},
-		"form_title":           {" Модификация портов, интервалов ядра и локализации системы  ", " Modification of ports, kernel intervals  & localization  "},
-		"editing_mode":         {" РЕЖИМ РЕДАКТИРОВАНИЯ ПАРАМЕТРА  ", " PARAMETER EDITING MODE  "},
-		"enter_new":            {"Введите новое значение ", "Enter new value "},
-		"input_prompt":         {"ЗНАЧЕНИЕ ", "VALUE "},
-		"hint_nav_1":           {"[ НАВИГАЦИЯ ]: Стрелки ↑/↓ │ [ ИЗМЕНЕНИЕ ]: Нажмите ENTER, чтобы открыть параметр ", "[ NAVIGATION ]: Arrows ↑/↓ │ [ MODIFY ]: Press ENTER to open parameter "},
-		"hint_nav_2":           {"[ ВЫХОД ]: Выберите строку НАЗАД или нажмите ESC для закрытия конфигуратора ", "[ EXIT ]: Choose BACK row or press ESC to close config "},
-		"hint_esc":             {"Нажмите [ESC](fg:yellow,mod:bold) в любой момент для отмены изменений.", "Press [ESC](fg:yellow,mod:bold) at any time to cancel changes."},
-		"empty_val":            {"Значение не может быть пустым! ", "Value cannot be empty! "},
-		"out_bounds":           {"Выход за допустимые системные границы (1-65535)! ", "Value is out of valid bounds (1-65535)! "},
-		"status_console_title": {" СИСТЕМНАЯ КОНСОЛЬ  ", " SYSTEM CONSOLE  "},
-		"lang_support":         {"Допустимые значения локали: RU или EN ", "Supported interface locales: RU or EN "},
-		"tarpit_lock":          {"⚠️ ОТКАЗ: Дегтярная Яма АКТИВНА! Лимиты UFW заблокированы во избежание сброса логов. ", "⚠️ LOCK: Tarpit is ACTIVE! UFW rate limiting disabled to preserve deception analytics. "},
-	}
-	if vec, ok := translations[key]; ok {
-		if isEn {
-			return vec[1]
-		}
-		return vec[0]
-	}
-	return key
-}
-
-func FormatTuiHelpText(doc SysctlHelpDoc, curVal int, lang string) string {
-	if doc.ParamName == "" {
-		return UILanguages[lang].CoreHelpSelectParam
-	}
-	descLabel := " [ОПИСАНИЕ]:"
-	attackLabel := " [ПРИ DDoS АТАКЕ]:"
-	risksLabel := " [КРИТИЧЕСКИЕ РИСКИ]:"
-	curValLabel := "Текущее боевое значение в config.json:"
-	limitLabel := "Безопасные границы регулирования: от"
-	factoryLabel := "Заводской эталон:"
-
-	if lang == "en" {
-		descLabel = " [DESCRIPTION]:"
-		attackLabel = " [UPON DDoS ATTACK]:"
-		risksLabel = " [CRITICAL RISKS]:"
-		curValLabel = "Current operational value in config.json:"
-		limitLabel = "Safe regulation boundaries: from"
-		factoryLabel = "Factory template:"
-	}
-	return fmt.Sprintf(
-		" Параметр: %s \n"+
-			" %s %d (%s %s)\n"+
-			" %s [ %d ] до [ %d ]\n\n"+
-			"%s\n %s\n\n"+
-			"%s\n %s\n\n"+
-			"%s\n %s ",
-		doc.ParamName, curValLabel, curVal, factoryLabel, doc.DefaultVal, limitLabel, doc.MinVal, doc.MaxVal, descLabel, doc.Description, attackLabel, doc.OnAttack, risksLabel, doc.Risks,
-	)
 }

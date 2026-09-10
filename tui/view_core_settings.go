@@ -29,23 +29,37 @@ var GlobalCoreMenuRows []string
 // CoreHeader — синглтон шапки экрана настроек ядра
 var CoreHeader *widgets.Paragraph
 
+// formatCoreHelpText собирает справку параметра ядра: скелет в коде, подписи в i18n (TD-2).
+func formatCoreHelpText(doc i18n.SysctlHelpDoc, curVal int) string {
+	if doc.ParamName == "" {
+		return i18n.T.CoreHelpSelectParam
+	}
+	return fmt.Sprintf(
+		" Параметр: %s \n"+
+			" %s %d (%s %s)\n"+
+			" %s [ %d ] до [ %d ]\n\n"+
+			"%s\n %s\n\n"+
+			"%s\n %s\n\n"+
+			"%s\n %s ",
+		doc.ParamName, i18n.T.CoreDocCurVal, curVal, i18n.T.CoreDocFactory, doc.DefaultVal, i18n.T.CoreDocLimit, doc.MinVal, doc.MaxVal, i18n.T.CoreDocDesc, doc.Description, i18n.T.CoreDocAttack, doc.OnAttack, i18n.T.CoreDocRisks, doc.Risks,
+	)
+}
+
 // DrawCoreSettingsGrid отрисовывает фиксированный экран тюнинга ядра (CORE_SETTINGS)
 func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	var menuRows []string
 	cfg := config.C.SysctlCore
-	lang := config.C.Lang
-	t := i18n.Languages[lang]
 	// Динамически подставляем числовые параметры из глобального ОЗУ-состояния синглтона.
 	// TD-1: геометрия (номера, теги, [ %d ], │) живёт в коде; описание — в i18n.
-	menuRows = append(menuRows, fmt.Sprintf(" 1. tcp_syncookies      │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpSyncookies, t.ViewCoreSettingsRowSyncookies))
-	menuRows = append(menuRows, fmt.Sprintf(" 2. tcp_fin_timeout     │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpFinTimeout, t.ViewCoreSettingsRowFinTimeout))
-	menuRows = append(menuRows, fmt.Sprintf(" 3. tcp_syn_retries     │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpSynRetries, t.ViewCoreSettingsRowSynRetries))
-	menuRows = append(menuRows, fmt.Sprintf(" 4. tcp_synack_retries  │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpSynackRetries, t.ViewCoreSettingsRowSynackRetries))
-	menuRows = append(menuRows, fmt.Sprintf(" 5. somaxconn           │ [%d] │ %s", cfg.ArmorNetCoreSomaxconn, t.ViewCoreSettingsRowSomaxconn))
-	menuRows = append(menuRows, fmt.Sprintf(" 6. tcp_max_syn_backlog │ [%d] │ %s", cfg.ArmorNetIpv4TcpMaxSynBacklog, t.ViewCoreSettingsRowMaxSynBacklog))
-	menuRows = append(menuRows, fmt.Sprintf(" 7. rp_filter (All)     │ [ %d ] │ %s", cfg.ArmorNetIpv4ConfAllRpFilter, t.ViewCoreSettingsRowRpFilter))
-	menuRows = append(menuRows, " RESET_TO_FACTORY       │ "+t.ViewCoreSettingsRowResetToFactory)
-	menuRows = append(menuRows, " BACK_TO_ARMOR          │ "+t.ViewCoreSettingsRowBackToArmor)
+	menuRows = append(menuRows, fmt.Sprintf(" 1. tcp_syncookies      │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpSyncookies, i18n.T.ViewCoreSettingsRowSyncookies))
+	menuRows = append(menuRows, fmt.Sprintf(" 2. tcp_fin_timeout     │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpFinTimeout, i18n.T.ViewCoreSettingsRowFinTimeout))
+	menuRows = append(menuRows, fmt.Sprintf(" 3. tcp_syn_retries     │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpSynRetries, i18n.T.ViewCoreSettingsRowSynRetries))
+	menuRows = append(menuRows, fmt.Sprintf(" 4. tcp_synack_retries  │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpSynackRetries, i18n.T.ViewCoreSettingsRowSynackRetries))
+	menuRows = append(menuRows, fmt.Sprintf(" 5. somaxconn           │ [%d] │ %s", cfg.ArmorNetCoreSomaxconn, i18n.T.ViewCoreSettingsRowSomaxconn))
+	menuRows = append(menuRows, fmt.Sprintf(" 6. tcp_max_syn_backlog │ [%d] │ %s", cfg.ArmorNetIpv4TcpMaxSynBacklog, i18n.T.ViewCoreSettingsRowMaxSynBacklog))
+	menuRows = append(menuRows, fmt.Sprintf(" 7. rp_filter (All)     │ [ %d ] │ %s", cfg.ArmorNetIpv4ConfAllRpFilter, i18n.T.ViewCoreSettingsRowRpFilter))
+	menuRows = append(menuRows, " RESET_TO_FACTORY       │ "+i18n.T.ViewCoreSettingsRowResetToFactory)
+	menuRows = append(menuRows, " BACK_TO_ARMOR          │ "+i18n.T.ViewCoreSettingsRowBackToArmor)
 	GlobalCoreMenuRows = menuRows
 
 	// 1. Фиксированная шапка (Высота 3 строки)
@@ -60,17 +74,17 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	dateStr := time.Now().Format("2006-01-02")
 
 	// Форматируем основной текст шапки
-	mainText := fmt.Sprintf(t.CoreHeaderDesc, dateStr, timeStr)
+	mainText := fmt.Sprintf(i18n.T.CoreHeaderDesc, dateStr, timeStr)
 
 	// Добавляем предупреждение внизу основного текста
-	CoreHeader.Text = mainText + "\n" + t.CoreHeaderWarning
+	CoreHeader.Text = mainText + "\n" + i18n.T.CoreHeaderWarning
 
-	CoreHeader.Title = t.CoreTitleText
+	CoreHeader.Title = i18n.T.CoreTitleText
 	CoreHeader.WrapText = false // Отключает автоперенос
 
 	// 2. Верхний блок: Слайдер-список параметров (Высота 7 строк)
 	coreList := widgets.NewList()
-	coreList.Title = t.CoreListTitle
+	coreList.Title = i18n.T.CoreListTitle
 	coreList.Rows = menuRows
 	coreList.SetRect(2, 5, 102, 13)
 	coreList.BorderStyle.Fg = ui.ColorCyan
@@ -80,7 +94,7 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	// Вычисляем интерактивный текст справки
 	var helpText string
 	if selectedRow < 7 {
-		doc := t.SysctlDocs[selectedRow]
+		doc := i18n.T.SysctlDocs[selectedRow]
 		var currentVal int
 		switch selectedRow {
 		case 0:
@@ -98,16 +112,16 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 		case 6:
 			currentVal = cfg.ArmorNetIpv4ConfAllRpFilter
 		}
-		helpText = i18n.FormatTuiHelpText(doc, currentVal, lang)
+		helpText = formatCoreHelpText(doc, currentVal)
 	} else if selectedRow == 7 {
-		helpText = t.CoreResetWarning
+		helpText = i18n.T.CoreResetWarning
 	} else {
-		helpText = t.CoreBackText
+		helpText = i18n.T.CoreBackText
 	}
 
 	// 3. Средний блок: Широкоформатная Справка (Высота 9 строк)
 	infoBox := widgets.NewParagraph()
-	infoBox.Title = t.CoreInfoBoxTitle
+	infoBox.Title = i18n.T.CoreInfoBoxTitle
 	infoBox.Text = helpText
 	infoBox.SetRect(2, 13, 102, 24)
 	infoBox.BorderStyle.Fg = ui.ColorYellow
@@ -119,15 +133,15 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	sysConsole.SetRect(2, 24, 102, 30)
 
 	if IsCoreEditMode {
-		sysConsole.Title = t.ViewCoreSettingsEditModeTitle
+		sysConsole.Title = i18n.T.ViewCoreSettingsEditModeTitle
 
 		paramName := config.GetSysctlParamNameByIndex(selectedRow)
-		sysConsole.Text = fmt.Sprintf("  %s: %s\n  %s: [ %s_ ](fg:white,mod:bold)", t.ViewCoreSettingsLabelParam, paramName, t.ViewCoreSettingsLabelEnterNew, CurrentCoreInputBuf)
+		sysConsole.Text = fmt.Sprintf("  %s: %s\n  %s: [ %s_ ](fg:white,mod:bold)", i18n.T.ViewCoreSettingsLabelParam, paramName, i18n.T.ViewCoreSettingsLabelEnterNew, CurrentCoreInputBuf)
 		sysConsole.BorderStyle.Fg = ui.ColorGreen // Рамка становится зеленой при вводе
 		sysConsole.TextStyle.Fg = ui.ColorWhite
 		sysConsole.WrapText = false
 	} else {
-		sysConsole.Title = t.CoreSysConsoleTitle
+		sysConsole.Title = i18n.T.CoreSysConsoleTitle
 		if CoreAlertMessage != "" {
 			// Выводим алармы ошибок или сообщения об успешной записи
 			if strings.HasPrefix(CoreAlertMessage, "[УСПЕХ]") || strings.HasPrefix(CoreAlertMessage, "[SUCCESS]") {
@@ -135,12 +149,12 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 				sysConsole.BorderStyle.Fg = ui.ColorGreen
 				sysConsole.TextStyle.Fg = ui.ColorWhite
 			} else {
-				sysConsole.Text = "\n  ⚠️ [" + t.ViewCoreSettingsErrWriteRejectPrefix + "](fg:red,mod:bold): " + CoreAlertMessage
+				sysConsole.Text = "\n  ⚠️ [" + i18n.T.ViewCoreSettingsErrWriteRejectPrefix + "](fg:red,mod:bold): " + CoreAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorRed // Красная подсветка при ошибке границ
 				sysConsole.TextStyle.Fg = ui.ColorYellow
 			}
 		} else {
-			sysConsole.Text = t.CoreSysConsoleBody
+			sysConsole.Text = i18n.T.CoreSysConsoleBody
 			sysConsole.BorderStyle.Fg = ui.ColorGreen
 			sysConsole.TextStyle.Fg = ui.ColorCyan
 		}
@@ -152,22 +166,20 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 // SaveCoreSettingToDisk выполняет валидацию ИБ-границ и атомарную перезапись config.json
 func SaveCoreSettingToDisk(index int, value string) string {
 	value = strings.TrimSpace(value)
-	lang := config.C.Lang
-	t := i18n.Languages[lang]
 
 	if value == "" {
-		return t.ViewCoreSettingsErrEmptyValue
+		return i18n.T.ViewCoreSettingsErrEmptyValue
 	}
 	if !coreDigitOnlyRegex.MatchString(value) {
-		return i18n.Languages[lang].SettingsErrDigits
+		return i18n.T.SettingsErrDigits
 	}
 
 	valInt, _ := strconv.Atoi(value)
-	doc := t.SysctlDocs[index]
+	doc := i18n.T.SysctlDocs[index]
 
 	// Проверяем жесткие ИБ-границы безопасности для конкретного параметра ядра
 	if valInt < doc.MinVal || valInt > doc.MaxVal {
-		return fmt.Sprintf(t.ViewCoreSettingsErrOutOfBounds, doc.MinVal, doc.MaxVal)
+		return fmt.Sprintf(i18n.T.ViewCoreSettingsErrOutOfBounds, doc.MinVal, doc.MaxVal)
 	}
 
 	// v8.2.2 (волна гонки 2.3): мутация через config.Update —
@@ -192,7 +204,7 @@ func SaveCoreSettingToDisk(index int, value string) string {
 			c.SysctlCore.ArmorNetIpv4ConfAllRpFilter = valInt
 		}
 	}); err != nil {
-		return t.ViewCoreSettingsErrSaveFailPrefix + err.Error()
+		return i18n.T.ViewCoreSettingsErrSaveFailPrefix + err.Error()
 	}
 
 	// Если брандмауэр ядра сейчас активен, мгновенно накатываем новые лимиты в рантайм
@@ -200,5 +212,5 @@ func SaveCoreSettingToDisk(index int, value string) string {
 		_ = service.ToggleSysctlProtocol("ON")
 	}
 
-	return t.ViewCoreSettingsSuccessSaved
+	return i18n.T.ViewCoreSettingsSuccessSaved
 }
