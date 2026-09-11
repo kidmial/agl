@@ -320,7 +320,7 @@ func reconcileOnce() {
 	// с предыдущим успешным снапшотом, чтобы не обрушить ловушки из-за опечатки.
 	if err := config.LoadConfig(config.DirEtc + "/config.json"); err != nil {
 		sys.LogAction("TARPIT_MANAGER", "CONFIG_RELOAD_FAIL", "WARNING",
-			i18n.TrEventf("tarpit_manager.config_reload_fail", err))
+			i18n.TrEventf("config.reload_failed", err))
 	}
 
 	// -------------------------------------------------------------

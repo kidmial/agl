@@ -152,7 +152,6 @@ func init() {
 			"tarpit_manager.reject_reason_core_blocked": "castling not performed — port 22 occupied by legitimate OpenSSH",
 			"tarpit_manager.reject_reason_rescue_port":  "port %d — web rescue channel (C8 contract)",
 			"tarpit_manager.reject_reason_ssh_port":     "port %d — active hidden SSH port (C8 contract)",
-			"tarpit_manager.config_reload_fail":         "event=config.reload_failed err=%v. Continuing with the previous snapshot.",
 
 			// --- internal/tarpitctl/tarpit_controller.go ---
 			"tarpitctl.activate_request":           "Client requested trap activation on port %d",

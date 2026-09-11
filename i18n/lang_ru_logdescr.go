@@ -152,7 +152,6 @@ func init() {
 			"tarpit_manager.reject_reason_core_blocked": "рокировка не выполнена — порт 22 занят легитимным OpenSSH",
 			"tarpit_manager.reject_reason_rescue_port":  "порт %d — канал спасения веб-стука (контракт C8)",
 			"tarpit_manager.reject_reason_ssh_port":     "порт %d — активный скрытый порт SSH (контракт C8)",
-			"tarpit_manager.config_reload_fail":         "event=config.reload_failed err=%v. Продолжаю работу с предыдущим снапшотом.",
 
 			// --- internal/tarpitctl/tarpit_controller.go ---
 			"tarpitctl.activate_request":           "Клиент запросил активацию ловушки на порту %d",
