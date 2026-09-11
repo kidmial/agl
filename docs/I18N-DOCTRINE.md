@@ -31,6 +31,11 @@ Status: active. Scope: every user-facing string of the complex.
   the journal line is never empty (covered by `TestTrEventFallback`).
 - Never wrap `TrEvent`/`TrEventf` in `fmt.Sprintf` (double-format trap);
   enforced by `scripts/i18n_gate.sh`.
+- Journal event codes are semantic, not module-scoped: the same event logged
+  by different modules shares ONE code; the source is identified by the
+  COMPONENT/ACTION columns (example: `config.reload_failed` from
+  TARPIT_MANAGER and from the watcher). Module isolation (§3) applies to
+  UI strings, not to journal codes.
 - Post-init journal notes go through `sys.LogAction` + event codes; raw
   `log.Println`/`log.Printf` with natural language is forbidden after
   `i18n.InitLanguage`. Boot-time diagnostics (before init) are exempt and
