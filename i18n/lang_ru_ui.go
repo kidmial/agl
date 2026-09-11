@@ -235,12 +235,15 @@ func init() {
 		ArmorRateLimitFail:         "сбой rate-limit правила порта %d: %w",
 		ArmorUfwReloadFail:         "сбой перезагрузки UFW: %w",
 		ArmorMultiTarpitToggleFail: "сбой переключения мульти-ловушки на порту %d: %w",
+
 		// --- internal/service/inventory_service.go ---
 		InventoryScanFail:      "сбой сканирования периметра: %w",
 		InventoryLoadPortsFail: "сбой загрузки инвентаря портов: %w",
 		InventoryLoadAppsFail:  "сбой загрузки обнаруженных приложений: %w",
+
 		// --- internal/service/ssh_service.go ---
 		SshCastlingFail: "сбой рокировки SSH: %w",
+
 		// --- internal/service/tarpit_service.go ---
 		TarpitServiceActivateFail:     "сбой активации ловушки на порту %d: %w",
 		TarpitServiceDeactivateFail:   "сбой деактивации ловушки на порту %d: %w",
@@ -248,8 +251,10 @@ func init() {
 		TarpitServiceDaemonEnsureFail: "сбой обеспечения работы демона: %w",
 		TarpitServiceSyncConfigFail:   "сбой синхронизации конфига с базовой ловушкой: %w",
 		TarpitServiceUpdateConfigFail: "сбой обновления конфига ловушки на порту %d: %w",
+
 		// --- internal/sys/runner.go ---
 		SysRunnerTimeout: "команда %s превысила таймаут %s: %w",
+
 		// --- internal/sys/tarpit_inventory.go ---
 		TarpitInvReadFail:        "не удалось прочитать инвентарь ловушек %s: %w",
 		TarpitInvParseFail:       "сбой парсинга JSON инвентаря ловушек %s: %w",
@@ -262,11 +267,13 @@ func init() {
 		TarpitInvLockOpenFail:    "не удалось открыть lock-файл инвентаря: %w",
 		TarpitInvLockAcquireFail: "не удалось захватить блокировку инвентаря: %w",
 		TarpitInvTxCurrupted:     "инвентарь повреждён внутри транзакции: %w",
+
 		// --- internal/tarpit/tarpit_manager.go ---
 		TarpitManagerTrapRemovedFromInventory: "ловушка %s удалена из инвентаря",
 		TarpitManagerTrapMissingFromInventory: "ловушка %s отсутствует в инвентаре (удалена клиентом)",
 		TarpitManagerMarkerSerializeFail:      "сбой сериализации маркера: %w",
 		TarpitManagerMarkerWriteDiskFail:      "сбой записи маркера на диск: %w",
+
 		// --- internal/tarpitctl/tarpit_controller.go ---
 		TarpitCtlInventoryWriteCriticalFail: "критический сбой записи инвентаря ловушек: %w",
 		TarpitCtlDaemonStartFail:            "инвентарь записан, но сбой запуска демона: %w",
@@ -282,6 +289,7 @@ func init() {
 		TarpitCtlPortOccupiedByKernel:       "порт %d уже занят в ядре ОС (ground truth): %w",
 		TarpitCtlCastlingNotDone:            "блокировка запуска: рокировка портов не выполнена. Легитимный OpenSSH всё ещё удерживает порт 22. Сначала выполните рокировку (Кастлинг)",
 		TarpitCtlCastlingDesync:             "блокировка запуска: маркер рокировки существует, но детектор показывает, что OpenSSH всё ещё на порту %s. Рассинхронизация состояния",
+
 		// --- tui/view_armor_controller.go ---
 		ViewArmorCtlProgressTitleOn:       "Активация Брони",
 		ViewArmorCtlProgSysctlTune:        "Оптимизация SYSCTL параметров...",
@@ -301,6 +309,7 @@ func init() {
 		ViewArmorCtlHintPerimeterOff:      "Рубеж %s успешно отключен.",
 		ViewArmorCtlCoreSaveFailPrefix:    "[ОШИБКА]: Сбой сохранения конфигурации: ",
 		ViewArmorCtlCoreResetSuccess:      "[УСПЕХ]: Параметры сброшены к эталонам Amber Guard Lab.",
+
 		// --- tui/view_armor_progress.go ---
 		ViewArmorProgressTransactionLabel:  "ТРАНЗАКЦИЯ",
 		ViewArmorProgressInitKernel:        "Инициализация контура ядра...",
@@ -311,6 +320,7 @@ func init() {
 		ViewArmorProgressHintExit:          "Нажмите кнопку",
 		ViewArmorProgressHintOr:            "или",
 		ViewArmorProgressHintReturn:        "для возврата в главное меню Брони.",
+
 		// --- tui/view_armor.go ---
 		ViewArmorHintSysctl:           "SYSCTL (Оптимизация ядра):\n\tВкл: Максимальная эффективность обработки трафика.\n\tВыкл: Стандартный консервативный режим.\n\tНажатие ENTER переключает протокол ядра.\n\tЭто влияет на общую производительность под нагрузкой.",
 		ViewArmorHintScanPerimeter:    "SCAN_PERIMETER (Аудит периметра):\n\tИнициирует полное сканирование открытых портов.\n\tОбнаруживает незащищенные службы хоста.\n\tПомогает выявить потенциальные векторы атаки.\n\tЗапуск занимает около 20-30 секунд.",
@@ -341,6 +351,7 @@ func init() {
 		ViewArmorLabelScrollInfo:      "Скроллинг портов работает автоматически внутри верхней рамки",
 		ViewArmorLabelExit:            "ВЫХОД",
 		ViewArmorLabelExitHint:        "Выберите строку НАЗАД или нажмите ESC для возврата в главное меню",
+
 		// --- tui/view_backup.go ---
 		ViewBackupGaugeTitle:          " Синхронный Снапшот Системы и Логов Amber Guard Lab.",
 		ViewBackupGaugeObjectTitleTpl: " Упаковка объекта: [ %s ] ",
@@ -351,6 +362,7 @@ func init() {
 		ViewBackupConfirmPressKey:     "Нажмите",
 		ViewBackupConfirmOr:           "или",
 		ViewBackupConfirmReturnMenu:   "для возврата в Главное меню.",
+
 		// --- tui/view_core_settings.go ---
 		ViewCoreSettingsRowSyncookies:        "Защита от SYN-флуда (0/1)",
 		ViewCoreSettingsRowFinTimeout:        "Время удержания сокетов FIN-WAIT-2 (сек)",
@@ -369,6 +381,7 @@ func init() {
 		ViewCoreSettingsErrSaveFailPrefix:    "Ошибка сохранения конфигурации: ",
 		ViewCoreSettingsSuccessSaved:         "[УСПЕХ]: Параметр успешно изменен и синхронизирован с ядром Linux.",
 		ViewCoreSettingsErrWriteRejectPrefix: "ОТКАЗ ЗАПИСИ",
+
 		// --- tui/view_forensics.go ---
 		ViewForensicsHeaderTitle:       " Подсистема Криминалистического Анализа и Форензики ",
 		ViewForensicsLabelCollectMode:  "РЕЖИМ СБОРА МЕТРИК",
@@ -382,6 +395,7 @@ func init() {
 		ViewForensicsRowIpForensics:    "Картотека и персональное криминалистическое досье нарушителя",
 		ViewForensicsRowBack:           "Назад в главное меню сервера",
 		ViewForensicsInfoBoxTitle:      " Регламент проведения криминалистического расследования инцидентов ",
+
 		// --- tui/view_main.go ---
 		ViewMainLabelMainMenu:      "Главное Меню Комплекса",
 		ViewMainLabelDate:          "Дата",
@@ -409,6 +423,7 @@ func init() {
 		ViewMainFallbackUnknownCpu: "Неизвестный ЦП",
 		ViewMainFallbackError:      "Ошибка",
 		ViewMainFallbackZeroMb:     "0 MB / 0 MB",
+
 		// --- tui/view_multi_tarpit.go ---
 		ViewMultiTarpitHeaderTitle:            " MULTI-TARPIT - Пул Распределенных Мульти-Ловушек ",
 		ViewMultiTarpitHeaderDesc:             "Управление активными горутинами-воркерами эмуляции служб.",
@@ -441,6 +456,7 @@ func init() {
 		ViewMultiTarpitLabelSessionLimit:      "Лимит сессий",
 		ViewMultiTarpitLabelMarker:            "Маркер",
 		ViewMultiTarpitPassportFooter:         "[ENTER] — карточка управления (START/STOP/EDIT/DELETE). [ESC] — выход.",
+
 		// --- tui/view_port_map.go ---
 		ViewPortMapHeaderTitle:     "Мониторинг Сетевого Периметра",
 		ViewPortMapHeaderDesc:      "  Карта легитимных портов хоста. Визуализация занятых сокетов для планирования ловушек.\n  Выполните SCAN_PERIMETER в разделе ANTIDDOS что бы увидеть актуальное состояние",
@@ -460,6 +476,7 @@ func init() {
 		ViewPortMapLabelScrollInfo: "Скроллинг списка сокетов работает автоматически внутри рамки списка",
 		ViewPortMapLabelStatus:     "СТАТУС",
 		ViewPortMapLabelStatusSync: "Контур мониторинга синхронизирован с подсистемой автоматического инвентаря",
+
 		// --- tui/view_router.go ---
 		ViewRouterAnalyticsStatus:            "[СТАТУС]: Раздел ANALYTICS находится на плановой модернизации ядра Amber Guard Laboratory.",
 		ViewRouterTrapPortAlreadyInInventory: "Порт %d уже в инвентаре. Используйте карточку ловушки → EDIT.",
@@ -468,6 +485,7 @@ func init() {
 		ViewRouterTrapPortReadOnly:           "Порт ловушки доступен только для чтения.",
 		ViewRouterErrSavePrefix:              "ОШИБКА СОХРАНЕНИЯ: ",
 		ViewRouterScanLoadingText:            "\n\n  СКАНИРОВАНИЕ БЕЗОПАСНОСТИ...\n  Пожалуйста, подождите.",
+
 		// --- tui/view_settings.go ---
 		ViewSettingsErrPasswordTooShort:          "Пароль слишком короткий! Минимум 8 символов — это канал спасения.",
 		ViewSettingsErrPasswordTooLong:           "Пароль слишком длинный! Технический потолок 128 символов.",
@@ -514,6 +532,7 @@ func init() {
 		CoreDocCurVal:                            "Текущее боевое значение в config.json:",
 		CoreDocLimit:                             "Безопасные границы регулирования: от",
 		CoreDocFactory:                           "Заводской эталон:",
+
 		// --- tui/view_tarpit_controller.go ---
 		ViewTarpitCtlLockCritical:           "\n[КРИТИЧЕСКАЯ БЛОКИРОВКА БЕЗОПАСНОСТИ]: Отказ выполнения рокировки!",
 		ViewTarpitCtlLockReason:             "[ПРИЧИНА]: Дегтярная яма активна на порту 22. Сначала остановите капкан (TARPIT_OFF).",
@@ -530,10 +549,12 @@ func init() {
 		ViewTarpitCtlStopSuccess:            "[УСПЕХ]: Дегтярная Яма деактивирована. Периметр порта 22 восстановлен.",
 		ViewTarpitCtlProtocolHeader:         "\n=== AMBER GUARD LAB - DECEPTION TARPIT PROTOCOL ===",
 		ViewTarpitCtlProtocolPressEnter:     " Нажмите ENTER для возврата...",
+
 		// --- tui/view_tarpit_live_box.go ---
 		ViewTarpitLiveBoxHeaderText: " Хроника Истощения и Анализа Сканеров (TARPIT_LIVE_BOX)",
 		ViewTarpitLiveBoxListTitle:  " Хроника инцидентов (Свежие атаки сверху) ",
 		ViewTarpitLiveBoxHintExit:   " [ Нажмите ESC или Q для закрытия LIVE_BOX и возврата ] ",
+
 		// --- tui/view_tarpit.go ---
 		ViewTarpitHeaderTitle:            "Контрольная Панель «Дегтярная Яма» (SSH Deception Tar-pit)",
 		ViewTarpitLabelCurrentSshPort:    "Текущий порт OpenSSH:",
@@ -557,6 +578,7 @@ func init() {
 		ViewTarpitLiveTerminalTitle:      " Мониторинг касаний сокетов в реальном времени (LIVE) ",
 		ViewTarpitReportTerminalTitleTpl: " Хроника истощения ботнетов (Ботов в капкане сейчас: %d) ",
 		ViewTarpitLogUnavailable:         "  [СИСТЕМА]: Журналы капкана временно недоступны или пусты.",
+
 		// --- tui/view_trap_card.go ---
 		ViewTrapCardHeaderTitle:            "Карточка Ловушки",
 		ViewTrapCardLabelPort:              "Порт",
@@ -592,6 +614,7 @@ func init() {
 		ViewTrapCardHintDeleteWaiting:      " Ожидание завершения.\n Демон ещё очищает служебные файлы.\n Повторите через несколько секунд.",
 		ViewTrapCardHintDeleteInfo:         " Полное удаление ловушки из инвентаря.\n ДЕЙСТВИЕ НЕОБРАТИМО.\n Если это была последняя ловушка, демон остановится автоматически.",
 		ViewTrapCardHintBack:               " Возврат в главный диспетчер пула MULTI TARPIT.",
+
 		// --- tui/view_trap_creator.go ---
 		ViewTrapCreatorHeaderTitle:            "Мастер Развертывания Нового Рубежа",
 		ViewTrapCreatorLabelDate:              "Текущая дата",
@@ -639,6 +662,7 @@ func init() {
 		ViewTrapCreatorErrDelayRange:          "Критическое значение задержки! Допускается диапазон от 1 до 300 секунд.",
 		ViewTrapCreatorErrVarianceRangeTpl:    "DelayVariance не может быть отрицательным или превышать базовый сон DelayStep (%d сек)!",
 		ViewTrapCreatorErrMaxConnRange:        "Недопустимый лимит сессий! Установите границы от 1 до 1000 горутин.",
+
 		// --- tui/view_trap_editor.go ---
 		ViewTrapEditorErrLoadInventory:       "не удалось загрузить инвентарь: %w",
 		ViewTrapEditorErrNotFound:            "ловушка %s не найдена в инвентаре",

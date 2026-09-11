@@ -7,6 +7,7 @@ func init() {
 			// --- internal/armor/ssh_limit_protocol.go ---
 			"ssh_limit.collision_lock":      "Активация лимитера отклонена: на целевом порту 22 развернута Дегтярная яма киберразведки",
 			"ssh_limit.target_port_resolve": "Интеллектуальный шлюз успешно определил целевой порт SSH для применения защиты: %d",
+
 			// --- internal/armor/sysctl_tune_protocol.go ---
 			"sysctl_tune.baseline_read_fail":    "Не удалось прочитать %s для базлайна: %v",
 			"sysctl_tune.baseline_write_fail":   "Не удалось сохранить базлайн: %v",
@@ -16,12 +17,15 @@ func init() {
 			"sysctl_tune.restore_baseline_core": "Сетевой стек ядра возвращён к пре-броневому состоянию. Источник: %s.",
 			"sysctl_tune.apply_core_protection": "Параметры сетевого стека ядра Linux оптимизированы: SYN_Cookies=%d, FIN_Timeout=%d, Max_Syn_Backlog=%d, Somaxconn=%d",
 			"sysctl_tune.core_misconfiguration": "Обнаружено рассогласование параметров ядра! Текущий fin_timeout в ОС=%d, эталонное значение Laboratory=%d",
+
 			// --- internal/sys/utils.go ---
 			"ss.probe_restored":                 "event=ss.probe_restored Опрос ss снова доступен.",
 			"ssh_detect.port_mismatch":          "Расхождение геометрии SSH: sshd_config декларирует %s, ядро (ss) слушает %s. Приоритет: конфиг (намерение админа). AGL не правит sshd_config вне рокировки. Если расхождение не осознанно выполните systemctl reload ssh.",
 			"ssh_detect.port_mismatch_resolved": "Геометрия SSH восстановлена: sshd_config и ядро слушают порт %s.",
+
 			// --- internal/armor/web_rescue_tls.go ---
 			"web_rescue.tls_cert_generated": "Сгенерирован самоподписанный TLS-сертификат (ECDSA P-256, 10 лет). SHA-256 отпечаток для пиннинга: %s",
+
 			// --- internal/armor/web_rescue_server.go ---
 			"web_rescue.ufw_gate_open":      "Открыт UFW-гейт канала веб-стука: порт %d",
 			"web_rescue.tls_fail_closed":    "TLS-сертификат недоступен: %v. Сервер веб-стука НЕ запущен (fail closed). Ретрай на следующем тике.",
@@ -31,6 +35,7 @@ func init() {
 			"web_rescue.signal_write_fail":  "Не удалось записать файл сигнала: %v",
 			"web_rescue.signal_written":     "Файл сигнала записан (0600): IP=%s. Воркер подхватит на следующем тике.",
 			"web_rescue.bruteforce_lockout": "Пять неудачных попыток пароля подряд — канал веб-стука заблокирован на 60 секунд.",
+
 			// --- internal/armor/watcher_protocol.go ---
 			"watcher.start":                 "Наблюдатель простоя администратора запущен. Период тикера: 60 сек.",
 			"config.reload_failed":          "event=config.reload_failed err=%v. Продолжаю работу с предыдущим снапшотом.",
@@ -54,6 +59,7 @@ func init() {
 			"watcher.web_knock_processed":   "Веб-стук обработан: IP=%s, порт=%s. Точечное правило внедрено.",
 			"web_rescue.server_disabled":    "Канал веб-стука выключен в SETTINGS. Сервер остановлен, гейт снят.",
 			"web_rescue.server_restart":     "Порт веб-стука изменён в SETTINGS. Сервер перезапущен на порту %d.",
+
 			// --- internal/armor/port_move_protocol.go ---
 			"ssh.original_anchor_failed":                "event=ssh.original_anchor_failed err=%v stderr=%s. Кастлинг продолжается: откат обеспечен rolling-бэкапом.",
 			"port_castling.ssh_original_anchor_created": "Создан неприкосновенный якорь заводского sshd_config: %s",
@@ -80,6 +86,7 @@ func init() {
 			"port_castling.ssh_service_restore":         "SSH Служба ssh.service успешно возвращена на стандартный порт 22",
 			"port_castling.limiter_restore_22":          "Сетевой лимитер защиты успешно восстановлен на новом порту управления 22",
 			"port_castling.perimetre_rescan_off":        "Асинхронное пересканирование периметра после рокировки OFF завершено успешно.",
+
 			// --- internal/armor/tarpit_service_protocol.go ---
 			"tarpit_service.port_congestion_lock":       "Запуск ловушки заблокирован: легитимный процесс OpenSSH продолжает удерживать порт 22",
 			"tarpit_service.netfilter_prepare_done":     "Предварительное изменение лимитеров Netfilter и зачистка порта 22 завершены",
@@ -93,6 +100,7 @@ func init() {
 			"tarpit_service.perimeter_restore_standard": "Рокировка не выполнена. Периметр порта 22 возвращён в стандартный режим OpenSSH",
 			"tarpit_service.perimeter_muting":           "Обнаружена активная рокировка. Периметр порта 22 остается замурованным",
 			"tarpit_service.tarpit_off_complete":        "Дегтярная Яма на порту 22 успешно деактивирована. Периметр восстановлен.",
+
 			// --- main.go ---
 			"singleton.lock_busy":             "event=singleton.lock_busy role=%s pid=%d. Второй экземпляр демон-режима отклонён.",
 			"singleton.lock_held":             "event=singleton.lock_held role=%s pid=%d. Экземпляр демон-режима единственный.",
@@ -102,6 +110,10 @@ func init() {
 			"main.watcher_process_start":      "Процесс наблюдателя простоя администратора запущен.",
 			"main.reconcile_session_start":    "Выполнен вход в TUI-панель.",
 			"main.tui_exit":                   "Выполнен выход из TUI-панели.",
+			"main.geo_missing":                "Компонент гео-аналитики '%s' не обнаружен.",
+			"main.geo_install_fail":           "Сбой установки geoip-bin: %v",
+			"main.geo_install_success":        "Пакет geoip-bin успешно установлен.",
+			"main.geo_install_declined":       "Администратор отклонил установку GeoIP.",
 			"main.castling_marker_restore":    "Восстановлен маркер рокировки: порт %s",
 			"main.castling_marker_purge":      "Маркер рокировки удалён: рокировка неактивна",
 			"main.inventory_not_found":        "Инвентарь ловушек не найден. Первый старт или ловушки не настроены.",
@@ -119,8 +131,10 @@ func init() {
 			"main.armor_rule_restored":        "Броня на порту %d (%s) успешно восстановлена.",
 			"main.armor_rule_without_receipt": "Обнаружено правило брони без квитанции: порт %d (%s). Правило сохранено (ручное создание?).",
 			"main.armor_reconcile_summary":    "Сверка брони завершена. Восстановлено правил: %d. Предупреждений: %d.",
+
 			// --- internal/tarpit/tarpit_listener.go ---
 			"geo.restored": "event=geo.restored Гео-аналитика снова доступна.",
+
 			// --- internal/tarpit/tarpit_manager.go ---
 			"tarpit_manager.fuse_reject":                "Ловушка %s отклонена: %s",
 			"tarpit_manager.declaration_rejected_fuse":  "Декларация %s отклонена предохранителем: %s (попыток: 3). state→STOPPED. Повтор — только осознанно через карточку.",
@@ -139,6 +153,7 @@ func init() {
 			"tarpit_manager.reject_reason_rescue_port":  "порт %d — канал спасения веб-стука (контракт C8)",
 			"tarpit_manager.reject_reason_ssh_port":     "порт %d — активный скрытый порт SSH (контракт C8)",
 			"tarpit_manager.config_reload_fail":         "event=config.reload_failed err=%v. Продолжаю работу с предыдущим снапшотом.",
+
 			// --- internal/tarpitctl/tarpit_controller.go ---
 			"tarpitctl.activate_request":           "Клиент запросил активацию ловушки на порту %d",
 			"tarpitctl.activate_blocked_perimeter": "Активация заблокирована предохранителем периметра: %v",
@@ -163,9 +178,11 @@ func init() {
 			"tarpitctl.daemon_stopped":             "Все ловушки деактивированы. Демон остановлен.",
 			"tarpitctl.unit_removed":               "Юнит agld_tarpit.service деинсталлирован из системы.",
 			"tarpitctl.perimeter_check_skip":       "Инвентарь периметра недоступен: %v. Проверка порта пропущена.",
+
 			// --- tui/view_main.go ---
 			"ufw.status_restored":            "event=ufw.status_restored Опрос UFW снова доступен.",
 			"systemd.watcher_probe_restored": "event=systemd.watcher_probe_restored Опрос юнита вотчера снова доступен.",
+
 			// --- tui/view_router.go ---
 			"tui_router.trap_card_open":          "Открыта карточка ловушки %s",
 			"tui_router.trap_card_start_blocked": "Ловушка %s НЕ запущена: %v",

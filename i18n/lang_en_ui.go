@@ -235,12 +235,15 @@ func init() {
 		ArmorRateLimitFail:         "rate-limit rule failure for port %d: %w",
 		ArmorUfwReloadFail:         "UFW reload failure: %w",
 		ArmorMultiTarpitToggleFail: "multi-tarpit toggle failure on port %d: %w",
+
 		// --- internal/service/inventory_service.go ---
 		InventoryScanFail:      "perimeter scan failure: %w",
 		InventoryLoadPortsFail: "port inventory load failure: %w",
 		InventoryLoadAppsFail:  "detected apps load failure: %w",
+
 		// --- internal/service/ssh_service.go ---
 		SshCastlingFail: "SSH castling failure: %w",
+
 		// --- internal/service/tarpit_service.go ---
 		TarpitServiceActivateFail:     "trap activation failure on port %d: %w",
 		TarpitServiceDeactivateFail:   "trap deactivation failure on port %d: %w",
@@ -248,8 +251,10 @@ func init() {
 		TarpitServiceDaemonEnsureFail: "daemon ensure failure: %w",
 		TarpitServiceSyncConfigFail:   "config sync failure with core trap: %w",
 		TarpitServiceUpdateConfigFail: "trap config update failure on port %d: %w",
+
 		// --- internal/sys/runner.go ---
 		SysRunnerTimeout: "command %s exceeded timeout %s: %w",
+
 		// --- internal/sys/tarpit_inventory.go ---
 		TarpitInvReadFail:        "failed to read tarpit inventory %s: %w",
 		TarpitInvParseFail:       "tarpit inventory JSON parse failure %s: %w",
@@ -262,11 +267,13 @@ func init() {
 		TarpitInvLockOpenFail:    "failed to open inventory lock file: %w",
 		TarpitInvLockAcquireFail: "failed to acquire inventory lock: %w",
 		TarpitInvTxCurrupted:     "inventory corrupted inside transaction: %w",
+
 		// --- internal/tarpit/tarpit_manager.go ---
 		TarpitManagerTrapRemovedFromInventory: "trap %s removed from inventory",
 		TarpitManagerTrapMissingFromInventory: "trap %s missing from inventory (deleted by client)",
 		TarpitManagerMarkerSerializeFail:      "marker serialization failure: %w",
 		TarpitManagerMarkerWriteDiskFail:      "marker disk write failure: %w",
+
 		// --- internal/tarpitctl/tarpit_controller.go ---
 		TarpitCtlInventoryWriteCriticalFail: "critical tarpit inventory write failure: %w",
 		TarpitCtlDaemonStartFail:            "inventory written, but daemon start failure: %w",
@@ -282,6 +289,7 @@ func init() {
 		TarpitCtlPortOccupiedByKernel:       "port %d already occupied in OS kernel (ground truth): %w",
 		TarpitCtlCastlingNotDone:            "startup blocked: port castling not performed. Legitimate OpenSSH still holds port 22. Perform castling first",
 		TarpitCtlCastlingDesync:             "startup blocked: castling marker exists, but detector shows OpenSSH still on port %s. State desynchronization",
+
 		// --- tui/view_armor_controller.go ---
 		ViewArmorCtlProgressTitleOn:       "Armor Activation",
 		ViewArmorCtlProgSysctlTune:        "Optimizing SYSCTL parameters...",
@@ -301,6 +309,7 @@ func init() {
 		ViewArmorCtlHintPerimeterOff:      "Perimeter %s successfully deactivated.",
 		ViewArmorCtlCoreSaveFailPrefix:    "[ERROR]: Configuration save failure: ",
 		ViewArmorCtlCoreResetSuccess:      "[SUCCESS]: Parameters reset to Amber Guard Lab templates.",
+
 		// --- tui/view_armor_progress.go ---
 		ViewArmorProgressTransactionLabel:  "TRANSACTION",
 		ViewArmorProgressInitKernel:        "Initializing kernel contour...",
@@ -311,6 +320,7 @@ func init() {
 		ViewArmorProgressHintExit:          "Press button",
 		ViewArmorProgressHintOr:            "or",
 		ViewArmorProgressHintReturn:        "to return to the main Armor menu.",
+
 		// --- tui/view_armor.go ---
 		ViewArmorHintSysctl:           "SYSCTL (Kernel Optimization):\n\tOn: Maximum traffic processing efficiency.\n\tOff: Standard conservative mode.\n\tPressing ENTER toggles the kernel protocol.\n\tThis affects overall performance under load.",
 		ViewArmorHintScanPerimeter:    "SCAN_PERIMETER (Perimeter Audit):\n\tInitiates full scan of open ports.\n\tDetects unprotected host services.\n\tHelps identify potential attack vectors.\n\tTakes about 20-30 seconds.",
@@ -341,6 +351,7 @@ func init() {
 		ViewArmorLabelScrollInfo:      "Port scrolling works automatically inside the top frame",
 		ViewArmorLabelExit:            "EXIT",
 		ViewArmorLabelExitHint:        "Select the BACK row or press ESC to return to the main menu",
+
 		// --- tui/view_backup.go ---
 		ViewBackupGaugeTitle:          " Synchronous Snapshot of System and Logs Amber Guard Lab.",
 		ViewBackupGaugeObjectTitleTpl: " Packing object: [ %s ] ",
@@ -351,6 +362,7 @@ func init() {
 		ViewBackupConfirmPressKey:     "Press",
 		ViewBackupConfirmOr:           "or",
 		ViewBackupConfirmReturnMenu:   "to return to the Main Menu.",
+
 		// --- tui/view_core_settings.go ---
 		ViewCoreSettingsRowSyncookies:        "Protection against SYN-flood (0/1)",
 		ViewCoreSettingsRowFinTimeout:        "FIN-WAIT-2 socket retention time (sec)",
@@ -369,6 +381,7 @@ func init() {
 		ViewCoreSettingsErrSaveFailPrefix:    "Configuration save failure: ",
 		ViewCoreSettingsSuccessSaved:         "[SUCCESS]: Parameter modified and synchronized with kernel.",
 		ViewCoreSettingsErrWriteRejectPrefix: "WRITE REJECT",
+
 		// --- tui/view_forensics.go ---
 		ViewForensicsHeaderTitle:       " Criminalistic Analysis and Forensics Subsystem ",
 		ViewForensicsLabelCollectMode:  "METRICS COLLECTION MODE",
@@ -382,6 +395,7 @@ func init() {
 		ViewForensicsRowIpForensics:    "Card file and personal forensic dossier of the offender",
 		ViewForensicsRowBack:           "Back to the main server menu",
 		ViewForensicsInfoBoxTitle:      " Regulations for conducting forensic investigation of incidents ",
+
 		// --- tui/view_main.go ---
 		ViewMainLabelMainMenu:      "Complex Main Menu",
 		ViewMainLabelDate:          "Date",
@@ -409,6 +423,7 @@ func init() {
 		ViewMainFallbackUnknownCpu: "Unknown CPU",
 		ViewMainFallbackError:      "Error",
 		ViewMainFallbackZeroMb:     "0 MB / 0 MB",
+
 		// --- tui/view_multi_tarpit.go ---
 		ViewMultiTarpitHeaderTitle:            " MULTI-TARPIT - Distributed Multi-Trap Pool ",
 		ViewMultiTarpitHeaderDesc:             "Management of active service-emulation worker goroutines.",
@@ -441,6 +456,7 @@ func init() {
 		ViewMultiTarpitLabelSessionLimit:      "Session limit",
 		ViewMultiTarpitLabelMarker:            "Marker",
 		ViewMultiTarpitPassportFooter:         "[ENTER] — control card (START/STOP/EDIT/DELETE). [ESC] — exit.",
+
 		// --- tui/view_port_map.go ---
 		ViewPortMapHeaderTitle:     "Network Perimeter Monitoring",
 		ViewPortMapHeaderDesc:      "  Map of legitimate host ports. Visualization of occupied sockets for trap planning.\n  Run SCAN_PERIMETER in the ANTIDDOS section to see the current state",
@@ -460,6 +476,7 @@ func init() {
 		ViewPortMapLabelScrollInfo: "Socket list scrolling works automatically within the list frame",
 		ViewPortMapLabelStatus:     "STATUS",
 		ViewPortMapLabelStatusSync: "Monitoring contour is synchronized with the auto-inventory subsystem",
+
 		// --- tui/view_router.go ---
 		ViewRouterAnalyticsStatus:            "[STATUS]: ANALYTICS section is undergoing planned core modernization by Amber Guard Laboratory.",
 		ViewRouterTrapPortAlreadyInInventory: "Port %d is already in inventory. Use the trap card → EDIT.",
@@ -468,6 +485,7 @@ func init() {
 		ViewRouterTrapPortReadOnly:           "Trap port is read-only.",
 		ViewRouterErrSavePrefix:              "SAVE ERROR: ",
 		ViewRouterScanLoadingText:            "\n\n  SECURITY SCANNING...\n  Please wait.",
+
 		// --- tui/view_settings.go ---
 		ViewSettingsErrPasswordTooShort:          "Password too short! Minimum 8 characters.",
 		ViewSettingsErrPasswordTooLong:           "Password too long! Technical limit 128 characters.",
@@ -514,6 +532,7 @@ func init() {
 		CoreDocCurVal:                            "Current operational value in config.json:",
 		CoreDocLimit:                             "Safe regulation boundaries: from",
 		CoreDocFactory:                           "Factory template:",
+
 		// --- tui/view_tarpit_controller.go ---
 		ViewTarpitCtlLockCritical:           "\n[CRITICAL SECURITY LOCKOUT]: Castling execution refused!",
 		ViewTarpitCtlLockReason:             "[REASON]: Tar pit is active on port 22. Stop the trap first (TARPIT_OFF).",
@@ -530,10 +549,12 @@ func init() {
 		ViewTarpitCtlStopSuccess:            "[SUCCESS]: Tar Pit deactivated. Port 22 perimeter restored.",
 		ViewTarpitCtlProtocolHeader:         "\n=== AMBER GUARD LAB - DECEPTION TARPIT PROTOCOL ===",
 		ViewTarpitCtlProtocolPressEnter:     " Press ENTER to return...",
+
 		// --- tui/view_tarpit_live_box.go ---
 		ViewTarpitLiveBoxHeaderText: " Scanner Exhaustion and Analysis Chronicle (TARPIT_LIVE_BOX)",
 		ViewTarpitLiveBoxListTitle:  " Incident Chronicle (Fresh attacks on top) ",
 		ViewTarpitLiveBoxHintExit:   " [ Press ESC or Q to close LIVE_BOX and return ] ",
+
 		// --- tui/view_tarpit.go ---
 		ViewTarpitHeaderTitle:            "Control Panel \"Tar Pit\" (SSH Deception Tar-pit)",
 		ViewTarpitLabelCurrentSshPort:    "Current OpenSSH port:",
@@ -557,6 +578,7 @@ func init() {
 		ViewTarpitLiveTerminalTitle:      " Real-time socket touch monitoring (LIVE) ",
 		ViewTarpitReportTerminalTitleTpl: " Botnet exhaustion chronicle (Bots in trap now: %d) ",
 		ViewTarpitLogUnavailable:         "  [SYSTEM]: Trap logs are temporarily unavailable or empty.",
+
 		// --- tui/view_trap_card.go ---
 		ViewTrapCardHeaderTitle:            "Trap Card",
 		ViewTrapCardLabelPort:              "Port",
@@ -592,6 +614,7 @@ func init() {
 		ViewTrapCardHintDeleteWaiting:      " Waiting for completion.\n Daemon is still cleaning up service files.\n Retry in a few seconds.",
 		ViewTrapCardHintDeleteInfo:         " Full deletion of trap from inventory.\n ACTION IS IRREVERSIBLE.\n If this was the last trap, daemon will stop automatically.",
 		ViewTrapCardHintBack:               " Return to the MULTI TARPIT pool dispatcher.",
+
 		// --- tui/view_trap_creator.go ---
 		ViewTrapCreatorHeaderTitle:            "New Perimeter Deployment Wizard",
 		ViewTrapCreatorLabelDate:              "Current date",
@@ -639,6 +662,7 @@ func init() {
 		ViewTrapCreatorErrDelayRange:          "Critical delay value! Allowed range from 1 to 300 seconds.",
 		ViewTrapCreatorErrVarianceRangeTpl:    "DelayVariance cannot be negative or exceed the base sleep DelayStep (%d sec)!",
 		ViewTrapCreatorErrMaxConnRange:        "Invalid session limit! Set boundaries from 1 to 1000 goroutines.",
+
 		// --- tui/view_trap_editor.go ---
 		ViewTrapEditorErrLoadInventory:       "failed to load inventory: %w",
 		ViewTrapEditorErrNotFound:            "trap %s not found in inventory",

@@ -7,6 +7,7 @@ func init() {
 			// --- internal/armor/ssh_limit_protocol.go ---
 			"ssh_limit.collision_lock":      "Limiter activation rejected: a cyber-recon tarpit is deployed on target port 22",
 			"ssh_limit.target_port_resolve": "Intelligent gateway successfully resolved the target SSH port for protection: %d",
+
 			// --- internal/armor/sysctl_tune_protocol.go ---
 			"sysctl_tune.baseline_read_fail":    "Failed to read %s for baseline: %v",
 			"sysctl_tune.baseline_write_fail":   "Failed to save baseline: %v",
@@ -16,12 +17,15 @@ func init() {
 			"sysctl_tune.restore_baseline_core": "Kernel network stack restored to pre-armor state. Source: %s.",
 			"sysctl_tune.apply_core_protection": "Linux kernel network stack parameters optimized: SYN_Cookies=%d, FIN_Timeout=%d, Max_Syn_Backlog=%d, Somaxconn=%d",
 			"sysctl_tune.core_misconfiguration": "Kernel parameter mismatch detected! Current fin_timeout in OS=%d, Laboratory reference value=%d",
+
 			// --- internal/sys/utils.go ---
 			"ss.probe_restored":                 "event=ss.probe_restored ss probe available again.",
 			"ssh_detect.port_mismatch":          "SSH geometry mismatch: sshd_config declares %s, kernel (ss) listens %s. Priority: config (admin intent). AGL does not modify sshd_config outside castling. If mismatch is unintentional, run systemctl reload ssh.",
 			"ssh_detect.port_mismatch_resolved": "SSH geometry restored: sshd_config and kernel listen port %s.",
+
 			// --- internal/armor/web_rescue_tls.go ---
 			"web_rescue.tls_cert_generated": "Generated self-signed TLS certificate (ECDSA P-256, 10 years). SHA-256 fingerprint for pinning: %s",
+
 			// --- internal/armor/web_rescue_server.go ---
 			"web_rescue.ufw_gate_open":      "Web rescue UFW gate opened: port %d",
 			"web_rescue.tls_fail_closed":    "TLS certificate unavailable: %v. Web rescue server NOT started (fail closed). Retry on next tick.",
@@ -31,6 +35,7 @@ func init() {
 			"web_rescue.signal_write_fail":  "Failed to write signal file: %v",
 			"web_rescue.signal_written":     "Signal file written (0600): IP=%s. Worker will pick up on next tick.",
 			"web_rescue.bruteforce_lockout": "Five consecutive failed password attempts — web rescue channel locked for 60 seconds.",
+
 			// --- internal/armor/watcher_protocol.go ---
 			"watcher.start":                 "Admin idle watcher started. Ticker period: 60 sec.",
 			"config.reload_failed":          "event=config.reload_failed err=%v. Continuing with the previous snapshot.",
@@ -54,6 +59,7 @@ func init() {
 			"watcher.web_knock_processed":   "Web knock processed: IP=%s, port=%s. Point rule injected.",
 			"web_rescue.server_disabled":    "Web knock channel disabled in SETTINGS. Server stopped, gate removed.",
 			"web_rescue.server_restart":     "Web knock port changed in SETTINGS. Server restarted on port %d.",
+
 			// --- internal/armor/port_move_protocol.go ---
 			"ssh.original_anchor_failed":                "event=ssh.original_anchor_failed err=%v stderr=%s. Castling continues: rollback is ensured by a rolling backup.",
 			"port_castling.ssh_original_anchor_created": "Factory sshd_config anchor created: %s",
@@ -80,6 +86,7 @@ func init() {
 			"port_castling.ssh_service_restore":         "SSH service ssh.service successfully returned to standard port 22",
 			"port_castling.limiter_restore_22":          "Protection network limiter successfully restored on new control port 22",
 			"port_castling.perimetre_rescan_off":        "Asynchronous perimeter rescan after OFF castling completed successfully.",
+
 			// --- internal/armor/tarpit_service_protocol.go ---
 			"tarpit_service.port_congestion_lock":       "Trap startup blocked: legitimate OpenSSH process still holds port 22",
 			"tarpit_service.netfilter_prepare_done":     "Preliminary Netfilter limiter change and port 22 cleanup completed",
@@ -93,6 +100,7 @@ func init() {
 			"tarpit_service.perimeter_restore_standard": "Castling not performed. Port 22 perimeter returned to standard OpenSSH mode",
 			"tarpit_service.perimeter_muting":           "Active castling detected. Port 22 perimeter remains walled up",
 			"tarpit_service.tarpit_off_complete":        "Tar Pit on port 22 successfully deactivated. Perimeter restored.",
+
 			// --- main.go ---
 			"singleton.lock_busy":             "event=singleton.lock_busy role=%s pid=%d. Second daemon-mode instance rejected.",
 			"singleton.lock_held":             "event=singleton.lock_held role=%s pid=%d. Daemon-mode instance is unique.",
@@ -102,6 +110,10 @@ func init() {
 			"main.watcher_process_start":      "Admin idle watcher process started.",
 			"main.reconcile_session_start":    "Entered TUI panel.",
 			"main.tui_exit":                   "Exited TUI panel.",
+			"main.geo_missing":                "Geo-analytics component '%s' not found.",
+			"main.geo_install_fail":           "geoip-bin installation failure: %v",
+			"main.geo_install_success":        "geoip-bin package successfully installed.",
+			"main.geo_install_declined":       "Administrator declined GeoIP installation.",
 			"main.castling_marker_restore":    "Castling marker restored: port %s",
 			"main.castling_marker_purge":      "Castling marker removed: castling inactive",
 			"main.inventory_not_found":        "Trap inventory not found. First start or traps not configured.",
@@ -119,8 +131,10 @@ func init() {
 			"main.armor_rule_restored":        "Armor on port %d (%s) successfully restored.",
 			"main.armor_rule_without_receipt": "Armor rule without receipt detected: port %d (%s). Rule preserved (manual creation?).",
 			"main.armor_reconcile_summary":    "Armor reconciliation completed. Rules restored: %d. Warnings: %d.",
+
 			// --- internal/tarpit/tarpit_listener.go ---
 			"geo.restored": "event=geo.restored Geo analytics available again.",
+
 			// --- internal/tarpit/tarpit_manager.go ---
 			"tarpit_manager.fuse_reject":                "Trap %s rejected: %s",
 			"tarpit_manager.declaration_rejected_fuse":  "Declaration %s rejected by fuse: %s (attempts: 3). state→STOPPED. Retry only intentionally via card.",
@@ -139,6 +153,7 @@ func init() {
 			"tarpit_manager.reject_reason_rescue_port":  "port %d — web rescue channel (C8 contract)",
 			"tarpit_manager.reject_reason_ssh_port":     "port %d — active hidden SSH port (C8 contract)",
 			"tarpit_manager.config_reload_fail":         "event=config.reload_failed err=%v. Continuing with the previous snapshot.",
+
 			// --- internal/tarpitctl/tarpit_controller.go ---
 			"tarpitctl.activate_request":           "Client requested trap activation on port %d",
 			"tarpitctl.activate_blocked_perimeter": "Activation blocked by perimeter fuse: %v",
@@ -163,9 +178,11 @@ func init() {
 			"tarpitctl.daemon_stopped":             "All traps deactivated. Daemon stopped.",
 			"tarpitctl.unit_removed":               "agld_tarpit.service unit uninstalled from system.",
 			"tarpitctl.perimeter_check_skip":       "Perimeter inventory unavailable: %v. Port check skipped.",
+
 			// --- tui/view_main.go ---
 			"ufw.status_restored":            "event=ufw.status_restored UFW probe is available again.",
 			"systemd.watcher_probe_restored": "event=systemd.watcher_probe_restored Watcher unit probe is available again.",
+
 			// --- tui/view_router.go ---
 			"tui_router.trap_card_open":          "Trap card %s opened",
 			"tui_router.trap_card_start_blocked": "Trap %s NOT started: %v",

@@ -239,12 +239,15 @@ type UITranslation struct {
 	ArmorRateLimitFail         string
 	ArmorUfwReloadFail         string
 	ArmorMultiTarpitToggleFail string
+
 	// --- internal/service/inventory_service.go ---
 	InventoryScanFail      string
 	InventoryLoadPortsFail string
 	InventoryLoadAppsFail  string
+
 	// --- internal/service/ssh_service.go ---
 	SshCastlingFail string
+
 	// --- internal/service/tarpit_service.go ---
 	TarpitServiceActivateFail     string
 	TarpitServiceDeactivateFail   string
@@ -252,8 +255,10 @@ type UITranslation struct {
 	TarpitServiceDaemonEnsureFail string
 	TarpitServiceSyncConfigFail   string
 	TarpitServiceUpdateConfigFail string
+
 	// --- internal/sys/runner.go ---
 	SysRunnerTimeout string
+
 	// --- internal/sys/tarpit_inventory.go ---
 	TarpitInvReadFail        string
 	TarpitInvParseFail       string
@@ -266,11 +271,13 @@ type UITranslation struct {
 	TarpitInvLockOpenFail    string
 	TarpitInvLockAcquireFail string
 	TarpitInvTxCurrupted     string
+
 	// --- internal/tarpit/tarpit_manager.go ---
 	TarpitManagerTrapRemovedFromInventory string
 	TarpitManagerTrapMissingFromInventory string
 	TarpitManagerMarkerSerializeFail      string
 	TarpitManagerMarkerWriteDiskFail      string
+
 	// --- internal/tarpitctl/tarpit_controller.go ---
 	TarpitCtlInventoryWriteCriticalFail string
 	TarpitCtlDaemonStartFail            string
@@ -286,6 +293,7 @@ type UITranslation struct {
 	TarpitCtlPortOccupiedByKernel       string
 	TarpitCtlCastlingNotDone            string
 	TarpitCtlCastlingDesync             string
+
 	// --- tui/view_armor_controller.go ---
 	ViewArmorCtlProgressTitleOn       string
 	ViewArmorCtlProgSysctlTune        string
@@ -305,6 +313,7 @@ type UITranslation struct {
 	ViewArmorCtlHintPerimeterOff      string
 	ViewArmorCtlCoreSaveFailPrefix    string
 	ViewArmorCtlCoreResetSuccess      string
+
 	// --- tui/view_armor_progress.go ---
 	ViewArmorProgressTransactionLabel  string
 	ViewArmorProgressInitKernel        string
@@ -315,6 +324,7 @@ type UITranslation struct {
 	ViewArmorProgressHintExit          string
 	ViewArmorProgressHintOr            string
 	ViewArmorProgressHintReturn        string
+
 	// --- tui/view_armor.go ---
 	ViewArmorHintSysctl           string
 	ViewArmorHintScanPerimeter    string
@@ -345,6 +355,7 @@ type UITranslation struct {
 	ViewArmorLabelScrollInfo      string
 	ViewArmorLabelExit            string
 	ViewArmorLabelExitHint        string
+
 	// --- tui/view_backup.go ---
 	ViewBackupGaugeTitle          string
 	ViewBackupGaugeObjectTitleTpl string
@@ -355,6 +366,7 @@ type UITranslation struct {
 	ViewBackupConfirmPressKey     string
 	ViewBackupConfirmOr           string
 	ViewBackupConfirmReturnMenu   string
+
 	// --- tui/view_core_settings.go ---
 	ViewCoreSettingsRowSyncookies        string
 	ViewCoreSettingsRowFinTimeout        string
@@ -373,6 +385,7 @@ type UITranslation struct {
 	ViewCoreSettingsErrSaveFailPrefix    string
 	ViewCoreSettingsSuccessSaved         string
 	ViewCoreSettingsErrWriteRejectPrefix string
+
 	// --- tui/view_forensics.go ---
 	ViewForensicsHeaderTitle       string
 	ViewForensicsLabelCollectMode  string
@@ -386,6 +399,7 @@ type UITranslation struct {
 	ViewForensicsRowIpForensics    string
 	ViewForensicsRowBack           string
 	ViewForensicsInfoBoxTitle      string
+
 	// --- tui/view_main.go ---
 	ViewMainLabelMainMenu      string
 	ViewMainLabelDate          string
@@ -413,6 +427,7 @@ type UITranslation struct {
 	ViewMainFallbackUnknownCpu string
 	ViewMainFallbackError      string
 	ViewMainFallbackZeroMb     string
+
 	// --- tui/view_multi_tarpit.go ---
 	ViewMultiTarpitHeaderTitle            string
 	ViewMultiTarpitHeaderDesc             string
@@ -445,6 +460,7 @@ type UITranslation struct {
 	ViewMultiTarpitLabelSessionLimit      string
 	ViewMultiTarpitLabelMarker            string
 	ViewMultiTarpitPassportFooter         string
+
 	// --- tui/view_port_map.go ---
 	ViewPortMapHeaderTitle     string
 	ViewPortMapHeaderDesc      string
@@ -464,6 +480,7 @@ type UITranslation struct {
 	ViewPortMapLabelScrollInfo string
 	ViewPortMapLabelStatus     string
 	ViewPortMapLabelStatusSync string
+
 	// --- tui/view_router.go ---
 	ViewRouterAnalyticsStatus            string
 	ViewRouterTrapPortAlreadyInInventory string
@@ -472,6 +489,7 @@ type UITranslation struct {
 	ViewRouterTrapPortReadOnly           string
 	ViewRouterErrSavePrefix              string
 	ViewRouterScanLoadingText            string
+
 	// --- tui/view_settings.go ---
 	ViewSettingsErrPasswordTooShort          string
 	ViewSettingsErrPasswordTooLong           string
@@ -512,6 +530,7 @@ type UITranslation struct {
 	SettingsGroupLimits                      string
 	SettingsGroupSystem                      string
 	SettingsGroupDefault                     string
+
 	// --- tui/view_core_settings.go (TD-2: подписи справки) ---
 	CoreDocDesc    string
 	CoreDocAttack  string
@@ -519,6 +538,7 @@ type UITranslation struct {
 	CoreDocCurVal  string
 	CoreDocLimit   string
 	CoreDocFactory string
+
 	// --- tui/view_tarpit_controller.go ---
 	ViewTarpitCtlLockCritical           string
 	ViewTarpitCtlLockReason             string
@@ -535,10 +555,12 @@ type UITranslation struct {
 	ViewTarpitCtlStopSuccess            string
 	ViewTarpitCtlProtocolHeader         string
 	ViewTarpitCtlProtocolPressEnter     string
+
 	// --- tui/view_tarpit_live_box.go ---
 	ViewTarpitLiveBoxHeaderText string
 	ViewTarpitLiveBoxListTitle  string
 	ViewTarpitLiveBoxHintExit   string
+
 	// --- tui/view_tarpit.go ---
 	ViewTarpitHeaderTitle            string
 	ViewTarpitLabelCurrentSshPort    string
@@ -562,6 +584,7 @@ type UITranslation struct {
 	ViewTarpitLiveTerminalTitle      string
 	ViewTarpitReportTerminalTitleTpl string
 	ViewTarpitLogUnavailable         string
+
 	// --- tui/view_trap_card.go ---
 	ViewTrapCardHeaderTitle            string
 	ViewTrapCardLabelPort              string
@@ -597,6 +620,7 @@ type UITranslation struct {
 	ViewTrapCardHintDeleteWaiting      string
 	ViewTrapCardHintDeleteInfo         string
 	ViewTrapCardHintBack               string
+
 	// --- tui/view_trap_creator.go ---
 	ViewTrapCreatorHeaderTitle            string
 	ViewTrapCreatorLabelDate              string
@@ -644,6 +668,7 @@ type UITranslation struct {
 	ViewTrapCreatorErrDelayRange          string
 	ViewTrapCreatorErrVarianceRangeTpl    string
 	ViewTrapCreatorErrMaxConnRange        string
+
 	// --- tui/view_trap_editor.go ---
 	ViewTrapEditorErrLoadInventory       string
 	ViewTrapEditorErrNotFound            string
