@@ -691,8 +691,7 @@ func checkAndInstallGeoTool() {
 		return // Утилита на месте — ничего не делаем
 	}
 
-	log.Printf("[%s] [WARNING] Компонент гео-аналитики '%s' не обнаружен.",
-		time.Now().Format("2006-01-02 15:04:05"), geoToolName)
+	sys.LogAction("MAIN", "GEO_MISSING", "WARNING", i18n.TrEventf("main.geo_missing", geoToolName))
 
 	// Очищаем экран для диалога
 	fmt.Print("\033[H\033[2J")
@@ -728,22 +727,19 @@ func checkAndInstallGeoTool() {
 			// Машинное событие в журнал AGL: установка пакетов провалилась.
 			sys.LogAction("GEO_INSTALL", "APT_INSTALL_FAIL", "ERROR",
 				i18n.TrEventf("apt.install_failed", err))
-			log.Printf("[%s] [ERROR] Сбой установки geoip-bin: %v",
-				time.Now().Format("2006-01-02 15:04:05"), err)
+			sys.LogAction("MAIN", "GEO_INSTALL_FAIL", "ERROR", i18n.TrEventf("main.geo_install_fail", err))
 			fmt.Printf("\n❌ Ошибка установки: %v. Запуск в ограниченном режиме...\n", err)
 			time.Sleep(3 * time.Second)
 		} else {
 			// Машинное событие: пакеты встали успешно.
 			sys.LogAction("GEO_INSTALL", "APT_INSTALL_OK", "SUCCESS",
 				i18n.TrEvent("apt.install_success"))
-			log.Printf("[%s] [INFO] Пакет geoip-bin успешно установлен.",
-				time.Now().Format("2006-01-02 15:04:05"))
+			sys.LogAction("MAIN", "GEO_INSTALL_SUCCESS", "INFO", i18n.TrEvent("main.geo_install_success"))
 			fmt.Println("\n✅ Установка завершена успешно!")
 			time.Sleep(1 * time.Second)
 		}
 	} else {
-		log.Printf("[%s] [WARNING] Администратор отклонил установку GeoIP.",
-			time.Now().Format("2006-01-02 15:04:05"))
+		sys.LogAction("MAIN", "GEO_INSTALL_DECLINED", "WARNING", i18n.TrEvent("main.geo_install_declined"))
 		fmt.Println("\nУстановка отменена. Модули гео-аналитики отключены.")
 		time.Sleep(2 * time.Second)
 	}
