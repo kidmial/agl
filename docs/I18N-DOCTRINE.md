@@ -33,7 +33,9 @@ Status: active. Scope: every user-facing string of the complex.
   enforced by `scripts/i18n_gate.sh`.
 - Post-init journal notes go through `sys.LogAction` + event codes; raw
   `log.Println`/`log.Printf` with natural language is forbidden after
-  `i18n.InitLanguage`. Boot-time diagnostics (before init) are exempt.
+  `i18n.InitLanguage`. Boot-time diagnostics (before init) are exempt and
+  written in technical English outside dictionaries (showAlertScreen,
+  root check, logrotate warning).
 
 ## 5. Error formatting
 - `%w` present → `fmt.Errorf(i18n.T.Field, args)`.

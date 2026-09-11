@@ -203,7 +203,7 @@ func uiCloseAndPrintTarpitActiveWarning() {
 	ui.Close()
 	fmt.Println(i18n.T.ViewTarpitCtlAlreadyActiveWarning)
 	fmt.Println(i18n.T.ViewTarpitCtlAlreadyActiveCollision)
-	fmt.Println("\n Нажмите ENTER для возврата в пульт управления...")
+	fmt.Println(i18n.T.ViewTarpitCtlPressEnterToReturn)
 	var p string
 	_, _ = fmt.Scanln(&p)
 	_ = ui.Init()
@@ -228,7 +228,7 @@ func uiCloseAndStartTarpitDaemon() {
 	if errTarpit := service.ToggleArmorRoute("TARPIT", "ON"); errTarpit != nil {
 		fmt.Println(i18n.T.ViewTarpitCtlStartCriticalReject)
 		fmt.Println(errTarpit.Error())
-		fmt.Println("\n Нажмите ENTER для возврата...")
+		fmt.Println("\n" + i18n.T.ViewTarpitCtlProtocolPressEnter)
 		var p string
 		_, _ = fmt.Scanln(&p)
 	} else {

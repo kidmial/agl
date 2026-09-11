@@ -181,7 +181,7 @@ func acquireSingletonLock(role string) {
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		// Не можем даже открыть lock-файл — не рискуем стартовать дублем вслепую.
-		fmt.Fprintf(os.Stderr, "AGL: сбой открытия lock-файла %s: %v\n", lockPath, err)
+		fmt.Fprintf(os.Stderr, "AGL: failed to open lock file %s: %v\n", lockPath, err)
 		os.Exit(1)
 	}
 
@@ -190,7 +190,7 @@ func acquireSingletonLock(role string) {
 		_ = f.Close()
 		sys.LogAction("AGL_CORE", "SINGLETON_LOCK_BUSY", "ALERT",
 			i18n.TrEventf("singleton.lock_busy", role, os.Getpid()))
-		fmt.Fprintf(os.Stderr, "AGL: роль [%s] уже выполняется другим процессом. Запуск отклонён предохранителем R-6.\n", role)
+		fmt.Fprintf(os.Stderr, "AGL: role [%s] already runs in another process. Startup rejected by R-6 fuse.\n", role)
 		os.Exit(1)
 	}
 
@@ -242,13 +242,13 @@ func main() {
 	// поэтому --info безопасен даже при отсутствующем конфиге.
 	if *info {
 		fmt.Printf("Amber Guard Laboratory %s (build %s)\n", buildinfo.Version, buildinfo.BuildTime)
-		fmt.Printf("Бинарник:   %s\n", config.FileBinary)
-		fmt.Printf("Конфиг:     %s\n", config.FileConfig)
-		fmt.Printf("Журнал:     %s\n", config.FileMainLog)
-		fmt.Printf("Состояния:  %s\n", config.DirLib)
+		fmt.Printf("Binary:     %s\n", config.FileBinary)
+		fmt.Printf("Config:     %s\n", config.FileConfig)
+		fmt.Printf("Journal:    %s\n", config.FileMainLog)
+		fmt.Printf("States:     %s\n", config.DirLib)
 		fmt.Printf("Runtime:    %s\n", config.DirRun)
-		fmt.Printf("Shm-счётчик: %s\n", config.FileShm)
-		fmt.Println("Юниты:      agld_tarpit.service, agld_watcher.service")
+		fmt.Printf("Shm counter: %s\n", config.FileShm)
+		fmt.Println("Units:      agld_tarpit.service, agld_watcher.service")
 		os.Exit(0)
 	}
 	// =========================================================================
@@ -273,7 +273,7 @@ func main() {
 	if err == nil {
 		log.SetOutput(logFile) // Теперь стандартный log пишет в /var/log/amberguard/amberguard.log
 		if isNewLog {
-			log.Printf("[%s] [INFO] Системный журнал Amber Guard Lab. успешно инициализирован.\n",
+			log.Printf("[%s] [INFO] System journal Amber Guard Lab. successfully initialized.\n",
 				time.Now().Format("2006-01-02 15:04:05"))
 		}
 	}
@@ -296,7 +296,7 @@ func main() {
 	isConfigRecreated := false
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		isConfigRecreated = true
-		log.Printf("[%s] [ALERT] Файл config.json не был обнаружен на хосте! Запущена регенерация.",
+		log.Printf("[%s] [ALERT] config.json not found on host! Regeneration started.",
 			time.Now().Format("2006-01-02 15:04:05"))
 	}
 	ensureDefaultConfig(configPath)
@@ -751,15 +751,15 @@ func checkAndInstallGeoTool() {
 func showAlertScreen(configPath string) {
 	fmt.Print("\033[H\033[2J")
 	fmt.Println("\033[31m" + strings.Repeat("=", 65))
-	fmt.Println("⚠️  ВНИМАНИЕ: НАРУШЕНА ЦЕЛОСТНОСТЬ СИСТЕМЫ КОНФИГУРАЦИИ!")
+	fmt.Println("⚠️  WARNING: CONFIGURATION SYSTEM INTEGRITY VIOLATION!")
 	fmt.Println(strings.Repeat("=", 65))
-	fmt.Printf("Файл конфигурации '%s' отсутствовал на сервере\n", configPath)
-	fmt.Println("и был автоматически регенерирован с заводскими настройками.")
+	fmt.Printf("Configuration file '%s' was missing on the server\n", configPath)
+	fmt.Println("and has been automatically regenerated with factory defaults.")
 	fmt.Println()
-	fmt.Println("Пожалуйста, проверьте порты Дегтярной ямы и лимиты сетевой брони!")
-	fmt.Println("Данный инцидент безопасности зафиксирован в журнале /var/log/amberguard/amberguard.log.")
+	fmt.Println("Please verify Tar Pit ports and network armor limits!")
+	fmt.Println("This security incident has been recorded in /var/log/amberguard/amberguard.log.")
 	fmt.Println(strings.Repeat("=", 65))
-	fmt.Print("Нажмите [ ENTER ] для подтверждения и входа в панель управления...\033[0m  ")
+	fmt.Print("Press [ ENTER ] to acknowledge and enter the control panel...\033[0m  ")
 	_, _ = bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
 
