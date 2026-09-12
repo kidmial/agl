@@ -44,6 +44,14 @@
 package main
 
 import (
+	"agl/config"
+	"agl/i18n"
+	"agl/internal/armor"
+	"agl/internal/buildinfo"
+	"agl/internal/sys"
+	"agl/internal/tarpit"
+	"agl/internal/tarpitctl"
+	"agl/tui"
 	"bufio"
 	"context"
 	"encoding/json"
@@ -55,18 +63,10 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
-	"time"
-
-	"agl/config"
-	"agl/i18n"
-	"agl/internal/armor"
-	"agl/internal/buildinfo"
-	"agl/internal/sys"
-	"agl/internal/tarpit"
-	"agl/internal/tarpitctl"
-	"agl/tui"
+	"time" // <-- ДОБАВИТЬ: для получения версии Go
 )
 
 // ============================================================================
@@ -224,6 +224,7 @@ func main() {
 	watcher := flag.Bool("watcher", false, "Запуск наблюдателя простоя")
 	version := flag.Bool("version", false, "Показать версию и выйти")
 	info := flag.Bool("info", false, "Показать служебную информацию")
+	plain := flag.Bool("plain", false, "Чистый текстовый вывод без псевдографики (для --info)")
 	// v8.3.0 (6.3): разовый переопределитель языка. Не пишется в config.json (А.1).
 	// Пустая строка = «не задан», тогда идём дальше по приоритетам.
 	langFlag := flag.String("lang", "", "Язык интерфейса на этот запуск (ru|en). Не сохраняется.")
@@ -240,17 +241,23 @@ func main() {
 	// --info: служебная геометрия из констант config/paths.go.
 	// Загрузка config.json НЕ требуется: пути — compile-time константы,
 	// поэтому --info безопасен даже при отсутствующем конфиге.
+	// if *info {
+	// 	fmt.Printf("Amber Guard Laboratory %s (build %s)\n", buildinfo.Version, buildinfo.BuildTime)
+	// 	fmt.Printf("Binary:     %s\n", config.FileBinary)
+	// 	fmt.Printf("Config:     %s\n", config.FileConfig)
+	// 	fmt.Printf("Journal:    %s\n", config.FileMainLog)
+	// 	fmt.Printf("States:     %s\n", config.DirLib)
+	// 	fmt.Printf("Runtime:    %s\n", config.DirRun)
+	// 	fmt.Printf("Shm counter: %s\n", config.FileShm)
+	// 	fmt.Println("Units:      agld_tarpit.service, agld_watcher.service")
+	// 	os.Exit(0)
+	// }
+
 	if *info {
-		fmt.Printf("Amber Guard Laboratory %s (build %s)\n", buildinfo.Version, buildinfo.BuildTime)
-		fmt.Printf("Binary:     %s\n", config.FileBinary)
-		fmt.Printf("Config:     %s\n", config.FileConfig)
-		fmt.Printf("Journal:    %s\n", config.FileMainLog)
-		fmt.Printf("States:     %s\n", config.DirLib)
-		fmt.Printf("Runtime:    %s\n", config.DirRun)
-		fmt.Printf("Shm counter: %s\n", config.FileShm)
-		fmt.Println("Units:      agld_tarpit.service, agld_watcher.service")
+		ShowInfoPanel(*plain)
 		os.Exit(0)
 	}
+
 	// =========================================================================
 	//   ЭТАП 0: ИНИЦИАЛИЗАЦИЯ СИСТЕМНЫХ ПРЕДОХРАНИТЕЛЕЙ И ОКРУЖЕНИЯ
 	// =========================================================================
@@ -449,6 +456,25 @@ func main() {
 		log.Fatalf("Критическая ошибка загрузки верифицированной конфигурации: %v", err)
 	}
 
+	// v8.3.0 (6.3): вычисление активного языка по приоритетам А.1:
+	// флаг --lang → config.json → переменная окружения AGL_LANG → "en".
+	activeLang := ""
+	switch {
+	case *langFlag != "":
+		activeLang = *langFlag
+	case config.C.Lang != "":
+		activeLang = config.C.Lang
+	case os.Getenv("AGL_LANG") != "":
+		activeLang = os.Getenv("AGL_LANG")
+	default:
+		activeLang = "en"
+	}
+	// Жёсткая валидация: любой не-ru/en → "en"
+	if activeLang != "ru" && activeLang != "en" {
+		activeLang = "en"
+	}
+	i18n.InitLanguage(activeLang)
+
 	// =====================================================================
 	// ФИКС ПРОБЛЕМЫ 2 (КОРЕНЬ А): УБРАН преждевременный асинхронный запуск.
 	//
@@ -514,25 +540,6 @@ func main() {
 	// v8.2.0 (2.4): единая точка инициализации инвентаря периметра.
 	// Читатели (TUI, сверки) больше не создают файл как побочный эффект.
 	_ = config.InitInventory()
-
-	// v8.3.0 (6.3): вычисление активного языка по приоритетам А.1:
-	// флаг --lang → config.json → переменная окружения AGL_LANG → "en".
-	activeLang := ""
-	switch {
-	case *langFlag != "":
-		activeLang = *langFlag
-	case config.C.Lang != "":
-		activeLang = config.C.Lang
-	case os.Getenv("AGL_LANG") != "":
-		activeLang = os.Getenv("AGL_LANG")
-	default:
-		activeLang = "en"
-	}
-	// Жёсткая валидация: любой не-ru/en → "en"
-	if activeLang != "ru" && activeLang != "en" {
-		activeLang = "en"
-	}
-	i18n.InitLanguage(activeLang)
 
 	// Запуск интерактивной панели управления (блокирующий вызов)
 	// Когда пользователь выходит из TUI, управление возвращается сюда.
@@ -868,4 +875,253 @@ func ReconcileArmorStates() {
 		sys.LogAction("RECONCILE_ARMOR", "RECONCILE_SUMMARY", "SUCCESS",
 			i18n.TrEventf("main.armor_reconcile_summary", recoveredCount, warningCount))
 	}
+}
+
+// ============================================================================
+// БЛОК 7: ИНФОРМАЦИОННАЯ ПАНЕЛЬ (CLI --info)
+// ============================================================================
+
+// ShowInfoPanel отображает интерактивное или плоское информационное меню.
+func ShowInfoPanel(plain bool) {
+	// Загружаем конфиг для получения актуальных параметров.
+	// Если конфига нет, LoadConfig сам подставит дефолты.
+	_ = config.LoadConfig(config.FileConfig)
+
+	// Проверка: является ли stdout терминалом (для детекции пайпов/редиректов)
+	fileInfo, _ := os.Stdout.Stat()
+	isTerminal := (fileInfo.Mode() & os.ModeCharDevice) != 0
+
+	// Если вывод не в терминал, принудительно включаем plain-режим и отключаем интерактив
+	if !isTerminal {
+		plain = true
+	}
+
+	if plain || !isTerminal {
+		// Неинтерактивный режим: выводим всё сразу
+		printInfoHeader(plain)
+		printWebRescueInfo(plain)
+		printServiceStatus(plain)
+		printPathsInfo(plain)
+		printVersionInfo(plain)
+		printNetworkParams(plain)
+		return
+	}
+
+	// Интерактивный режим
+	for {
+		clearScreen()
+		printInfoHeader(false)
+		fmt.Println("1. Адрес веб-канала спасения")
+		fmt.Println("2. Статус служб комплекса")
+		fmt.Println("3. Пути конфигурации и журналов")
+		fmt.Println("4. Версия и время сборки")
+		fmt.Println("5. Сетевые параметры (рокировка, порты)")
+		fmt.Println("6. Выход")
+		fmt.Print("Выберите пункт [1-6]: ")
+
+		reader := bufio.NewReader(os.Stdin)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+
+		switch input {
+		case "1":
+			clearScreen()
+			printInfoHeader(false)
+			printWebRescueInfo(false)
+			waitForEnter()
+		case "2":
+			clearScreen()
+			printInfoHeader(false)
+			printServiceStatus(false)
+			waitForEnter()
+		case "3":
+			clearScreen()
+			printInfoHeader(false)
+			printPathsInfo(false)
+			waitForEnter()
+		case "4":
+			clearScreen()
+			printInfoHeader(false)
+			printVersionInfo(false)
+			waitForEnter()
+		case "5":
+			clearScreen()
+			printInfoHeader(false)
+			printNetworkParams(false)
+			waitForEnter()
+		case "6", "0", "exit", "выход":
+			clearScreen()
+			return
+		default:
+			fmt.Println("\nНеверный выбор. Попробуйте снова.")
+			time.Sleep(1 * time.Second)
+		}
+	}
+}
+
+func clearScreen() {
+	fmt.Print("\033[H\033[2J")
+}
+
+func waitForEnter() {
+	fmt.Print("\nНажмите [ENTER] для возврата в меню...")
+	bufio.NewReader(os.Stdin).ReadBytes('\n')
+}
+
+func printInfoHeader(plain bool) {
+	if plain {
+		fmt.Println("AMBER GUARD LABORATORY — ИНФОРМАЦИОННАЯ ПАНЕЛЬ")
+		fmt.Println(strings.Repeat("-", 56))
+	} else {
+		fmt.Println("\033[1;36m" + strings.Repeat("═", 56) + "\033[0m")
+		fmt.Println("\033[1;36mAMBER GUARD LABORATORY — ИНФОРМАЦИОННАЯ ПАНЕЛЬ\033[0m")
+		fmt.Println("\033[1;36m" + strings.Repeat("═", 56) + "\033[0m")
+	}
+}
+
+func printWebRescueInfo(plain bool) {
+	c := config.C
+	fmt.Println()
+	if c.WebRescueEnabled && c.WebRescuePort > 0 {
+		hashPrefix := "unknown"
+		if len(c.WebRescuePasswordHash) >= 12 {
+			hashPrefix = c.WebRescuePasswordHash[:12]
+		}
+		if plain {
+			fmt.Println("Канал спасения: ВКЛЮЧЁН")
+			fmt.Printf("Порт: %d\n", c.WebRescuePort)
+			fmt.Printf("Хэш-префикс: /%s/\n", hashPrefix)
+			fmt.Printf("Полный адрес: https://<IP_СЕРВЕРА>:%d/%s/\n", c.WebRescuePort, hashPrefix)
+			fmt.Println("Логин: —")
+			fmt.Println("Пароль: ******** (установлен)")
+		} else {
+			fmt.Println("\033[1;32mКанал спасения: ВКЛЮЧЁН\033[0m")
+			fmt.Printf("Порт: \033[1;33m%d\033[0m\n", c.WebRescuePort)
+			fmt.Printf("Хэш-префикс: \033[1;33m/%s/\033[0m\n", hashPrefix)
+			fmt.Printf("Полный адрес: \033[1;34mhttps://<IP_СЕРВЕРА>:%d/%s/\033[0m\n", c.WebRescuePort, hashPrefix)
+			fmt.Println("Логин: —")
+			fmt.Println("Пароль: \033[1;33m********\033[0m (установлен)")
+		}
+	} else {
+		if plain {
+			fmt.Println("Канал спасения: ВЫКЛЮЧЕН")
+		} else {
+			fmt.Println("\033[1;31mКанал спасения: ВЫКЛЮЧЕН\033[0m")
+		}
+	}
+	fmt.Println()
+}
+
+func printServiceStatus(plain bool) {
+	fmt.Println()
+	ufwStatus := checkServiceStatus("ufw")
+	tarpitStatus := checkServiceStatus("agld_tarpit.service")
+	watcherStatus := checkServiceStatus("agld_watcher.service")
+
+	castlingStatus := "OFF"
+	if _, err := os.Stat(config.MarkerSshMoved); err == nil {
+		castlingStatus = fmt.Sprintf("ON → порт %d", config.C.RealSshPort)
+	}
+
+	baseTarpitStatus := "OFF"
+	if _, err := os.Stat(config.TarpitMarkerPath(22)); err == nil {
+		baseTarpitStatus = "ON"
+	}
+
+	if plain {
+		fmt.Printf("UFW:             %s\n", ufwStatus)
+		fmt.Printf("Демон ловушек:   %s\n", tarpitStatus)
+		fmt.Printf("Наблюдатель:     %s\n", watcherStatus)
+		fmt.Printf("Рокировка:       %s\n", castlingStatus)
+		fmt.Printf("Базовая яма:     %s\n", baseTarpitStatus)
+	} else {
+		fmt.Printf("UFW:             \033[%s%s\033[0m\n", colorizeStatus(ufwStatus), ufwStatus)
+		fmt.Printf("Демон ловушек:   \033[%s%s\033[0m\n", colorizeStatus(tarpitStatus), tarpitStatus)
+		fmt.Printf("Наблюдатель:     \033[%s%s\033[0m\n", colorizeStatus(watcherStatus), watcherStatus)
+		fmt.Printf("Рокировка:       \033[%s%s\033[0m\n", colorizeStatusActive(castlingStatus), castlingStatus)
+		fmt.Printf("Базовая яма:     \033[%s%s\033[0m\n", colorizeStatus(baseTarpitStatus), baseTarpitStatus)
+	}
+	fmt.Println()
+}
+
+func checkServiceStatus(name string) string {
+	res := sys.RunTimeout(3*time.Second, "systemctl", "is-active", name)
+	if strings.TrimSpace(res.Stdout) == "active" {
+		return "ON"
+	}
+	return "OFF"
+}
+
+func colorizeStatus(status string) string {
+	if status == "ON" {
+		return "1;32m" // Зеленый
+	}
+	return "1;31m" // Красный
+}
+
+func colorizeStatusActive(status string) string {
+	if strings.HasPrefix(status, "ON") {
+		return "1;32m"
+	}
+	return "1;31m"
+}
+
+func printPathsInfo(plain bool) {
+	fmt.Println()
+	if plain {
+		fmt.Printf("Конфигурация:     %s\n", config.FileConfig)
+		fmt.Printf("Инвентарь:        %s\n", config.FilePerimeterInv)
+		fmt.Printf("Инвентарь ям:     %s\n", config.FileTarpitInventory)
+		fmt.Printf("Журнал:           %s\n", config.FileMainLog)
+		fmt.Printf("Состояния:        %s\n", config.DirLib)
+		fmt.Printf("Бинарник:         %s\n", config.FileBinary)
+	} else {
+		fmt.Printf("Конфигурация:     \033[1;33m%s\033[0m\n", config.FileConfig)
+		fmt.Printf("Инвентарь:        \033[1;33m%s\033[0m\n", config.FilePerimeterInv)
+		fmt.Printf("Инвентарь ям:     \033[1;33m%s\033[0m\n", config.FileTarpitInventory)
+		fmt.Printf("Журнал:           \033[1;33m%s\033[0m\n", config.FileMainLog)
+		fmt.Printf("Состояния:        \033[1;33m%s\033[0m\n", config.DirLib)
+		fmt.Printf("Бинарник:         \033[1;33m%s\033[0m\n", config.FileBinary)
+	}
+	fmt.Println()
+}
+
+func printVersionInfo(plain bool) {
+	fmt.Println()
+	goVersion := strings.TrimPrefix(runtime.Version(), "go")
+	if plain {
+		fmt.Printf("Версия:     %s\n", buildinfo.Version)
+		fmt.Printf("Сборка:     %s\n", buildinfo.BuildTime)
+		fmt.Printf("Go:         go%s\n", goVersion)
+	} else {
+		fmt.Printf("Версия:     \033[1;36m%s\033[0m\n", buildinfo.Version)
+		fmt.Printf("Сборка:     \033[1;36m%s\033[0m\n", buildinfo.BuildTime)
+		fmt.Printf("Go:         \033[1;36mgo%s\033[0m\n", goVersion)
+	}
+	fmt.Println()
+}
+
+func printNetworkParams(plain bool) {
+	fmt.Println()
+	c := config.C
+	castlingActive := "НЕАКТИВНА"
+	if _, err := os.Stat(config.MarkerSshMoved); err == nil {
+		castlingActive = "АКТИВНА"
+	}
+	if plain {
+		fmt.Printf("Стандартный порт:    %d\n", c.StandardSshPort)
+		fmt.Printf("Скрытый порт:        %d\n", c.RealSshPort)
+		fmt.Printf("Рокировка:           %s\n", castlingActive)
+		fmt.Printf("Джиттер:             %d ± %d сек\n", c.DelayStep, c.DelayVariance)
+		fmt.Printf("Лимит сессий:        %d\n", c.TarpitMaxConn)
+		fmt.Printf("Таймаут простоя:     %d мин\n", c.AdminIdleTimeout)
+	} else {
+		fmt.Printf("Стандартный порт:    \033[1;33m%d\033[0m\n", c.StandardSshPort)
+		fmt.Printf("Скрытый порт:        \033[1;33m%d\033[0m\n", c.RealSshPort)
+		fmt.Printf("Рокировка:           \033[%s%s\033[0m\n", colorizeStatusActive(castlingActive), castlingActive)
+		fmt.Printf("Джиттер:             \033[1;33m%d ± %d сек\033[0m\n", c.DelayStep, c.DelayVariance)
+		fmt.Printf("Лимит сессий:        \033[1;33m%d\033[0m\n", c.TarpitMaxConn)
+		fmt.Printf("Таймаут простоя:     \033[1;33m%d мин\033[0m\n", c.AdminIdleTimeout)
+	}
+	fmt.Println()
 }
