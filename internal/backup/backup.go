@@ -4,7 +4,8 @@ package backup
 import (
 	"archive/tar"
 	"compress/gzip"
-	"context" // Каноничный импорт пакета контекста для изоляции системных процессов
+	"context"       // Каноничный импорт пакета контекста для изоляции системных процессов
+	"encoding/json" // <-- ДОБАВЛЕНО: для парсинга backup_targets.json
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +18,7 @@ import (
 
 	"agl/config"
 	"agl/i18n"
+	"agl/internal/sys"
 )
 
 // BackupProgress описывает стейт-контракт транзакции для Микро-Консоли TUI.
@@ -27,30 +29,86 @@ type BackupProgress struct {
 	Done        bool
 }
 
-// МАССИВ №1: Системный контур восстановления (Только настройки программ, без логов)
-// Полностью синхронизирован со спецификацией мажорной версии v6.0.0
-var SystemTargetDirs = []string{
+// FileBackupTargets — путь к JSON-файлу конфигурации целей бэкапа.
+const FileBackupTargets = config.DirEtc + "/backup_targets.json"
+
+// BackupTargets описывает контракт JSON-файла конфигурации бэкапов.
+type BackupTargets struct {
+	Version    string   `json:"version"`
+	SystemDirs []string `json:"system_dirs"`
+	LogFiles   []string `json:"log_files"`
+}
+
+// defaultSystemDirs — дефолтные пути для системного архива (фолбэк).
+var defaultSystemDirs = []string{
 	"/var/www",
 	"/etc/nginx",
 	"/etc/apache2",
 	"/etc/php",
-	config.DirEtc, // Каноничный каталог конфигурации JSON (РЕБРЕНДИНГ)
-	config.DirLib, // Директория персистентных маркеров рокировки и капканов (РЕБРЕНДИНГ)
+	config.DirEtc,
+	config.DirLib,
 	"/root/.ssh",
 	"/etc/ufw",
 	"/etc/default/ufw",
 	"/etc/fail2ban",
 }
 
-// МАССИВ №2: Криминалистический контур лаборатории (Только SIEM-Логи).
-var ForensicsLogFiles = []string{
-	"/var/log/tarpit_connection.log",
-	"/var/log/tarpit_report.log",
-	"/var/log/tarpit_error.log",
+// defaultLogFiles — дефолтные пути для архива криминалистики (фолбэк).
+var defaultLogFiles = []string{
+	"/var/log/amberguard/tarpit_connection.log",
+	"/var/log/amberguard/tarpit_report.log",
+	"/var/log/amberguard/tarpit_error.log",
 	"/var/log/auth.log",
 	"/var/log/fail2ban.log",
 	"/var/log/ufw.log",
-	config.FileMainLog, // Внедрение собственного лог-файла в контур бэкапа
+	config.FileMainLog,
+}
+
+// LoadBackupTargets читает конфигурацию бэкапов из JSON.
+// Если файл отсутствует — создаёт его с дефолтами (UX для админа).
+// Если файл битый — логирует предупреждение и возвращает дефолты.
+func LoadBackupTargets() BackupTargets {
+	defaults := BackupTargets{
+		Version:    "1.0",
+		SystemDirs: defaultSystemDirs,
+		LogFiles:   defaultLogFiles,
+	}
+
+	data, err := os.ReadFile(FileBackupTargets)
+	if err != nil {
+		// Файла нет — создаём его с дефолтами, чтобы админ видел, что бэкапится.
+		if os.IsNotExist(err) {
+			jsonData, _ := json.MarshalIndent(defaults, "", "  ")
+			_ = os.WriteFile(FileBackupTargets, jsonData, 0644)
+		}
+		return defaults
+	}
+
+	var targets BackupTargets
+	if err := json.Unmarshal(data, &targets); err != nil {
+		// Файл битый — сохраняем оригинал как .bak и создаём дефолт.
+		sys.LogAction("BACKUP", "TARGETS_INVALID", "WARNING", i18n.TrEventf("backup.targets_invalid", err))
+
+		// Сохраняем битый файл как резервную копию
+		bakPath := FileBackupTargets + ".bak"
+		_ = os.Rename(FileBackupTargets, bakPath)
+
+		// Создаём новый файл с дефолтными значениями
+		jsonData, _ := json.MarshalIndent(defaults, "", "  ")
+		_ = os.WriteFile(FileBackupTargets, jsonData, 0644)
+
+		return defaults
+	}
+
+	// Валидация: если массивы пустые после парсинга — подставляем дефолты.
+	if len(targets.SystemDirs) == 0 {
+		targets.SystemDirs = defaultSystemDirs
+	}
+	if len(targets.LogFiles) == 0 {
+		targets.LogFiles = defaultLogFiles
+	}
+
+	return targets
 }
 
 // RunSystemBackup запускает асинхронную генерацию трех файлов с автоматической FIFO-ротацией.
@@ -59,7 +117,7 @@ func RunSystemBackup() chan BackupProgress {
 
 	go func() {
 		defer close(progressChan)
-
+		sys.LogAction("BACKUP", "TRANSACTION_START", "INFO", i18n.TrEvent("backup.transaction_start"))
 		backupRoot := config.C.BackupRootDir
 		if backupRoot == "" {
 			backupRoot = "/backup"
@@ -121,8 +179,13 @@ func RunSystemBackup() chan BackupProgress {
 		// -------------------------------------------------------------
 		// ФАЙЛ 2: Монолитный архив настроек программ (0% - 60% прогресса TUI)
 		// -------------------------------------------------------------
+
+		// Загружаем цели бэкапа из JSON (или дефолты, если файла нет).
+		targets := LoadBackupTargets()
+
 		progressChan <- BackupProgress{Percent: 20, LogLine: i18n.T.BackupTarSysRecovery}
-		if err := packTargetArray(SystemTargetDirs, sysArchivePath, 20, 60, progressChan); err != nil {
+		if err := packTargetArray(targets.SystemDirs, sysArchivePath, 20, 60, progressChan); err != nil {
+			sys.LogAction("BACKUP", "SYS_TAR_FAIL", "ERROR", i18n.TrEventf("backup.sys_tar_fail", err))
 			progressChan <- BackupProgress{Percent: 20, LogLine: i18n.T.BackupCriticalSysTarFail + err.Error()}
 			return
 		}
@@ -134,7 +197,8 @@ func RunSystemBackup() chan BackupProgress {
 		// ФАЙЛ 3: Выделенный архив SIEM-логов (60% - 98% прогресса TUI)
 		// -------------------------------------------------------------
 		progressChan <- BackupProgress{Percent: 60, LogLine: i18n.T.BackupLogTarForensics}
-		if err := packTargetArray(ForensicsLogFiles, logArchivePath, 60, 98, progressChan); err != nil {
+		if err := packTargetArray(targets.LogFiles, logArchivePath, 60, 98, progressChan); err != nil {
+			sys.LogAction("BACKUP", "LOG_TAR_FAIL", "ERROR", i18n.TrEventf("backup.log_tar_fail", err))
 			progressChan <- BackupProgress{Percent: 60, LogLine: i18n.T.BackupCriticalLogTarFail + err.Error()}
 			return
 		}
@@ -143,6 +207,7 @@ func RunSystemBackup() chan BackupProgress {
 		_ = os.Chmod(logArchivePath, 0600)
 
 		// Финальная точка: отправляем 100% и даем горутине закрыть канал через defer close
+		sys.LogAction("BACKUP", "TRANSACTION_SUCCESS", "SUCCESS", i18n.TrEventf("backup.transaction_success", sessionDir))
 		progressChan <- BackupProgress{Percent: 100, LogLine: i18n.T.BackupSuccessArchivesDone}
 	}()
 
@@ -169,6 +234,7 @@ func EnsureDiskSpaceSpaceFIFO(backupRoot string, progressChan chan BackupProgres
 		return nil
 	}
 
+	sys.LogAction("BACKUP", "DISK_DEFICIT", "WARNING", i18n.TrEventf("backup.disk_deficit", int(percentFree)))
 	progressChan <- BackupProgress{Percent: 1, LogLine: fmt.Sprintf(i18n.T.BackupDiskDeficitFifo, percentFree)}
 
 	// Читаем директорию бэкапов для поиска старых сессионных папок

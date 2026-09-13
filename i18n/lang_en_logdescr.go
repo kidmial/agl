@@ -130,7 +130,14 @@ func init() {
 			"main.armor_restore_fail":         "Armor restore failure on port %d: %v",
 			"main.armor_rule_restored":        "Armor on port %d (%s) successfully restored.",
 			"main.armor_rule_without_receipt": "Armor rule without receipt detected: port %d (%s). Rule preserved (manual creation?).",
-			"main.armor_reconcile_summary":    "Armor reconciliation completed. Rules restored: %d. Warnings: %d.",
+
+			// --- internal/backup/backup.go ---
+			"backup.transaction_start":   "Backup transaction initiated (three session files).",
+			"backup.targets_invalid":     "backup_targets.json is corrupt: %v. Original preserved as .bak, defaults applied.",
+			"backup.disk_deficit":        "Backup volume free-space deficit (%d%%): FIFO rotation of old sessions started.",
+			"backup.sys_tar_fail":        "Critical failure packing the system archive: %v",
+			"backup.log_tar_fail":        "Critical failure packing the SIEM logs archive: %v",
+			"backup.transaction_success": "Backup transaction completed: session %s",
 
 			// --- internal/tarpit/tarpit_listener.go ---
 			"geo.restored": "event=geo.restored Geo analytics available again.",

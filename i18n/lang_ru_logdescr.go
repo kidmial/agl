@@ -130,7 +130,14 @@ func init() {
 			"main.armor_restore_fail":         "Сбой восстановления брони на порту %d: %v",
 			"main.armor_rule_restored":        "Броня на порту %d (%s) успешно восстановлена.",
 			"main.armor_rule_without_receipt": "Обнаружено правило брони без квитанции: порт %d (%s). Правило сохранено (ручное создание?).",
-			"main.armor_reconcile_summary":    "Сверка брони завершена. Восстановлено правил: %d. Предупреждений: %d.",
+
+			// --- internal/backup/backup.go ---
+			"backup.transaction_start":   "Инициирована транзакция резервного копирования (три файла сессии).",
+			"backup.targets_invalid":     "backup_targets.json повреждён: %v. Оригинал сохранён как .bak, применены дефолты.",
+			"backup.disk_deficit":        "Дефицит свободного места тома бэкапов (%d%%): запущена FIFO-ротация старых сессий.",
+			"backup.sys_tar_fail":        "Критический сбой упаковки системного архива: %v",
+			"backup.log_tar_fail":        "Критический сбой упаковки архива SIEM-логов: %v",
+			"backup.transaction_success": "Транзакция резервного копирования завершена: сессия %s",
 
 			// --- internal/tarpit/tarpit_listener.go ---
 			"geo.restored": "event=geo.restored Гео-аналитика снова доступна.",

@@ -23,11 +23,6 @@ type UITranslation struct {
 	BtnExit                 string
 	StatusActive            string
 	StatusDead              string
-	BackupStart             string
-	BackupSuccess           string
-	BackupErrorNoDirs       string
-	BackupErrorTar          string
-	BackupProgressItem      string
 	MapNotFoundLabel        string
 	ArmorSshLimitOn         string
 	ArmorSshLimitOff        string
