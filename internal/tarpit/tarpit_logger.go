@@ -45,6 +45,8 @@ package tarpit
 import (
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -303,14 +305,19 @@ func LogReportEntry(en RawLogEntry) {
 // - Добавлен предохранитель: если `PlannedDelay == 0`, используется дефолт.
 // - `Timestamp` передаётся как `startTime` (момент касания), а не конец удержания.
 func ConnectionLogWriter(logFilePath string) {
-	// v8.0.3 (Аудит №6): открытие с ретраями вместо молчаливой смерти.
 	f, err := openLogWithRetry(logFilePath)
 	if err != nil {
 		return
 	}
 	defer f.Close()
 
-	// v8.0.3 (Аудит №3): пакетный fsync.
+	// v8.3.0 (Блок 7): обработка SIGHUP для корректной ротации логов.
+	// logrotate переименовывает файл, но демон держит старый fd.
+	// При SIGHUP — закрываем старый файл, открываем новый по тому же пути.
+	sighupChan := make(chan os.Signal, 1)
+	signal.Notify(sighupChan, syscall.SIGHUP)
+	defer signal.Stop(sighupChan)
+
 	ticker := time.NewTicker(syncFlushInterval)
 	defer ticker.Stop()
 	dirty := false
@@ -322,23 +329,18 @@ func ConnectionLogWriter(logFilePath string) {
 			writeCount = 0
 		}
 	}
-
 	for {
 		select {
 		case event, ok := <-ConnectionEventChannel:
 			if !ok {
-				flush() // Дожимаем буфер перед выходом
+				flush()
 				return
 			}
 			timeStr := event.Timestamp.Format("2006-01-02 15:04:05")
-			// ПРЕДОХРАНИТЕЛЬ: если PlannedDelay не заполнен — дефолт.
 			plannedDelay := event.PlannedDelay
 			if plannedDelay <= 0 {
 				plannedDelay = DefaultPlannedDelay
 			}
-			// ФОРМАТ СТРОКИ v8.0.3 (5 колонок): Время │ Ловушка │ IP │ План │ Страна
-			// Расширение контракта: лёгкий лог больше не «слепой» —
-			// видно, КАКОЙ именно рубеж принял касание.
 			logLine := fmt.Sprintf("%s\t%s\t%s\t%d sec\t%s\n",
 				timeStr, event.TarpitID, event.IP, plannedDelay, event.Country)
 			_, _ = f.WriteString(logLine)
@@ -348,7 +350,17 @@ func ConnectionLogWriter(logFilePath string) {
 				flush()
 			}
 		case <-ticker.C:
-			flush() // Не реже 1 раза в секунду
+			flush()
+		case <-sighupChan:
+			// Ротация лога: сбрасываем буфер, закрываем старый fd, открываем новый.
+			flush()
+			f.Close()
+			newF, err := openLogWithRetry(logFilePath)
+			if err != nil {
+				// Не смогли переоткрыть — продолжаем со старым fd (лучше писать в старый, чем терять события).
+				continue
+			}
+			f = newF
 		}
 	}
 }
@@ -385,14 +397,17 @@ func ConnectionLogWriter(logFilePath string) {
 // - `SourcePort` = реальный порт атакующего (не 0).
 // - Все TCP-метрики (MSS, SndCwnd, RcvSpace, RTT) заполнены из `TCP_INFO`.
 func ReportLogWriter(logFilePath string) {
-	// v8.0.3 (Аудит №6): открытие с ретраями вместо молчаливой смерти.
 	f, err := openLogWithRetry(logFilePath)
 	if err != nil {
 		return
 	}
 	defer f.Close()
 
-	// v8.0.3 (Аудит №3): пакетный fsync.
+	// v8.3.0 (Блок 7): обработка SIGHUP для корректной ротации логов.
+	sighupChan := make(chan os.Signal, 1)
+	signal.Notify(sighupChan, syscall.SIGHUP)
+	defer signal.Stop(sighupChan)
+
 	ticker := time.NewTicker(syncFlushInterval)
 	defer ticker.Stop()
 	dirty := false
@@ -404,33 +419,19 @@ func ReportLogWriter(logFilePath string) {
 			writeCount = 0
 		}
 	}
-
 	for {
 		select {
 		case entry, ok := <-ReportChannel:
 			if !ok {
-				flush() // Дожимаем буфер перед выходом
+				flush()
 				return
 			}
 			timeStr := entry.Timestamp.Format("2006-01-02 15:04:05")
-			// Штамп сессии: префикс подсистемы + HEX-время + суффикс RTT.
 			sessionToken := fmt.Sprintf("18CDB%X_%d", entry.Timestamp.Unix(), 40000+entry.RTT)
-			// ФОРМАТ СТРОКИ (13 колонок через табуляцию) — без изменений контракта.
 			logLine := fmt.Sprintf("%s\t%s\t%s\t%d sec\t%d sec\t%s\t%s\t%d\t%s\t%d\t%d\t%d\t%d\n",
-				timeStr,            // [0]  Дата/Время начала атаки
-				entry.TarpitID,     // [1]  Идентификатор ловушки
-				entry.IP,           // [2]  IP атакующего
-				entry.PlannedDelay, // [3]  ПЛАНИРУЕМОЕ удержание
-				entry.DelayStep,    // [4]  ФАКТИЧЕСКОЕ удержание
-				entry.Behavior,     // [5]  Поведение сканера
-				entry.Country,      // [6]  Страна источника
-				entry.SourcePort,   // [7]  Реальный исходный порт
-				sessionToken,       // [8]  Токен сессии
-				entry.MSS,          // [9]  MSS из TCP_INFO
-				entry.SndCwnd,      // [10] SndCwnd из TCP_INFO
-				entry.RcvSpace,     // [11] RcvSpace из TCP_INFO
-				entry.RTT,          // [12] RTT из TCP_INFO (мс)
-			)
+				timeStr, entry.TarpitID, entry.IP, entry.PlannedDelay, entry.DelayStep,
+				entry.Behavior, entry.Country, entry.SourcePort, sessionToken,
+				entry.MSS, entry.SndCwnd, entry.RcvSpace, entry.RTT)
 			_, _ = f.WriteString(logLine)
 			dirty = true
 			writeCount++
@@ -438,7 +439,16 @@ func ReportLogWriter(logFilePath string) {
 				flush()
 			}
 		case <-ticker.C:
-			flush() // Не реже 1 раза в секунду
+			flush()
+		case <-sighupChan:
+			// Ротация лога: сбрасываем буфер, закрываем старый fd, открываем новый.
+			flush()
+			f.Close()
+			newF, err := openLogWithRetry(logFilePath)
+			if err != nil {
+				continue
+			}
+			f = newF
 		}
 	}
 }

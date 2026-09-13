@@ -369,7 +369,7 @@ func main() {
 		defer cancel()
 
 		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 		go func() {
 			sig := <-sigChan
 			sys.LogAction("TARPIT_MANAGER", "SHUTDOWN_SIGNAL", "PENDING",
