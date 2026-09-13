@@ -18,14 +18,6 @@ const (
     notifempty
     create 0644 root root
     copytruncate
-    postrotate
-        # Сохранить checksum для целостности
-        for f in /var/log/amberguard/*.log.1; do
-            if [ -f "$f" ]; then
-                md5sum "$f" > "${f}.md5" 2>/dev/null || true
-            fi
-        done
-    endscript
 }`
 )
 
