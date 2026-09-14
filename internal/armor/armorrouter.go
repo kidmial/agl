@@ -5,7 +5,8 @@ import (
 	"agl/config"
 	"agl/i18n"
 	"agl/internal/sys" // ИНТЕГРАЦИЯ АУДИТОРА v6.4.0
-	"encoding/json"    // ДОБАВИТЬ для маршалинга инвентаря
+
+	// ДОБАВИТЬ для маршалинга инвентаря
 	"fmt"
 	"os"            // ДОБАВИТЬ для работы с файлами-маркерами
 	"path/filepath" // ДОБАВИТЬ для путей к папке states
@@ -201,16 +202,12 @@ func resolveAutoTarget(normalizedUUID, action string) (extractedPort int, target
 	}
 
 	// Загружаем эталонный статический реестр инвентаря периметра
-	inventoryPath := config.FilePerimeterInv
-	var inv config.PerimeterInventory
-
-	jsonData, errInv := os.ReadFile(inventoryPath)
-	if errInv == nil {
-		_ = json.Unmarshal(jsonData, &inv)
-
-		// Ищем целевой объект в массиве detected_apps
+	// v8.3.0: используем config.LoadDetectedApps() вместо прямого чтения JSON
+	// (инкапсуляция, кэширование, единая обработка ошибок)
+	apps, err := config.LoadDetectedApps()
+	if err == nil {
 		foundIdx := -1
-		for idx, app := range inv.DetectedApps {
+		for idx, app := range apps {
 			if !isAptService && app.Port == extractedPort && extractedPort > 0 {
 				foundIdx = idx
 				targetServiceName = app.Name
