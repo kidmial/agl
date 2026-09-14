@@ -380,8 +380,8 @@ func updateLogCache() {
 		return
 	}
 
-	// Файл вырос — читаем последние 5 строк
-	logCacheLines = readLastLines(logPath, 5)
+	// Файл вырос — читаем последние 3 строки
+	logCacheLines = readLastLines(logPath, 3)
 	logCacheSize = currentSize
 }
 
@@ -533,7 +533,7 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	snapshotCount := statsCacheData.snapshotCount
 	statsCacheMu.Unlock()
 
-	// ── СОЗДАНИЕ ВИДЖЕТА (ЭТОГО НЕ ХВАТАЕТ) ──
+	// ── СОЗДАНИЕ ВИДЖЕТА ──
 	statsBlock := widgets.NewParagraph()
 	statsBlock.Title = i18n.T.StatsBlockTitle
 	// ──────────────────────────────────────────
@@ -575,8 +575,8 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	menuList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
 
 	// ─────────────────────────────────────────────────────────────
-	// 6. БЛОК D: ЛОГИ КОМПЛЕКСА (7 строк: y: 25-32)
-	//    Сдвинуто вверх, теперь вмещает 5 строк логов + заголовок + границы
+	// 6. БЛОК D: ЛОГИ КОМПЛЕКСА (3 строки: y: 25-30)
+	//    Сдвинуто вверх, теперь вмещает 3 строки логов + заголовок + границы
 	// ─────────────────────────────────────────────────────────────
 	updateLogCache()
 
