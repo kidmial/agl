@@ -23,8 +23,7 @@ import (
 
 type SettingItem struct {
 	Key         string
-	LabelRu     string
-	LabelEn     string
+	Label       func() string
 	Group       string
 	IsHeader    bool
 	ValueGetter func() string
@@ -48,48 +47,63 @@ func InitSettingsRegistry() {
 	SettingsRegistry = []SettingItem{
 		// --- ГРУППА 1: РЕГЛАМЕНТ ЛОКАЛИЗАЦИИ И ИНТЕРФЕЙСА ---
 		{IsHeader: true, Group: "LANG"},
-		{Key: "lang", LabelRu: "Язык интерфейса панели (lang)", LabelEn: "Panel interface language (lang)", Group: "LANG", ValueGetter: func() string { return strings.ToUpper(config.C.Lang) }},
+		{Key: "lang", Label: func() string { return i18n.T.SettingsLabelLang }, Group: "LANG", ValueGetter: func() string { return strings.ToUpper(config.C.Lang) }},
 
 		// --- ГРУППА 2: ПАРАМЕТРЫ ЯДРА ДЕГТЯРНОЙ ЯМЫ SSH ---
 		{IsHeader: true, Group: "TARPIT"},
-		{Key: "standard_ssh_port", LabelRu: "Стандартный порт SSH (Вводной капкан)", LabelEn: "Standard SSH Port (Deception input)", Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.StandardSshPort) }},
-		{Key: "real_ssh_port", LabelRu: "Скрытый порт SSH (Точка рокировки)", LabelEn: "Private SSH Port (Castling target)", Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.RealSshPort) }},
-		{Key: "delay_step", LabelRu: "Джиттер: базовый интервал сна (сек)", LabelEn: "Jitter: base delay sleep step (sec)", Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.DelayStep) }},
-		{Key: "delay_variance", LabelRu: "Джиттер: вариативность разброса (сек)", LabelEn: "Jitter: delay sleep variance (sec)", Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.DelayVariance) }},
+		{Key: "standard_ssh_port", Label: func() string { return i18n.T.SettingsLabelStandardSshPort }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.StandardSshPort) }},
+		{Key: "real_ssh_port", Label: func() string { return i18n.T.SettingsLabelRealSshPort }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.RealSshPort) }},
+		{Key: "delay_step", Label: func() string { return i18n.T.SettingsLabelDelayStep }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.DelayStep) }},
+		{Key: "delay_variance", Label: func() string { return i18n.T.SettingsLabelDelayVariance }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.DelayVariance) }},
 
 		// --- ГРУППА 3: СИСТЕМНЫЕ ЛИМИТЫ И АНТИДОС-ОБОРОНА ---
 		{IsHeader: true, Group: "LIMITS"},
-		{Key: "tarpit_max_conn", LabelRu: "Макс. параллельных ботов в ОЗУ ловушки", LabelEn: "Max simultaneous bots in Tarpit RAM", Group: "LIMITS", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.TarpitMaxConn) }},
-		{Key: "admin_idle_timeout", LabelRu: "Таймаут простоя администратора (мин)", LabelEn: "Admin idle timeout (min)", Group: "LIMITS", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.AdminIdleTimeout) }},
-		{Key: "web_rescue_enabled", LabelRu: "Канал спасения: веб-стук (0=выкл / 1=вкл)", LabelEn: "Rescue channel: web-knock (0=off / 1=on)", Group: "LIMITS", ValueGetter: func() string {
+		{Key: "tarpit_max_conn", Label: func() string { return i18n.T.SettingsLabelTarpitMaxConn }, Group: "LIMITS", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.TarpitMaxConn) }},
+		{Key: "admin_idle_timeout", Label: func() string { return i18n.T.SettingsLabelAdminIdleTimeout }, Group: "LIMITS", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.AdminIdleTimeout) }},
+		{Key: "web_rescue_enabled", Label: func() string { return i18n.T.SettingsLabelWebRescueEnabled }, Group: "LIMITS", ValueGetter: func() string {
 			if config.C.WebRescueEnabled {
 				return "1"
 			}
 			return "0"
 		}},
-		{Key: "web_rescue_port", LabelRu: "Порт автономного сервера веб-стука", LabelEn: "Autonomous web-knock server port", Group: "LIMITS", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.WebRescuePort) }},
-		{Key: "web_rescue_password", LabelRu: "Пароль веб-стука (псевдо-2FA)", LabelEn: "Web-knock password (pseudo-2FA)", Group: "LIMITS", ValueGetter: func() string {
+		{Key: "web_rescue_port", Label: func() string { return i18n.T.SettingsLabelWebRescuePort }, Group: "LIMITS", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.WebRescuePort) }},
+		{Key: "web_rescue_password", Label: func() string { return i18n.T.SettingsLabelWebRescuePassword }, Group: "LIMITS", ValueGetter: func() string {
 			if config.C.WebRescuePasswordHash != "" {
-				return "Пароль установлен"
+				return i18n.T.ViewSettingsPasswordSet
 			}
-			return "Не задан"
+			return i18n.T.ViewSettingsPasswordNotSet
 		}},
 
 		// --- ГРУППА 4: ИНВЕНТАРИЗАЦИЯ И СЕРВИСНЫЕ КОМАНДЫ ---
 		{IsHeader: true, Group: "SYSTEM"},
-		{Key: "BACK", LabelRu: "Назад в главное меню сервера", LabelEn: "Back to main server subsystem menu", Group: "SYSTEM"},
+		{Key: "BACK", Label: func() string { return i18n.T.SettingsLabelBack }, Group: "SYSTEM"},
+	}
+}
+
+// settingsGroupHeader возвращает локализованный заголовок группы настроек по машинному тегу группы.
+func settingsGroupHeader(group string) string {
+	switch group {
+	case "LANG":
+		return i18n.T.SettingsGroupLang
+	case "TARPIT":
+		return i18n.T.SettingsGroupTarpit
+	case "LIMITS":
+		return i18n.T.SettingsGroupLimits
+	case "SYSTEM":
+		return i18n.T.SettingsGroupSystem
+	default:
+		return i18n.T.SettingsGroupDefault
 	}
 }
 
 // DrawSettingsGrid производит динамическую транзакционную отрисовку экрана SETTINGS
 func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	InitSettingsRegistry()
-	isEn := config.C.Lang == "en"
 
 	// 1. Сборка верхней информационной шапки
 	header := widgets.NewList()
-	header.Title = i18n.GetSettingsStatusText("title_box", isEn)
-	header.Rows = []string{"                           " + i18n.GetSettingsStatusText("header_desc", isEn)}
+	header.Title = i18n.T.SettingsUiTitleBox
+	header.Rows = []string{"                           " + i18n.T.SettingsUiHeaderDesc}
 	// ЖЕСТКАЯ ФИКСАЦИЯ КООРДИНАТ ПО ТЗ СИСТЕМНОГО АНАЛИТИКА
 	header.SetRect(2, 1, 102, 4)
 	header.BorderStyle.Fg = ui.ColorCyan
@@ -98,7 +112,7 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 
 	// 2. Сборка центрального интерактивного блока параметров
 	formBox := widgets.NewList()
-	formBox.Title = i18n.GetSettingsStatusText("form_title", isEn)
+	formBox.Title = i18n.T.SettingsUiFormTitle
 	// ЖЕСТКАЯ ФИКСАЦИЯ КООРДИНАТ ПО ТЗ СИСТЕМНОГО АНАЛИТИКА (ВЫСОТА ДО 23 СТРОКИ)
 	formBox.SetRect(2, 4, 102, 23)
 	formBox.BorderStyle.Fg = ui.ColorCyan
@@ -110,16 +124,13 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 
 	for regIdx, item := range SettingsRegistry {
 		if item.IsHeader {
-			headerText := i18n.GetSettingsGroupHeader(item.Group, isEn)
+			headerText := settingsGroupHeader(item.Group)
 			visibleRows = append(visibleRows, "", " "+headerText)
 			visibleLineCounter += 2
 			continue
 		}
 
-		label := item.LabelRu
-		if isEn {
-			label = item.LabelEn
-		}
+		label := item.Label()
 
 		cursor := "     "
 		if regIdx == ActiveRowIndex {
@@ -158,21 +169,18 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	statusBox.SetRect(2, 23, 102, 29)
 
 	if IsEditMode {
-		statusBox.Title = i18n.GetSettingsStatusText("editing_mode", isEn)
+		statusBox.Title = i18n.T.SettingsUiEditingMode
 		currentItem := SettingsRegistry[ActiveRowIndex]
-		label := currentItem.LabelRu
-		if isEn {
-			label = currentItem.LabelEn
-		}
+		label := currentItem.Label()
 
 		statusBox.Text = fmt.Sprintf("  %s: [ %s ]\n  %s: [ %s_ ](fg:white,mod:bold)",
-			i18n.GetSettingsStatusText("enter_new", isEn), label,
-			i18n.GetSettingsStatusText("input_prompt", isEn), CurrentInputBuf)
+			i18n.T.SettingsUiEnterNew, label,
+			i18n.T.SettingsUiInputPrompt, CurrentInputBuf)
 		statusBox.BorderStyle.Fg = ui.ColorGreen
 		statusBox.TextStyle.Fg = ui.ColorWhite
 		statusBox.WrapText = false
 	} else {
-		statusBox.Title = i18n.GetSettingsStatusText("status_console_title", isEn)
+		statusBox.Title = i18n.T.SettingsUiStatusConsoleTitle
 		if alertMessage != "" {
 			// Выводим алармы ошибок или сообщения об успешном сканировании
 			if strings.HasPrefix(alertMessage, "[УСПЕХ]") {
@@ -186,11 +194,10 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 			}
 		} else {
 			statusBox.Text = fmt.Sprintf(
-				" %s\n "+
-					"%s\n "+
-					"Нажмите [ESC](fg:yellow,mod:bold) в любой момент для отмены изменений.",
-				i18n.GetSettingsStatusText("hint_nav_1", isEn),
-				i18n.GetSettingsStatusText("hint_nav_2", isEn),
+				" %s\n %s\n %s",
+				i18n.T.SettingsUiHintNav1,
+				i18n.T.SettingsUiHintNav2,
+				fmt.Sprintf(i18n.T.SettingsUiHintEsc, "[ESC](fg:yellow,mod:bold)"),
 			)
 			statusBox.BorderStyle.Fg = ui.ColorYellow
 			statusBox.TextStyle.Fg = ui.ColorCyan
@@ -264,10 +271,11 @@ func HandleSettingsNavigation(key string) (bool, string) {
 			if currentLang == "en" {
 				newLang = "ru"
 			}
-			// v8.2.2 (волна гонки 2.3): in-place мутация устранена —
-			// публикация снепшота и переключение i18n теперь внутри
-			// SaveSettingValueToDisk (config.Update + i18n.InitLanguage при успехе).
-			_ = SaveSettingValueToDisk("lang", newLang)
+			// v8.3.0 (6.9): config.Update + i18n.InitLanguage внутри SaveSettingValueToDisk.
+			// Возвращаем true — сигнал циклу событий на полную перерисовку
+			// всех виджетов SETTINGS с новым активным языком.
+			errStr := SaveSettingValueToDisk("lang", newLang)
+			return true, errStr
 		}
 	case "<Enter>":
 		if currentItem.Key == "BACK" {
@@ -294,13 +302,12 @@ func HandleSettingsNavigation(key string) (bool, string) {
 // SaveSettingValueToDisk производит атомарную фиксацию измененного параметра на диск по стандартам Amber Guard Lab
 func SaveSettingValueToDisk(key, value string) string {
 	value = strings.TrimSpace(value)
-	isEn := config.C.Lang == "en"
 
 	if key == "SCAN_PERIMETER" || key == "BACK" {
 		return ""
 	}
 	if value == "" {
-		return i18n.GetSettingsStatusText("empty_val", isEn)
+		return i18n.T.SettingsUiEmptyVal
 	}
 
 	// v8.2.2 (волна гонки 2.3): все мутации — через config.Update
@@ -312,24 +319,15 @@ func SaveSettingValueToDisk(key, value string) string {
 		// M3g (v8.1.3): минимум 8, технический потолок 128.
 		// Храним ТОЛЬКО SHA-256 хэш; plaintext в синглтоне не задерживается.
 		if len(value) < 8 {
-			if isEn {
-				return "Password too short! Minimum 8 characters."
-			}
-			return "Пароль слишком короткий! Минимум 8 символов — это канал спасения."
+			return i18n.T.ViewSettingsErrPasswordTooShort
 		}
 		if len(value) > 128 {
-			if isEn {
-				return "Password too long! Technical limit 128 characters."
-			}
-			return "Пароль слишком длинный! Технический потолок 128 символов."
+			return i18n.T.ViewSettingsErrPasswordTooLong
 		}
 		// v8.2.0 (1.7): bcrypt с солью внутри хэша вместо SHA-256.
 		hash, errB := bcrypt.GenerateFromPassword([]byte(value), bcrypt.DefaultCost)
 		if errB != nil {
-			if isEn {
-				return "Failed to generate password hash."
-			}
-			return "Сбой генерации хэша пароля."
+			return i18n.T.ViewSettingsErrHashGenerationFail
 		}
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
 			c.WebRescuePasswordHash = string(hash)
@@ -341,23 +339,23 @@ func SaveSettingValueToDisk(key, value string) string {
 		}
 		valInt, _ := strconv.Atoi(value)
 		if valInt <= 0 || valInt > 65535 {
-			return i18n.GetSettingsStatusText("out_bounds", isEn)
+			return i18n.T.SettingsUiOutOfBounds
 		}
 		// ВЕРСИЯ 6.0.0: ИБ-ПРЕДОХРАНИТЕЛИ И ВАЛИДАЦИЯ ПЕРЕСЕЧЕНИЙ ПОРТОВ
 		if key == "standard_ssh_port" || key == "real_ssh_port" {
 			// 1. Проверяем дублирование портов в памяти во избежание паники сокетов ядра
 			if key == "standard_ssh_port" && valInt == config.C.RealSshPort {
-				return "Вводной капкан и скрытый порт OpenSSH не могут занимать один и тот же порт!"
+				return i18n.T.ViewSettingsErrPortsConflictStandardReal
 			}
 			if key == "real_ssh_port" && valInt == config.C.StandardSshPort {
-				return "Скрытый порт OpenSSH не может совпадать с портом вводного капкана!"
+				return i18n.T.ViewSettingsErrPortsConflictRealStandard
 			}
 			// 2. Блокируем изменение сетевой геометрии, если прямо сейчас развернуты активные рубежи защиты
 			if _, errCheck := os.Stat(config.TarpitMarkerPath(22)); errCheck == nil { // РЕБРЕНДИНГ
-				return "Запрещено менять порты при активной Дегтярной яме! Сначала остановите капкан."
+				return i18n.T.ViewSettingsErrPortsChangeTarpitActive
 			}
 			if _, errMoved := os.Stat(config.MarkerSshMoved); errMoved == nil { // РЕБРЕНДИНГ
-				return "Запрещено менять порты при активном Кастлинге! Выполните обратную рокировку."
+				return i18n.T.ViewSettingsErrPortsChangeCastlingActive
 			}
 		}
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
@@ -385,12 +383,12 @@ func SaveSettingValueToDisk(key, value string) string {
 	} else {
 		langLower := strings.ToLower(value)
 		if langLower != "ru" && langLower != "en" {
-			return i18n.GetSettingsStatusText("lang_support", isEn)
+			return i18n.T.SettingsUiLangSupport
 		}
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
 			c.Lang = langLower
 		})
-		// Язык TUI переключаем только после успешной публикации снепшота
+		// v8.3.0 (6.9): Язык TUI переключаем только после успешной публикации снепшота.
 		if updateErr == nil {
 			i18n.InitLanguage(langLower)
 		}
@@ -400,7 +398,7 @@ func SaveSettingValueToDisk(key, value string) string {
 	// пост-синхронизации не выполняются (та же семантика, что и в оригинале
 	// при ошибке SaveConfig).
 	if updateErr != nil {
-		return "Ошибка сохранения конфигурации: " + updateErr.Error()
+		return i18n.T.ViewSettingsErrSavePrefix + updateErr.Error()
 	}
 
 	// АКТИВАЦИЯ КОНТУРА SELF-HEALING (САМОВОССТАНОВЛЕНИЯ)

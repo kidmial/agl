@@ -39,7 +39,7 @@ func getArmorHint(row int) string {
 		return i18n.T.ArmorHintBack
 	default:
 		// ДИНАМИЧЕСКИЙ РУБЕЖ: стандартная подсказка, показывающая действие при нажатии ENTER
-		return "[ДИНАМИЧЕСКИЙ РУБЕЖ]: Нажмите ENTER для инверсии состояния Rate Limit защиты Netfilter."
+		return i18n.T.ViewArmorHintDynamicPerimeter
 	}
 }
 
@@ -77,7 +77,7 @@ func getTarpitHint(row int) string {
 // getAnalyticsHint осуществляет подхват локализованных подсказок для меню Аналитики.
 // v6.4.0: Все сторонние анализаторы переведены в режим консервации.
 func getAnalyticsHint(row int) string {
-	return "[СТАТУС]: Раздел ANALYTICS находится на плановой модернизации ядра Amber Guard Laboratory."
+	return i18n.T.ViewRouterAnalyticsStatus
 }
 
 // =====================================================================
@@ -541,7 +541,7 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 				// v8.0.3 (Аудит №7): предохранитель дублирования порта в инвентаре
 				if invDup, errDup := sys.LoadTarpitInventory(sys.TarpitInventoryPath); errDup == nil {
 					if _, dup := sys.FindTrapByPort(invDup, CurrentTrapDraft.Port); dup {
-						TrapAlertMessage = fmt.Sprintf("Порт %d уже в инвентаре. Используйте карточку ловушки → EDIT.", CurrentTrapDraft.Port)
+						TrapAlertMessage = fmt.Sprintf(i18n.T.ViewRouterTrapPortAlreadyInInventory, CurrentTrapDraft.Port)
 						ui.Clear()
 						widgets, _ := DrawTrapCreatorGrid(state.currentRow)
 						ui.Render(widgets...)
@@ -550,7 +550,7 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 				}
 				// 2. Активируем через контроллер (запись в JSON + запуск демона)
 				if err := service.ActivateTrap(context.Background(), CurrentTrapDraft.Port, newTrapConfig); err != nil {
-					TrapAlertMessage = "ОШИБКА АКТИВАЦИИ: " + err.Error()
+					TrapAlertMessage = i18n.T.ViewRouterErrActivatePrefix + err.Error()
 					ui.Clear()
 					widgets, _ := DrawTrapCreatorGrid(state.currentRow)
 					ui.Render(widgets...)
@@ -559,7 +559,7 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 				// 3. НОВОЕ В v8.0.1: Открываем шлюз UFW для мульти-ловушки
 				_ = service.ToggleMultiTarpitProtocol(CurrentTrapDraft.Port, "ON")
 				// 4. Успех: переходим в меню управления ловушками
-				TrapAlertMessage = "[УСПЕХ] Ловушка активирована."
+				TrapAlertMessage = i18n.T.ViewRouterTrapActivatedSuccess
 				state.currentScreen = "MULTI_TARPIT"
 				state.currentRow = 2
 				ui.Clear()
@@ -745,7 +745,7 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 			ui.Clear()
 			cardW, _ := DrawTrapCardGrid(state.currentRow)
 			ui.Render(cardW...)
-			sys.LogAction("TUI_ROUTER", "TRAP_CARD_OPEN", "INFO", fmt.Sprintf("Открыта карточка ловушки %s", targetTrapID))
+			sys.LogAction("TUI_ROUTER", "TRAP_CARD_OPEN", "INFO", i18n.TrEventf("tui_router.trap_card_open", targetTrapID))
 			return false
 		}
 		// Перерисовываем экран пула ловушек
@@ -793,18 +793,17 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 			if !isRunning {
 				// v8.2.0 (2.7-fix): вердикт предохранителя обязателен к исполнению.
 				if err := service.ActivateTrap(context.Background(), trap.Port, trap.ConfigConfig); err != nil {
-					sys.LogAction("TUI_ROUTER", "TRAP_CARD_START_BLOCKED", "ALERT",
-						fmt.Sprintf("Ловушка %s НЕ запущена: %v", trapID, err))
+					sys.LogAction("TUI_ROUTER", "TRAP_CARD_START_BLOCKED", "ALERT", i18n.TrEventf("tui_router.trap_card_start_blocked", trapID, err))
 				} else {
 					_ = service.ToggleMultiTarpitProtocol(trap.Port, "ON")
-					sys.LogAction("TUI_ROUTER", "TRAP_CARD_START", "SUCCESS", fmt.Sprintf("Ловушка %s запущена, UFW открыт", trapID))
+					sys.LogAction("TUI_ROUTER", "TRAP_CARD_START", "SUCCESS", i18n.TrEventf("tui_router.trap_card_start", trapID))
 				}
 			}
 		case TrapCardStop:
 			if isRunning {
 				_ = service.DeactivateTrap(context.Background(), trap.Port)
 				_ = service.ToggleMultiTarpitProtocol(trap.Port, "OFF")
-				sys.LogAction("TUI_ROUTER", "TRAP_CARD_STOP", "SUCCESS", fmt.Sprintf("Ловушка %s остановлена, UFW закрыт", trapID))
+				sys.LogAction("TUI_ROUTER", "TRAP_CARD_STOP", "SUCCESS", i18n.TrEventf("tui_router.trap_card_stop", trapID))
 			}
 		case TrapCardEdit:
 			if !isRunning {
@@ -822,7 +821,7 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 		case TrapCardDelete:
 			if !isRunning && !markerExists {
 				if err := service.DeleteTrap(context.Background(), trap.Port); err == nil {
-					sys.LogAction("TUI_ROUTER", "TRAP_CARD_DELETE", "SUCCESS", fmt.Sprintf("Ловушка %s удалена", trapID))
+					sys.LogAction("TUI_ROUTER", "TRAP_CARD_DELETE", "SUCCESS", i18n.TrEventf("tui_router.trap_card_delete", trapID))
 					state.currentScreen = "MULTI_TARPIT"
 					state.currentRow = 0
 					ui.Clear()
@@ -856,7 +855,7 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 			switch state.currentRow {
 			case 0:
 				// Порт — только чтение
-				TrapAlertMessage = "Порт ловушки доступен только для чтения."
+				TrapAlertMessage = i18n.T.ViewRouterTrapPortReadOnly
 			case 1, 2, 4:
 				// Числовой ввод
 				IsTrapEditMode = true
@@ -869,9 +868,9 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 			case 5:
 				// SAVE_AND_APPLY_CHANGES
 				if err := SaveTrapEditToInventory(); err != nil {
-					TrapAlertMessage = "ОШИБКА СОХРАНЕНИЯ: " + err.Error()
+					TrapAlertMessage = i18n.T.ViewRouterErrSavePrefix + err.Error()
 				} else {
-					sys.LogAction("TUI_ROUTER", "TRAP_EDIT_SAVE", "SUCCESS", fmt.Sprintf("Параметры ловушки порт %d обновлены", TrapEditDraft.Port))
+					sys.LogAction("TUI_ROUTER", "TRAP_EDIT_SAVE", "SUCCESS", i18n.TrEventf("tui_router.trap_edit_save", TrapEditDraft.Port))
 					state.currentScreen = "TRAP_CARD"
 					state.currentRow = 0
 					ui.Clear()
@@ -905,7 +904,7 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 				// 1. Показываем заглушку "Сканирую..."
 				ui.Clear()
 				loadingBox := widgets.NewParagraph()
-				loadingBox.Text = "\n\n  СКАНИРОВАНИЕ БЕЗОПАСНОСТИ...\n  Пожалуйста, подождите."
+				loadingBox.Text = i18n.T.ViewRouterScanLoadingText
 				loadingBox.SetRect(2, 10, 102, 15)
 				loadingBox.BorderStyle.Fg = ui.ColorYellow
 				ui.Render(loadingBox)
@@ -924,7 +923,7 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 				if err := service.RunPerimeterInventoryScan(context.Background()); err != nil {
 					sys.LogAction("ARMOR_ROUTER", "SCAN_FAIL", "ERROR", err.Error())
 				} else {
-					sys.LogAction("ARMOR_ROUTER", "SCAN_SUCCESS", "SUCCESS", "Асинхронное пересканирование периметра завершено успешно.")
+					sys.LogAction("ARMOR_ROUTER", "SCAN_SUCCESS", "SUCCESS", i18n.TrEvent("armor_router.scan_success"))
 				}
 				// 3. Перерисовываем экран Armor с актуальными данными
 				ui.Clear()

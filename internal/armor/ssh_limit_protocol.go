@@ -3,6 +3,7 @@ package armor
 
 import (
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/sys" // Глобальный хаб утилит детекции и АУДИТОР v6.4.0
 	"fmt"
 	"os"
@@ -33,13 +34,13 @@ func SetSshLimitProtocol(action string) error {
 		if targetPort == 22 && SetTarpitProtocol("CHECK") == nil {
 			// АУДИТ: Фиксируем попытку опасной коллизии подсистем безопасности
 			sys.LogAction("SSH_LIMIT", "COLLISION_LOCK", "ALERT",
-				"Активация лимитера отклонена: на целевом порту 22 развернута Дегтярная яма киберразведки")
-			return fmt.Errorf("блокировка: на порту 22 активирована дегтярная ловушка киберразведки")
+				i18n.TrEvent("ssh_limit.collision_lock"))
+			return fmt.Errorf("%s", i18n.T.SshLimitCollisionLockError)
 		}
 
 		// АУДИТ: Логируем, какой именно порт уходит под защиту лимитера пакетов
 		sys.LogAction("SSH_LIMIT", "TARGET_PORT_RESOLVE", "SUCCESS",
-			fmt.Sprintf("Интеллектуальный шлюз успешно определил целевой порт SSH для применения защиты: %d", targetPort))
+			i18n.TrEventf("ssh_limit.target_port_resolve", targetPort))
 
 		// Делегируем выполнение монолитному исполнительному движку Netfilter/UFW
 		return SetCustomRateLimit(targetPort, "open_ssh", "Open SSH", "ON")
@@ -56,8 +57,8 @@ func SetSshLimitProtocol(action string) error {
 		if _, err := os.Stat(runtimeMarker); err == nil {
 			return nil // Лимитер активен
 		}
-		return fmt.Errorf("лимитер порта SSH отключен")
+		return fmt.Errorf("%s", i18n.T.SshLimitDisabled)
 	}
 
-	return fmt.Errorf("запрошено неизвестное действие лимитера SSH: %s", action)
+	return fmt.Errorf("%s", fmt.Sprintf(i18n.T.SshLimitUnknownAction, action))
 }

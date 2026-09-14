@@ -44,6 +44,14 @@
 package main
 
 import (
+	"agl/config"
+	"agl/i18n"
+	"agl/internal/armor"
+	"agl/internal/buildinfo"
+	"agl/internal/sys"
+	"agl/internal/tarpit"
+	"agl/internal/tarpitctl"
+	"agl/tui"
 	"bufio"
 	"context"
 	"encoding/json"
@@ -55,18 +63,10 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
-	"time"
-
-	"agl/config"
-	"agl/i18n"
-	"agl/internal/armor"
-	"agl/internal/buildinfo"
-	"agl/internal/sys"
-	"agl/internal/tarpit"
-	"agl/internal/tarpitctl"
-	"agl/tui"
+	"time" // <-- ДОБАВИТЬ: для получения версии Go
 )
 
 // ============================================================================
@@ -95,7 +95,7 @@ func ensureDefaultConfig(configPath string) {
 	// Файл отсутствует. Порождаем эталонную конфигурацию мажорной версии.
 	// ОБНОВЛЕНО В v8.0.1: Структура соответствует обновлённому `config.go`.
 	defaultConfig := config.Config{
-		Lang:             "ru",
+		Lang:             "en", // v8.3.0 (6.3): дефолт генерации — английский
 		StandardSshPort:  22,
 		RealSshPort:      2244,
 		DelayStep:        13,
@@ -181,7 +181,7 @@ func acquireSingletonLock(role string) {
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		// Не можем даже открыть lock-файл — не рискуем стартовать дублем вслепую.
-		fmt.Fprintf(os.Stderr, "AGL: сбой открытия lock-файла %s: %v\n", lockPath, err)
+		fmt.Fprintf(os.Stderr, "AGL: failed to open lock file %s: %v\n", lockPath, err)
 		os.Exit(1)
 	}
 
@@ -189,15 +189,15 @@ func acquireSingletonLock(role string) {
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		_ = f.Close()
 		sys.LogAction("AGL_CORE", "SINGLETON_LOCK_BUSY", "ALERT",
-			fmt.Sprintf("event=singleton.lock_busy role=%s pid=%d. Второй экземпляр демон-режима отклонён.", role, os.Getpid()))
-		fmt.Fprintf(os.Stderr, "AGL: роль [%s] уже выполняется другим процессом. Запуск отклонён предохранителем R-6.\n", role)
+			i18n.TrEventf("singleton.lock_busy", role, os.Getpid()))
+		fmt.Fprintf(os.Stderr, "AGL: role [%s] already runs in another process. Startup rejected by R-6 fuse.\n", role)
 		os.Exit(1)
 	}
 
 	// Успех: fd уходит в глобальную ссылку, блокировка живёт до выхода процесса.
 	singletonLocks = append(singletonLocks, f)
 	sys.LogAction("AGL_CORE", "SINGLETON_LOCK_HELD", "SUCCESS",
-		fmt.Sprintf("event=singleton.lock_held role=%s pid=%d. Экземпляр демон-режима единственный.", role, os.Getpid()))
+		i18n.TrEventf("singleton.lock_held", role, os.Getpid()))
 }
 
 // ============================================================================
@@ -224,6 +224,10 @@ func main() {
 	watcher := flag.Bool("watcher", false, "Запуск наблюдателя простоя")
 	version := flag.Bool("version", false, "Показать версию и выйти")
 	info := flag.Bool("info", false, "Показать служебную информацию")
+	plain := flag.Bool("plain", false, "Чистый текстовый вывод без псевдографики (для --info)")
+	// v8.3.0 (6.3): разовый переопределитель языка. Не пишется в config.json (А.1).
+	// Пустая строка = «не задан», тогда идём дальше по приоритетам.
+	langFlag := flag.String("lang", "", "Язык интерфейса на этот запуск (ru|en). Не сохраняется.")
 	flag.Parse()
 
 	// --version: человеко-читаемое доказательство ldflags-инъекции (5.1).
@@ -237,17 +241,23 @@ func main() {
 	// --info: служебная геометрия из констант config/paths.go.
 	// Загрузка config.json НЕ требуется: пути — compile-time константы,
 	// поэтому --info безопасен даже при отсутствующем конфиге.
+	// if *info {
+	// 	fmt.Printf("Amber Guard Laboratory %s (build %s)\n", buildinfo.Version, buildinfo.BuildTime)
+	// 	fmt.Printf("Binary:     %s\n", config.FileBinary)
+	// 	fmt.Printf("Config:     %s\n", config.FileConfig)
+	// 	fmt.Printf("Journal:    %s\n", config.FileMainLog)
+	// 	fmt.Printf("States:     %s\n", config.DirLib)
+	// 	fmt.Printf("Runtime:    %s\n", config.DirRun)
+	// 	fmt.Printf("Shm counter: %s\n", config.FileShm)
+	// 	fmt.Println("Units:      agld_tarpit.service, agld_watcher.service")
+	// 	os.Exit(0)
+	// }
+
 	if *info {
-		fmt.Printf("Amber Guard Laboratory %s (build %s)\n", buildinfo.Version, buildinfo.BuildTime)
-		fmt.Printf("Бинарник:   %s\n", config.FileBinary)
-		fmt.Printf("Конфиг:     %s\n", config.FileConfig)
-		fmt.Printf("Журнал:     %s\n", config.FileMainLog)
-		fmt.Printf("Состояния:  %s\n", config.DirLib)
-		fmt.Printf("Runtime:    %s\n", config.DirRun)
-		fmt.Printf("Shm-счётчик: %s\n", config.FileShm)
-		fmt.Println("Юниты:      agld_tarpit.service, agld_watcher.service")
+		ShowInfoPanel(*plain)
 		os.Exit(0)
 	}
+
 	// =========================================================================
 	//   ЭТАП 0: ИНИЦИАЛИЗАЦИЯ СИСТЕМНЫХ ПРЕДОХРАНИТЕЛЕЙ И ОКРУЖЕНИЯ
 	// =========================================================================
@@ -270,7 +280,7 @@ func main() {
 	if err == nil {
 		log.SetOutput(logFile) // Теперь стандартный log пишет в /var/log/amberguard/amberguard.log
 		if isNewLog {
-			log.Printf("[%s] [INFO] Системный журнал Amber Guard Lab. успешно инициализирован.\n",
+			log.Printf("[%s] [INFO] System journal Amber Guard Lab. successfully initialized.\n",
 				time.Now().Format("2006-01-02 15:04:05"))
 		}
 	}
@@ -293,7 +303,7 @@ func main() {
 	isConfigRecreated := false
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		isConfigRecreated = true
-		log.Printf("[%s] [ALERT] Файл config.json не был обнаружен на хосте! Запущена регенерация.",
+		log.Printf("[%s] [ALERT] config.json not found on host! Regeneration started.",
 			time.Now().Format("2006-01-02 15:04:05"))
 	}
 	ensureDefaultConfig(configPath)
@@ -326,7 +336,18 @@ func main() {
 		if err := config.LoadConfig(configPath); err != nil {
 			os.Exit(1)
 		}
-
+		// v8.3.0 (6.3): демон тоже пишет локализованные описания событий через TrEvent.
+		// Приоритет: флаг → конфиг → env → "en" (совпадает с TUI).
+		daemonLang := config.C.Lang
+		if *langFlag != "" {
+			daemonLang = *langFlag
+		} else if envLang := os.Getenv("AGL_LANG"); envLang != "" {
+			daemonLang = envLang
+		}
+		if daemonLang != "ru" && daemonLang != "en" {
+			daemonLang = "en"
+		}
+		i18n.InitLanguage(daemonLang)
 		// Инициализация межпроцессного счётчика ботов в режиме МАСТЕРА.
 		// Демон создаёт файл `/dev/shm/amberguard.counter` и записывает
 		// в него количество удерживаемых ботов через атомарные операции.
@@ -348,17 +369,17 @@ func main() {
 		defer cancel()
 
 		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 		go func() {
 			sig := <-sigChan
 			sys.LogAction("TARPIT_MANAGER", "SHUTDOWN_SIGNAL", "PENDING",
-				fmt.Sprintf("Демон получил сигнал %v. Инициировано корректное завершение.", sig))
+				i18n.TrEventf("main.shutdown_signal", sig))
 			cancel()
 		}()
 
 		// ИБ-АУДИТ: Фиксируем старт демона
 		sys.LogAction("TARPIT_MANAGER", "DAEMON_START", "SUCCESS",
-			"Демон ловушек запущен. Инициализация Reconciliation Loop.")
+			i18n.TrEvent("main.daemon_start"))
 
 		// Запуск менеджера ловушек (БЛОКИРУЮЩИЙ вызов).
 		// Менеджер читает `tarpit_inventory.json` и управляет ВСЕМИ воркерами.
@@ -371,7 +392,7 @@ func main() {
 		// ОБНОВЛЕНО В v8.0.1.
 		tarpit.RemoveShm()
 		sys.LogAction("TARPIT_MANAGER", "DAEMON_STOPPED", "SUCCESS",
-			"Демон ловушек корректно завершён. Все воркеры остановлены.")
+			i18n.TrEvent("main.daemon_stopped"))
 		return
 	}
 
@@ -396,9 +417,20 @@ func main() {
 		if err := config.LoadConfig(configPath); err != nil {
 			os.Exit(1)
 		}
+		// v8.3.0 (6.3): вотчер тоже пишет логи — язык для TrEvent.
+		watcherLang := config.C.Lang
+		if *langFlag != "" {
+			watcherLang = *langFlag
+		} else if envLang := os.Getenv("AGL_LANG"); envLang != "" {
+			watcherLang = envLang
+		}
+		if watcherLang != "ru" && watcherLang != "en" {
+			watcherLang = "en"
+		}
+		i18n.InitLanguage(watcherLang)
 		// ИБ-АУДИТ: Фиксируем старт наблюдателя
 		sys.LogAction("WATCHER", "PROCESS_START", "SUCCESS",
-			"Процесс наблюдателя простоя администратора запущен.")
+			i18n.TrEvent("main.watcher_process_start"))
 		// Запуск 60-сек тикера (БЛОКИРУЮЩИЙ вызов)
 		armor.StartWatcherProtocol()
 		return
@@ -423,6 +455,25 @@ func main() {
 	if err := config.LoadConfig(configPath); err != nil {
 		log.Fatalf("Критическая ошибка загрузки верифицированной конфигурации: %v", err)
 	}
+
+	// v8.3.0 (6.3): вычисление активного языка по приоритетам А.1:
+	// флаг --lang → config.json → переменная окружения AGL_LANG → "en".
+	activeLang := ""
+	switch {
+	case *langFlag != "":
+		activeLang = *langFlag
+	case config.C.Lang != "":
+		activeLang = config.C.Lang
+	case os.Getenv("AGL_LANG") != "":
+		activeLang = os.Getenv("AGL_LANG")
+	default:
+		activeLang = "en"
+	}
+	// Жёсткая валидация: любой не-ru/en → "en"
+	if activeLang != "ru" && activeLang != "en" {
+		activeLang = "en"
+	}
+	i18n.InitLanguage(activeLang)
 
 	// =====================================================================
 	// ФИКС ПРОБЛЕМЫ 2 (КОРЕНЬ А): УБРАН преждевременный асинхронный запуск.
@@ -490,9 +541,6 @@ func main() {
 	// Читатели (TUI, сверки) больше не создают файл как побочный эффект.
 	_ = config.InitInventory()
 
-	// Инициализация языка интерфейса
-	i18n.InitLanguage(config.C.Lang)
-
 	// Запуск интерактивной панели управления (блокирующий вызов)
 	// Когда пользователь выходит из TUI, управление возвращается сюда.
 	// Демон продолжает работать независимо от TUI.
@@ -503,7 +551,7 @@ func main() {
 	// Демон продолжает работать как отдельный systemd-сервис.
 	// Ловушки НЕ останавливаются при выходе из TUI.
 	// ОБНОВЛЕНО В v8.0.1.
-	log.Println("[INFO] Выполнен выход из TUI-панели.")
+	sys.LogAction("MAIN", "TUI_EXIT", "INFO", i18n.TrEvent("main.tui_exit"))
 }
 
 // ============================================================================
@@ -534,7 +582,7 @@ func ReconcileSystemStates() {
 	// M4-гигиена (v8.1.3): вход в панель логируется ВСЕГДА,
 	// независимо от наличия активных ловушек.
 	sys.LogAction("RECONCILE", "SESSION_START", "INFO",
-		"Выполнен вход в TUI-панель.")
+		i18n.TrEvent("main.reconcile_session_start"))
 
 	// -------------------------------------------------------------
 	// КОНТУР 1: АУДИТ РОКИРОВКИ ПОРТОВ OpenSSH (без изменений)
@@ -550,14 +598,14 @@ func ReconcileSystemStates() {
 			_ = os.MkdirAll(filepath.Dir(markerCastling), 0755)
 			_ = sys.WriteAtomic(markerCastling, []byte(activeSshPort), 0644)
 			sys.LogAction("RECONCILE", "CASTLING_MARKER_RESTORE", "SUCCESS",
-				fmt.Sprintf("Восстановлен маркер рокировки: порт %s", activeSshPort))
+				i18n.TrEventf("main.castling_marker_restore", activeSshPort))
 		}
 	} else {
 		// Порт не совпадает → рокировка неактивна → маркер должен быть удалён
 		if _, err := os.Stat(markerCastling); err == nil {
 			_ = os.Remove(markerCastling)
 			sys.LogAction("RECONCILE", "CASTLING_MARKER_PURGE", "SUCCESS",
-				"Маркер рокировки удалён: рокировка неактивна")
+				i18n.TrEvent("main.castling_marker_purge"))
 		}
 	}
 
@@ -583,7 +631,7 @@ func ReconcileSystemStates() {
 		// Если файла нет — это нормально для первого старта.
 		// Ловушки ещё не настроены.
 		sys.LogAction("RECONCILE", "INVENTORY_NOT_FOUND", "INFO",
-			"Инвентарь ловушек не найден. Первый старт или ловушки не настроены.")
+			i18n.TrEvent("main.inventory_not_found"))
 		return
 	}
 
@@ -598,10 +646,10 @@ func ReconcileSystemStates() {
 		// =============================================================
 		if err := tarpitctl.EnsureDaemonRunning(); err != nil {
 			sys.LogAction("RECONCILE", "DAEMON_START_FAIL", "ERROR",
-				fmt.Sprintf("Сбой обеспечения работы демона: %v", err))
+				i18n.TrEventf("main.daemon_start_fail", err))
 		} else {
 			sys.LogAction("RECONCILE", "DAEMON_VERIFIED", "SUCCESS",
-				fmt.Sprintf("Демон проверен/запущен. Активных ловушек: %d", activeCount))
+				i18n.TrEventf("main.daemon_verified", activeCount))
 		}
 	} else {
 		// =============================================================
@@ -611,7 +659,7 @@ func ReconcileSystemStates() {
 		// Здесь мы ничего не делаем.
 		// =============================================================
 		sys.LogAction("RECONCILE", "NO_ACTIVE_TRAPS", "INFO",
-			"Активных ловушек в инвентаре нет — демон в режиме ожидания.")
+			i18n.TrEvent("main.no_active_traps"))
 	}
 	// -------------------------------------------------------------
 	// КОНТУР 3: СВЕРКА БРОНИ (M4 / K-23)
@@ -637,7 +685,7 @@ func checkAndInstallGeoTool() {
 	// предохранитель защищает от будущих рефакторингов порядка вызовов.
 	if daemonMode {
 		sys.LogAction("GEO_INSTALL", "GEO_SKIP_DAEMON", "WARNING",
-			"event=geo.install_skipped reason=daemon_mode. Интерактивная установка гео-инструмента в демон-режиме недоступна; продолжаем без геолокации.")
+			i18n.TrEvent("geo.install_skipped"))
 		return
 	}
 	geoToolName := "geoiplookup"
@@ -650,8 +698,7 @@ func checkAndInstallGeoTool() {
 		return // Утилита на месте — ничего не делаем
 	}
 
-	log.Printf("[%s] [WARNING] Компонент гео-аналитики '%s' не обнаружен.",
-		time.Now().Format("2006-01-02 15:04:05"), geoToolName)
+	sys.LogAction("MAIN", "GEO_MISSING", "WARNING", i18n.TrEventf("main.geo_missing", geoToolName))
 
 	// Очищаем экран для диалога
 	fmt.Print("\033[H\033[2J")
@@ -673,8 +720,7 @@ func checkAndInstallGeoTool() {
 		if updateRes.Err != nil {
 			// Машинное событие в журнал AGL: списки не обновились.
 			sys.LogAction("GEO_INSTALL", "APT_UPDATE_FAIL", "WARNING",
-				fmt.Sprintf("event=apt.update_failed err=%v stderr=%s",
-					updateRes.Err, strings.TrimSpace(updateRes.Stderr)))
+				i18n.TrEventf("apt.update_failed", updateRes.Err, strings.TrimSpace(updateRes.Stderr)))
 			// Консольное сообщение админу: продолжаем без свежих списков.
 			fmt.Println("⚠️ Не удалось обновить списки пакетов. Пробую установку по текущим спискам...")
 		}
@@ -687,23 +733,20 @@ func checkAndInstallGeoTool() {
 		if err := sys.RunTimeoutStreamed(600*time.Second, "apt-get", "install", "-y", "geoip-bin", "geoip-database"); err != nil {
 			// Машинное событие в журнал AGL: установка пакетов провалилась.
 			sys.LogAction("GEO_INSTALL", "APT_INSTALL_FAIL", "ERROR",
-				fmt.Sprintf("event=apt.install_failed err=%v", err))
-			log.Printf("[%s] [ERROR] Сбой установки geoip-bin: %v",
-				time.Now().Format("2006-01-02 15:04:05"), err)
+				i18n.TrEventf("apt.install_failed", err))
+			sys.LogAction("MAIN", "GEO_INSTALL_FAIL", "ERROR", i18n.TrEventf("main.geo_install_fail", err))
 			fmt.Printf("\n❌ Ошибка установки: %v. Запуск в ограниченном режиме...\n", err)
 			time.Sleep(3 * time.Second)
 		} else {
 			// Машинное событие: пакеты встали успешно.
 			sys.LogAction("GEO_INSTALL", "APT_INSTALL_OK", "SUCCESS",
-				"event=apt.install_success packages=geoip-bin,geoip-database")
-			log.Printf("[%s] [INFO] Пакет geoip-bin успешно установлен.",
-				time.Now().Format("2006-01-02 15:04:05"))
+				i18n.TrEvent("apt.install_success"))
+			sys.LogAction("MAIN", "GEO_INSTALL_SUCCESS", "INFO", i18n.TrEvent("main.geo_install_success"))
 			fmt.Println("\n✅ Установка завершена успешно!")
 			time.Sleep(1 * time.Second)
 		}
 	} else {
-		log.Printf("[%s] [WARNING] Администратор отклонил установку GeoIP.",
-			time.Now().Format("2006-01-02 15:04:05"))
+		sys.LogAction("MAIN", "GEO_INSTALL_DECLINED", "WARNING", i18n.TrEvent("main.geo_install_declined"))
 		fmt.Println("\nУстановка отменена. Модули гео-аналитики отключены.")
 		time.Sleep(2 * time.Second)
 	}
@@ -715,15 +758,15 @@ func checkAndInstallGeoTool() {
 func showAlertScreen(configPath string) {
 	fmt.Print("\033[H\033[2J")
 	fmt.Println("\033[31m" + strings.Repeat("=", 65))
-	fmt.Println("⚠️  ВНИМАНИЕ: НАРУШЕНА ЦЕЛОСТНОСТЬ СИСТЕМЫ КОНФИГУРАЦИИ!")
+	fmt.Println("⚠️  WARNING: CONFIGURATION SYSTEM INTEGRITY VIOLATION!")
 	fmt.Println(strings.Repeat("=", 65))
-	fmt.Printf("Файл конфигурации '%s' отсутствовал на сервере\n", configPath)
-	fmt.Println("и был автоматически регенерирован с заводскими настройками.")
+	fmt.Printf("Configuration file '%s' was missing on the server\n", configPath)
+	fmt.Println("and has been automatically regenerated with factory defaults.")
 	fmt.Println()
-	fmt.Println("Пожалуйста, проверьте порты Дегтярной ямы и лимиты сетевой брони!")
-	fmt.Println("Данный инцидент безопасности зафиксирован в журнале /var/log/amberguard/amberguard.log.")
+	fmt.Println("Please verify Tar Pit ports and network armor limits!")
+	fmt.Println("This security incident has been recorded in /var/log/amberguard/amberguard.log.")
 	fmt.Println(strings.Repeat("=", 65))
-	fmt.Print("Нажмите [ ENTER ] для подтверждения и входа в панель управления...\033[0m  ")
+	fmt.Print("Press [ ENTER ] to acknowledge and enter the control panel...\033[0m  ")
 	_, _ = bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
 
@@ -752,7 +795,7 @@ func ReconcileArmorStates() {
 	apps, err := config.LoadDetectedApps()
 	if err != nil {
 		sys.LogAction("RECONCILE_ARMOR", "INVENTORY_LOAD_FAIL", "WARNING",
-			fmt.Sprintf("Не удалось загрузить инвентарь периметра для сверки брони: %v", err))
+			i18n.TrEventf("main.armor_inventory_load_fail", err))
 		return
 	}
 
@@ -794,7 +837,7 @@ func ReconcileArmorStates() {
 			if ruleExists {
 				armor.PurgeLimitRule(app.Port)
 				sys.LogAction("RECONCILE_ARMOR", "C1_CLEANUP", "SUCCESS",
-					fmt.Sprintf("event=c1.cleanup port=%d Лимит на порту-ловушке удалён: капкан должен оставаться доступным.", app.Port))
+					i18n.TrEventf("c1.cleanup", app.Port))
 			}
 			continue
 		}
@@ -805,16 +848,16 @@ func ReconcileArmorStates() {
 			// Это происходит после ребута или после ручного сброса правил.
 			// =============================================================
 			sys.LogAction("RECONCILE_ARMOR", "RULE_MISSING", "PENDING",
-				fmt.Sprintf("Обнаружен рассинхрон: квитанция есть, правила нет. Порт %d (%s). Восстановление...", app.Port, app.Name))
+				i18n.TrEventf("main.armor_rule_missing", app.Port, app.Name))
 
 			dynamicID := fmt.Sprintf("port_auto_%d", app.Port)
 			if errAct := armor.ExecuteArmorRoute(dynamicID, "ON"); errAct != nil {
 				sys.LogAction("RECONCILE_ARMOR", "RESTORE_FAIL", "ERROR",
-					fmt.Sprintf("Сбой восстановления брони на порту %d: %v", app.Port, errAct))
+					i18n.TrEventf("main.armor_restore_fail", app.Port, errAct))
 			} else {
 				recoveredCount++
 				sys.LogAction("RECONCILE_ARMOR", "RULE_RESTORED", "SUCCESS",
-					fmt.Sprintf("Броня на порту %d (%s) успешно восстановлена.", app.Port, app.Name))
+					i18n.TrEventf("main.armor_rule_restored", app.Port, app.Name))
 			}
 		} else if !receiptExists && ruleExists {
 			// =============================================================
@@ -824,12 +867,261 @@ func ReconcileArmorStates() {
 			// =============================================================
 			warningCount++
 			sys.LogAction("RECONCILE_ARMOR", "RULE_WITHOUT_RECEIPT", "WARNING",
-				fmt.Sprintf("Обнаружено правило брони без квитанции: порт %d (%s). Правило сохранено (ручное создание?).", app.Port, app.Name))
+				i18n.TrEventf("main.armor_rule_without_receipt", app.Port, app.Name))
 		}
 	}
 
 	if recoveredCount > 0 || warningCount > 0 {
 		sys.LogAction("RECONCILE_ARMOR", "RECONCILE_SUMMARY", "SUCCESS",
-			fmt.Sprintf("Сверка брони завершена. Восстановлено правил: %d. Предупреждений: %d.", recoveredCount, warningCount))
+			i18n.TrEventf("main.armor_reconcile_summary", recoveredCount, warningCount))
 	}
+}
+
+// ============================================================================
+// БЛОК 7: ИНФОРМАЦИОННАЯ ПАНЕЛЬ (CLI --info)
+// ============================================================================
+
+// ShowInfoPanel отображает интерактивное или плоское информационное меню.
+func ShowInfoPanel(plain bool) {
+	// Загружаем конфиг для получения актуальных параметров.
+	// Если конфига нет, LoadConfig сам подставит дефолты.
+	_ = config.LoadConfig(config.FileConfig)
+
+	// Проверка: является ли stdout терминалом (для детекции пайпов/редиректов)
+	fileInfo, _ := os.Stdout.Stat()
+	isTerminal := (fileInfo.Mode() & os.ModeCharDevice) != 0
+
+	// Если вывод не в терминал, принудительно включаем plain-режим и отключаем интерактив
+	if !isTerminal {
+		plain = true
+	}
+
+	if plain || !isTerminal {
+		// Неинтерактивный режим: выводим всё сразу
+		printInfoHeader(plain)
+		printWebRescueInfo(plain)
+		printServiceStatus(plain)
+		printPathsInfo(plain)
+		printVersionInfo(plain)
+		printNetworkParams(plain)
+		return
+	}
+
+	// Интерактивный режим
+	for {
+		clearScreen()
+		printInfoHeader(false)
+		fmt.Println("1. Адрес веб-канала спасения")
+		fmt.Println("2. Статус служб комплекса")
+		fmt.Println("3. Пути конфигурации и журналов")
+		fmt.Println("4. Версия и время сборки")
+		fmt.Println("5. Сетевые параметры (рокировка, порты)")
+		fmt.Println("6. Выход")
+		fmt.Print("Выберите пункт [1-6]: ")
+
+		reader := bufio.NewReader(os.Stdin)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+
+		switch input {
+		case "1":
+			clearScreen()
+			printInfoHeader(false)
+			printWebRescueInfo(false)
+			waitForEnter()
+		case "2":
+			clearScreen()
+			printInfoHeader(false)
+			printServiceStatus(false)
+			waitForEnter()
+		case "3":
+			clearScreen()
+			printInfoHeader(false)
+			printPathsInfo(false)
+			waitForEnter()
+		case "4":
+			clearScreen()
+			printInfoHeader(false)
+			printVersionInfo(false)
+			waitForEnter()
+		case "5":
+			clearScreen()
+			printInfoHeader(false)
+			printNetworkParams(false)
+			waitForEnter()
+		case "6", "0", "exit", "выход":
+			clearScreen()
+			return
+		default:
+			fmt.Println("\nНеверный выбор. Попробуйте снова.")
+			time.Sleep(1 * time.Second)
+		}
+	}
+}
+
+func clearScreen() {
+	fmt.Print("\033[H\033[2J")
+}
+
+func waitForEnter() {
+	fmt.Print("\nНажмите [ENTER] для возврата в меню...")
+	bufio.NewReader(os.Stdin).ReadBytes('\n')
+}
+
+func printInfoHeader(plain bool) {
+	if plain {
+		fmt.Println("AMBER GUARD LABORATORY — ИНФОРМАЦИОННАЯ ПАНЕЛЬ")
+		fmt.Println(strings.Repeat("-", 56))
+	} else {
+		fmt.Println("\033[1;36m" + strings.Repeat("═", 56) + "\033[0m")
+		fmt.Println("\033[1;36mAMBER GUARD LABORATORY — ИНФОРМАЦИОННАЯ ПАНЕЛЬ\033[0m")
+		fmt.Println("\033[1;36m" + strings.Repeat("═", 56) + "\033[0m")
+	}
+}
+
+func printWebRescueInfo(plain bool) {
+	c := config.C
+	fmt.Println()
+	if c.WebRescueEnabled && c.WebRescuePort > 0 {
+		hashPrefix := "unknown"
+		if len(c.WebRescuePasswordHash) >= 12 {
+			hashPrefix = c.WebRescuePasswordHash[:12]
+		}
+		if plain {
+			fmt.Println("Канал спасения: ВКЛЮЧЁН")
+			fmt.Printf("Порт: %d\n", c.WebRescuePort)
+			fmt.Printf("Хэш-префикс: /%s/\n", hashPrefix)
+			fmt.Printf("Полный адрес: https://<IP_СЕРВЕРА>:%d/%s/\n", c.WebRescuePort, hashPrefix)
+			fmt.Println("Логин: —")
+			fmt.Println("Пароль: ******** (установлен)")
+		} else {
+			fmt.Println("\033[1;32mКанал спасения: ВКЛЮЧЁН\033[0m")
+			fmt.Printf("Порт: \033[1;33m%d\033[0m\n", c.WebRescuePort)
+			fmt.Printf("Хэш-префикс: \033[1;33m/%s/\033[0m\n", hashPrefix)
+			fmt.Printf("Полный адрес: \033[1;34mhttps://<IP_СЕРВЕРА>:%d/%s/\033[0m\n", c.WebRescuePort, hashPrefix)
+			fmt.Println("Логин: —")
+			fmt.Println("Пароль: \033[1;33m********\033[0m (установлен)")
+		}
+	} else {
+		if plain {
+			fmt.Println("Канал спасения: ВЫКЛЮЧЕН")
+		} else {
+			fmt.Println("\033[1;31mКанал спасения: ВЫКЛЮЧЕН\033[0m")
+		}
+	}
+	fmt.Println()
+}
+
+func printServiceStatus(plain bool) {
+	fmt.Println()
+	ufwStatus := checkServiceStatus("ufw")
+	tarpitStatus := checkServiceStatus("agld_tarpit.service")
+	watcherStatus := checkServiceStatus("agld_watcher.service")
+
+	castlingStatus := "OFF"
+	if _, err := os.Stat(config.MarkerSshMoved); err == nil {
+		castlingStatus = fmt.Sprintf("ON → порт %d", config.C.RealSshPort)
+	}
+
+	baseTarpitStatus := "OFF"
+	if _, err := os.Stat(config.TarpitMarkerPath(22)); err == nil {
+		baseTarpitStatus = "ON"
+	}
+
+	if plain {
+		fmt.Printf("UFW:             %s\n", ufwStatus)
+		fmt.Printf("Демон ловушек:   %s\n", tarpitStatus)
+		fmt.Printf("Наблюдатель:     %s\n", watcherStatus)
+		fmt.Printf("Рокировка:       %s\n", castlingStatus)
+		fmt.Printf("Базовая яма:     %s\n", baseTarpitStatus)
+	} else {
+		fmt.Printf("UFW:             \033[%s%s\033[0m\n", colorizeStatus(ufwStatus), ufwStatus)
+		fmt.Printf("Демон ловушек:   \033[%s%s\033[0m\n", colorizeStatus(tarpitStatus), tarpitStatus)
+		fmt.Printf("Наблюдатель:     \033[%s%s\033[0m\n", colorizeStatus(watcherStatus), watcherStatus)
+		fmt.Printf("Рокировка:       \033[%s%s\033[0m\n", colorizeStatusActive(castlingStatus), castlingStatus)
+		fmt.Printf("Базовая яма:     \033[%s%s\033[0m\n", colorizeStatus(baseTarpitStatus), baseTarpitStatus)
+	}
+	fmt.Println()
+}
+
+func checkServiceStatus(name string) string {
+	res := sys.RunTimeout(3*time.Second, "systemctl", "is-active", name)
+	if strings.TrimSpace(res.Stdout) == "active" {
+		return "ON"
+	}
+	return "OFF"
+}
+
+func colorizeStatus(status string) string {
+	if status == "ON" {
+		return "1;32m" // Зеленый
+	}
+	return "1;31m" // Красный
+}
+
+func colorizeStatusActive(status string) string {
+	if strings.HasPrefix(status, "ON") {
+		return "1;32m"
+	}
+	return "1;31m"
+}
+
+func printPathsInfo(plain bool) {
+	fmt.Println()
+	if plain {
+		fmt.Printf("Конфигурация:     %s\n", config.FileConfig)
+		fmt.Printf("Инвентарь:        %s\n", config.FilePerimeterInv)
+		fmt.Printf("Инвентарь ям:     %s\n", config.FileTarpitInventory)
+		fmt.Printf("Журнал:           %s\n", config.FileMainLog)
+		fmt.Printf("Состояния:        %s\n", config.DirLib)
+		fmt.Printf("Бинарник:         %s\n", config.FileBinary)
+	} else {
+		fmt.Printf("Конфигурация:     \033[1;33m%s\033[0m\n", config.FileConfig)
+		fmt.Printf("Инвентарь:        \033[1;33m%s\033[0m\n", config.FilePerimeterInv)
+		fmt.Printf("Инвентарь ям:     \033[1;33m%s\033[0m\n", config.FileTarpitInventory)
+		fmt.Printf("Журнал:           \033[1;33m%s\033[0m\n", config.FileMainLog)
+		fmt.Printf("Состояния:        \033[1;33m%s\033[0m\n", config.DirLib)
+		fmt.Printf("Бинарник:         \033[1;33m%s\033[0m\n", config.FileBinary)
+	}
+	fmt.Println()
+}
+
+func printVersionInfo(plain bool) {
+	fmt.Println()
+	goVersion := strings.TrimPrefix(runtime.Version(), "go")
+	if plain {
+		fmt.Printf("Версия:     %s\n", buildinfo.Version)
+		fmt.Printf("Сборка:     %s\n", buildinfo.BuildTime)
+		fmt.Printf("Go:         go%s\n", goVersion)
+	} else {
+		fmt.Printf("Версия:     \033[1;36m%s\033[0m\n", buildinfo.Version)
+		fmt.Printf("Сборка:     \033[1;36m%s\033[0m\n", buildinfo.BuildTime)
+		fmt.Printf("Go:         \033[1;36mgo%s\033[0m\n", goVersion)
+	}
+	fmt.Println()
+}
+
+func printNetworkParams(plain bool) {
+	fmt.Println()
+	c := config.C
+	castlingActive := "НЕАКТИВНА"
+	if _, err := os.Stat(config.MarkerSshMoved); err == nil {
+		castlingActive = "АКТИВНА"
+	}
+	if plain {
+		fmt.Printf("Стандартный порт:    %d\n", c.StandardSshPort)
+		fmt.Printf("Скрытый порт:        %d\n", c.RealSshPort)
+		fmt.Printf("Рокировка:           %s\n", castlingActive)
+		fmt.Printf("Джиттер:             %d ± %d сек\n", c.DelayStep, c.DelayVariance)
+		fmt.Printf("Лимит сессий:        %d\n", c.TarpitMaxConn)
+		fmt.Printf("Таймаут простоя:     %d мин\n", c.AdminIdleTimeout)
+	} else {
+		fmt.Printf("Стандартный порт:    \033[1;33m%d\033[0m\n", c.StandardSshPort)
+		fmt.Printf("Скрытый порт:        \033[1;33m%d\033[0m\n", c.RealSshPort)
+		fmt.Printf("Рокировка:           \033[%s%s\033[0m\n", colorizeStatusActive(castlingActive), castlingActive)
+		fmt.Printf("Джиттер:             \033[1;33m%d ± %d сек\033[0m\n", c.DelayStep, c.DelayVariance)
+		fmt.Printf("Лимит сессий:        \033[1;33m%d\033[0m\n", c.TarpitMaxConn)
+		fmt.Printf("Таймаут простоя:     \033[1;33m%d мин\033[0m\n", c.AdminIdleTimeout)
+	}
+	fmt.Println()
 }

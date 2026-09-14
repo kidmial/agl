@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/sys"
 )
 
@@ -48,7 +49,7 @@ var (
 // Блокирующий вызов — не возвращает управление до остановки процесса.
 func StartWatcherProtocol() {
 	sys.LogAction("WATCHER", "START", "SUCCESS",
-		"Наблюдатель простоя администратора запущен. Период тикера: 60 сек.")
+		i18n.TrEvent("watcher.start"))
 
 	// M3 (v8.1.2): Инициализация директории веб-стука в ОЗУ
 	initWebRescueDir()
@@ -87,7 +88,7 @@ func watcherTick() {
 	// с предыдущим успешным снапшотом, чтобы не обрушить защиту из-за опечатки.
 	if err := config.LoadConfig(config.DirEtc + "/config.json"); err != nil {
 		sys.LogAction("WATCHER", "CONFIG_RELOAD_FAIL", "WARNING",
-			fmt.Sprintf("event=config.reload_failed err=%v. Продолжаю работу с предыдущим снапшотом.", err))
+			i18n.TrEventf("config.reload_failed", err))
 	}
 	// [здесь остаётся твой блок M3g PasswordJustMigrated, если он внедрён]
 	// M3c: контроллер жизненного цикла веб-сервера (fail closed + ретрай)
@@ -127,7 +128,7 @@ func handleKnockPhase() {
 	if _, err := os.Stat(webKnockFile); err == nil && safeClosed {
 		safeClosed = false
 		sys.LogAction("WATCHER", "SAFE_REOPENED", "SUCCESS",
-			"Веб-стук принят. Вотчер вышел из дремоты, цикл возобновлён.")
+			i18n.TrEvent("watcher.safe_reopened_knock"))
 	}
 }
 
@@ -144,14 +145,14 @@ func checkSessionPhase() bool {
 	if safeClosed {
 		safeClosed = false
 		sys.LogAction("WATCHER", "SAFE_REOPENED", "SUCCESS",
-			"Сессия админа появилась в utmp. Вотчер вышел из дремоты.")
+			i18n.TrEvent("watcher.safe_reopened_session"))
 	}
 	if !sessionSeen || !lastActive {
 		sessionSeen = true
 		lastActive = true
 		writeAdminIdleCounter(0)
 		sys.LogAction("WATCHER", "SESSION_APPEARED", "SUCCESS",
-			"Сессия администратора появилась. Счётчик простоя сброшен.")
+			i18n.TrEvent("watcher.session_appeared"))
 	}
 	return true
 }
@@ -166,7 +167,7 @@ func incrementIdlePhase() int {
 		sessionSeen = true
 		lastActive = false
 		sys.LogAction("WATCHER", "IDLE_STARTED", "PENDING",
-			"Сессия администратора исчезла. Начат отсчёт простоя.")
+			i18n.TrEvent("watcher.idle_started"))
 	}
 	newCount := readAdminIdleCounter() + 1
 	writeAdminIdleCounter(newCount)
@@ -184,16 +185,16 @@ func incinerationPhase(newCount int) {
 	}
 	if newCount == timeout/2 {
 		sys.LogAction("WATCHER", "IDLE_HALF_WARNING", "WARNING",
-			fmt.Sprintf("Простой админа %d мин. Сейф захлопнется через %d мин.", newCount, timeout-newCount))
+			i18n.TrEventf("watcher.idle_half_warning", newCount, timeout-newCount))
 	}
 	if newCount >= timeout {
 		sys.LogAction("WATCHER", "IDLE_TIMEOUT_REACHED", "ALERT",
-			fmt.Sprintf("Таймаут простоя достигнут (%d мин). Запуск испепеления.", timeout))
+			i18n.TrEventf("watcher.idle_timeout_reached", timeout))
 		incinerateHiddenRules() // все SIG_HIDDEN (стук + SSH_CONNECTION); SIG_LOCALE неприкосновенен
 		_ = os.Remove(adminIdleCounterPath)
 		safeClosed = true
 		sys.LogAction("WATCHER", "SAFE_CLOSED", "SUCCESS",
-			"Сейф закрыт. Вотчер в дремоте до возвращения админа или веб-стука.")
+			i18n.TrEvent("watcher.safe_closed"))
 	}
 }
 
@@ -211,7 +212,7 @@ func checkActiveSessions() bool {
 	data, err := os.ReadFile("/var/run/utmp")
 	if err != nil {
 		sys.LogAction("WATCHER", "UTMP_READ_FAIL", "ERROR",
-			fmt.Sprintf("Не удалось прочитать /var/run/utmp: %v. Трактую как «сессия активна» (fail-safe).", err))
+			i18n.TrEventf("watcher.utmp_read_fail", err))
 		return true
 	}
 	for off := 0; off+utmpRecordSize <= len(data); off += utmpRecordSize {
@@ -269,14 +270,14 @@ func writeAdminIdleCounter(value int) {
 	// Записываем во временный файл
 	if err := os.WriteFile(tmpPath, []byte(content), 0644); err != nil {
 		sys.LogAction("WATCHER", "COUNTER_WRITE_FAIL", "ERROR",
-			fmt.Sprintf("Не удалось записать счётчик простоя: %v", err))
+			i18n.TrEventf("watcher.counter_write_fail", err))
 		return
 	}
 
 	// Атомарное переименование
 	if err := os.Rename(tmpPath, adminIdleCounterPath); err != nil {
 		sys.LogAction("WATCHER", "COUNTER_RENAME_FAIL", "ERROR",
-			fmt.Sprintf("Не удалось переименовать счётчик простоя: %v", err))
+			i18n.TrEventf("watcher.counter_rename_fail", err))
 	}
 }
 
@@ -285,7 +286,7 @@ func writeAdminIdleCounter(value int) {
 // Правила `SIG_LOCALE` (127.0.0.1) НЕ трогаются — они остаются навсегда.
 func incinerateHiddenRules() {
 	sys.LogAction("WATCHER", "INCINERATION_START", "PENDING",
-		"Запуск испепеления правил с сигнатурой SIG_HIDDEN.")
+		i18n.TrEvent("watcher.incineration_start"))
 
 	// Парсим вывод `ufw status numbered`
 	// БЛОК 3.1: получаем нумерованный список правил через единый интерфейс.
@@ -352,12 +353,12 @@ func incinerateHiddenRules() {
 
 			// SUCCESS пишем только после реального успеха команды.
 			sys.LogAction("WATCHER", "RULE_INCINERATED", "SUCCESS",
-				fmt.Sprintf("Правило #%s с сигнатурой SIG_HIDDEN испепелено.", numStr))
+				i18n.TrEventf("watcher.rule_incinerated", numStr))
 		}
 	}
 
 	sys.LogAction("WATCHER", "INCINERATION_COMPLETE", "SUCCESS",
-		fmt.Sprintf("Испепеление завершено. Удалено правил: %d.", incineratedCount))
+		i18n.TrEventf("watcher.incineration_complete", incineratedCount))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -371,7 +372,7 @@ func incinerateHiddenRules() {
 func initWebRescueDir() {
 	_ = os.MkdirAll(webRescueDir, 0700)
 	sys.LogAction("WATCHER", "WEB_RESCUE_DIR_INIT", "SUCCESS",
-		fmt.Sprintf("Директория веб-стука инициализирована (0700): %s", webRescueDir))
+		i18n.TrEventf("watcher.web_rescue_dir_init", webRescueDir))
 }
 
 // processWebKnock обрабатывает входящий сигнал веб-стука.
@@ -395,7 +396,7 @@ func processWebKnock() {
 	data, err := os.ReadFile(webKnockFile)
 	if err != nil {
 		sys.LogAction("WATCHER", "WEB_KNOCK_READ_FAIL", "ERROR",
-			fmt.Sprintf("Не удалось прочитать файл веб-стука: %v", err))
+			i18n.TrEventf("watcher.web_knock_read_fail", err))
 		return
 	}
 	adminIP := strings.TrimSpace(string(data))
@@ -403,7 +404,7 @@ func processWebKnock() {
 	// Шаг 3: v8.2.0 (1.5): строгая валидация IPv4 через net.ParseIP
 	if !isValidKnockIPv4(adminIP) {
 		sys.LogAction("WATCHER", "WEB_KNOCK_INVALID_IP", "ALERT",
-			fmt.Sprintf("Файл веб-стука содержит невалидный IP: %s", adminIP))
+			i18n.TrEventf("watcher.web_knock_invalid_ip", adminIP))
 		// Самоуничтожение невалидного файла
 		_ = os.Remove(webKnockFile)
 		return
@@ -486,7 +487,7 @@ func processWebKnock() {
 		// Повышаем до ALERT, потому что канал спасения может не пережить
 		// перезагрузку/перечитывание UFW без персистентного правила.
 		sys.LogAction("WATCHER", "WEB_KNOCK_PERSIST_FAIL", "ALERT",
-			fmt.Sprintf("event=web_knock.ufw_persist_failed ip=%s port=%s. Сигнал сохранён для повторной обработки.", adminIP, targetPort))
+			i18n.TrEventf("web_knock.ufw_persist_failed", adminIP, targetPort))
 
 		// НЕ удаляем webKnockFile: даём вотчеру шанс повторить стук.
 		return
@@ -500,7 +501,7 @@ func processWebKnock() {
 	// Если мгновенный iptables завершился ошибкой, но ufw insert успешен,
 	// правило всё равно внедрено через UFW/Netfilter.
 	sys.LogAction("WATCHER", "WEB_KNOCK_PROCESSED", "SUCCESS",
-		fmt.Sprintf("Веб-стук обработан: IP=%s, порт=%s. Точечное правило внедрено.", adminIP, targetPort))
+		i18n.TrEventf("watcher.web_knock_processed", adminIP, targetPort))
 }
 
 // syncWebRescueServer — M3c контроллер жизненного цикла веб-сервера.
@@ -517,7 +518,7 @@ func syncWebRescueServer() {
 			webServer = nil
 			webServerPort = 0
 			sys.LogAction("WEB_RESCUE", "SERVER_DISABLED", "SUCCESS",
-				"Канал веб-стука выключен в SETTINGS. Сервер остановлен, гейт снят.")
+				i18n.TrEvent("web_rescue.server_disabled"))
 		}
 		return
 	}
@@ -537,7 +538,7 @@ func syncWebRescueServer() {
 		webServer = startWebRescueServer(wantPort)
 		webServerPort = wantPort
 		sys.LogAction("WEB_RESCUE", "SERVER_RESTART", "SUCCESS",
-			fmt.Sprintf("Порт веб-стука изменён в SETTINGS. Сервер перезапущен на порту %d.", wantPort))
+			i18n.TrEventf("web_rescue.server_restart", wantPort))
 	}
 }
 

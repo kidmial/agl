@@ -25,6 +25,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/sys"
 )
 
@@ -66,7 +67,7 @@ func ensureWebRescueGate(port int) {
 
 	// Пишем SUCCESS только после реального успеха внешней команды.
 	sys.LogAction("WEB_RESCUE", "UFW_GATE_OPEN", "SUCCESS",
-		fmt.Sprintf("Открыт UFW-гейт канала веб-стука: порт %d", port))
+		i18n.TrEventf("web_rescue.ufw_gate_open", port))
 }
 
 // startWebRescueServer поднимает HTTPS-сервер веб-стука на ЛИЧНОМ mux.
@@ -77,7 +78,7 @@ func startWebRescueServer(port int) *http.Server {
 		if !tlsAlerted {
 			tlsAlerted = true
 			sys.LogAction("WEB_RESCUE", "TLS_FAIL_CLOSED", "ALERT",
-				fmt.Sprintf("TLS-сертификат недоступен: %v. Сервер веб-стука НЕ запущен (fail closed). Ретрай на следующем тике.", err))
+				i18n.TrEventf("web_rescue.tls_fail_closed", err))
 		}
 		return nil
 	}
@@ -98,11 +99,11 @@ func startWebRescueServer(port int) *http.Server {
 	go func() {
 		if err := srv.ListenAndServeTLS(rescueCertPath, rescueKeyPath); err != nil && err != http.ErrServerClosed {
 			sys.LogAction("WEB_RESCUE", "SERVER_FAIL", "ERROR",
-				fmt.Sprintf("Сбой HTTPS-сервера веб-стука: %v", err))
+				i18n.TrEventf("web_rescue.server_fail", err))
 		}
 	}()
 	sys.LogAction("WEB_RESCUE", "SERVER_START", "SUCCESS",
-		fmt.Sprintf("Автономный HTTPS-сервер веб-стука запущен на порту %d (TLS 1.2+)", port))
+		i18n.TrEventf("web_rescue.server_start", port))
 	return srv
 }
 
@@ -136,7 +137,7 @@ func removeWebRescueGate(port int) {
 
 	// Успех логируем только после реального успеха команды.
 	sys.LogAction("WEB_RESCUE", "UFW_GATE_CLOSED", "SUCCESS",
-		fmt.Sprintf("Гейт UFW веб-стука снят: порт %d", port))
+		i18n.TrEventf("web_rescue.ufw_gate_closed", port))
 }
 
 // v8.2.3 (1.7): счётчик брутфорса в памяти сервера.
@@ -229,7 +230,7 @@ func handleWebRescue(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 
 	// Извлекаем пароль из поля формы.
-	password := r.FormValue("f_pass")
+	password := r.FormValue("delta_pass")
 
 	// v8.2.3 (1.7): идёт лок-аут — пароль даже не сравниваем.
 	//
@@ -277,7 +278,7 @@ func handleWebRescue(w http.ResponseWriter, r *http.Request) {
 		if !isValidKnockIPv4(adminIP) {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("<html><body>Ошибка: некорректный IP-адрес источника.</body></html>"))
+			_, _ = w.Write([]byte("<html><body>" + i18n.T.WebRescuePageInvalidIP + "</body></html>"))
 			return
 		}
 
@@ -296,7 +297,7 @@ func handleWebRescue(w http.ResponseWriter, r *http.Request) {
 			// Если не смогли открыть файл, канал спасения не получает сигнал.
 			// Это нужно обязательно писать в журнал.
 			sys.LogAction("WEB_RESCUE", "SIGNAL_WRITE_FAIL", "ERROR",
-				fmt.Sprintf("Не удалось записать файл сигнала: %v", errSig))
+				i18n.TrEventf("web_rescue.signal_write_fail", errSig))
 		} else {
 			// Записываем IP админа в сигнальный файл.
 			_, errSig = f.WriteString(adminIP)
@@ -308,11 +309,11 @@ func handleWebRescue(w http.ResponseWriter, r *http.Request) {
 			if errSig != nil {
 				// Ошибка записи или закрытия означает, что сигнал не доставлен.
 				sys.LogAction("WEB_RESCUE", "SIGNAL_WRITE_FAIL", "ERROR",
-					fmt.Sprintf("Не удалось записать файл сигнала: %v", errSig))
+					i18n.TrEventf("web_rescue.signal_write_fail", errSig))
 			} else {
 				// Успешный веб-стук зафиксирован.
 				sys.LogAction("WEB_RESCUE", "SIGNAL_WRITTEN", "SUCCESS",
-					fmt.Sprintf("Файл сигнала записан (0600): IP=%s. Воркер подхватит на следующем тике.", adminIP))
+					i18n.TrEventf("web_rescue.signal_written", adminIP))
 			}
 		}
 
@@ -355,7 +356,7 @@ func handleWebRescue(w http.ResponseWriter, r *http.Request) {
 
 		// Фиксируем факт срабатывания анти-брутфорс блокировки.
 		sys.LogAction("WEB_RESCUE", "BRUTEFORCE_LOCKOUT", "ALERT",
-			"Пять неудачных попыток пароля подряд — канал веб-стука заблокирован на 60 секунд.")
+			i18n.TrEvent("web_rescue.bruteforce_lockout"))
 	} else {
 		// Порог ещё не достигнут.
 		// Просто освобождаем мьютекс и продолжаем обычную обработку.
@@ -382,18 +383,18 @@ func renderWebRescueForm(w http.ResponseWriter, showError bool) {
 	errorHTML := ""
 	redirectHTML := ""
 	if showError {
-		errorHTML = `<div class="error">Ошибка: Доступ запрещен.</div>`
+		errorHTML = `<div class="error">` + i18n.T.WebRescuePageAccessDenied + `</div>`
 		redirectHTML = `<meta http-equiv="refresh" content="300; url=https://google.com">`
 	}
 
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="ru">
-<head>
-<meta charset="utf-8">
-<title>authorizationform</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+ <head>
+ <meta charset="utf-8">
+ <title>%s</title>
+ <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
 %s
-<style>
+ <style>
 body { background: #0f141c; color: #a5b4fc; font-family: monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
 .authorizationform { border: 1px solid #1e293b; background: #111827; padding: 40px; border-radius: 4px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; width: 280px; }
 .auth_required { font-size: 20px; font-weight: bold; margin-bottom: 25px; color: #f43f5e; letter-spacing: 2px; }
@@ -405,16 +406,16 @@ body { background: #0f141c; color: #a5b4fc; font-family: monospace; display: fle
 </style>
 </head>
 <body>
-<div class="authorizationform">
-<div class="auth_required">AUTH REQUIRED</div>
-<form action="" method="post">
-<input class="key_entry" type="password" name="f_pass" value="" autofocus placeholder="••••••••••••" autocomplete="off" />
-<input class="button" type="submit" value="Enter">
-</form>
+ <div class="authorizationform">
+ <div class="auth_required">%s</div>
+ <form action="" method="post">
+ <input class="key_entry" type="password" name="delta_pass" value="" autofocus placeholder="••••••••••••" autocomplete="off" />
+ <input class="button" type="submit" value="%s">
+ </form>
 %s
-</div>
-</body>
-</html>`, redirectHTML, errorHTML)
+ </div>
+ </body>
+ </html>`, i18n.T.WebRescuePageFormTitle, redirectHTML, i18n.T.WebRescuePageAuthRequired, i18n.T.WebRescuePageEnterButton, errorHTML)
 
 	_, _ = w.Write([]byte(html))
 }
@@ -429,7 +430,7 @@ func renderWebRescueSuccess(w http.ResponseWriter, adminIP string) {
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<title>Reset Activated</title>
+<title>%s</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="refresh" content="300; url=https://google.com">
 <style>
@@ -438,11 +439,9 @@ body { background: #0f141c; color: #00ff66; font-family: monospace; display: fle
 </style>
 </head>
 <body>
-<div class="success">[ ACCESS GRANTED ]<br>
-IP-адрес %s зафиксирован.<br>
-Ожидание...</div>
+<div class="success">%s<br>%s %s<br>%s<hr>%s</div>
 </body>
-</html>`, adminIP)
+</html>`, i18n.T.WebRescuePageSuccessTitle, i18n.T.WebRescuePageAccessGranted, i18n.T.WebRescuePageIPAddress, adminIP, i18n.T.WebRescuePageRecorded, i18n.T.WebRescuePageWaiting)
 
 	_, _ = w.Write([]byte(html))
 }

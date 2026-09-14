@@ -3,6 +3,7 @@ package tui
 
 import (
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/buildinfo"
 	"agl/internal/service"
 	"agl/internal/sys"
@@ -21,6 +22,30 @@ import (
 
 // Глобальные переменные для расчета дельты процессора
 var prevIdle, prevTotal uint64
+
+// ───────────────────────────────────────────────────────────────
+// БЛОК 7: КЭШИ ДЛЯ СТАТИСТИКИ ГЛАВНОГО ЭКРАНА (защита от I/O)
+// ────────────────────────────────────────────────────────────────
+var (
+	// Кэш статистики (обновляется раз в 30 сек)
+	statsCacheMu   sync.Mutex
+	statsCacheTime time.Time
+	statsCacheData struct {
+		logProgSize   int64
+		logConnSize   int64
+		logRptSize    int64
+		snapshotTime  time.Time
+		snapshotCount int
+		activeTraps   int
+		totalTraps    int
+		openPorts     int
+	}
+
+	// Кэш логов (обновляется только при изменении размера файла)
+	logCacheMu    sync.Mutex
+	logCacheSize  int64
+	logCacheLines []string
+)
 
 // ─────────────────────────────────────────────────────────────────
 // ГЛАВНЫЙ ЭКРАН v8.1.3 — СТАТИКА И КЭШ
@@ -56,7 +81,7 @@ func loadCpuInfoOnce() {
 	cpuInfoOnce.Do(func() {
 		file, err := os.Open("/proc/cpuinfo")
 		if err != nil {
-			cpuModelCached = "Unknown CPU"
+			cpuModelCached = i18n.T.ViewMainFallbackUnknownCpu
 			cpuCoresCached = 1
 			cpuThreadsCached = 1
 			return
@@ -90,7 +115,7 @@ func loadCpuInfoOnce() {
 			cpuCoresCached = threads // fallback для виртуалок без core id
 		}
 		if cpuModelCached == "" {
-			cpuModelCached = "Unknown CPU"
+			cpuModelCached = i18n.T.ViewMainFallbackUnknownCpu
 		}
 	})
 }
@@ -126,7 +151,7 @@ func refreshUnitCache() {
 		if ufwDegraded {
 			ufwDegraded = false
 			sys.LogAction("TUI", "UNIT_CACHE", "SUCCESS",
-				"event=ufw.status_restored Опрос UFW снова доступен.")
+				i18n.TrEvent("ufw.status_restored"))
 		}
 	}
 
@@ -162,7 +187,7 @@ func refreshUnitCache() {
 		if watcherDegraded {
 			watcherDegraded = false
 			sys.LogAction("TUI", "UNIT_CACHE", "SUCCESS",
-				"event=systemd.watcher_probe_restored Опрос юнита вотчера снова доступен.")
+				i18n.TrEvent("systemd.watcher_probe_restored"))
 		}
 	} else if watcherRes.Err != nil {
 		// Нет ни stdout, ни stderr — таймаут, команда недоступна, systemd сломан.
@@ -225,7 +250,7 @@ func getLinuxCpuPercent() int {
 func getLinuxMemoryMetrics() (int, string, int, string) {
 	file, err := os.Open("/proc/meminfo")
 	if err != nil {
-		return 0, "Error", 0, "Error"
+		return 0, i18n.T.ViewMainFallbackError, 0, i18n.T.ViewMainFallbackError
 	}
 	defer file.Close()
 
@@ -250,29 +275,144 @@ func getLinuxMemoryMetrics() (int, string, int, string) {
 
 	// Расчет RAM
 	ramPercent := 0
-	ramText := "0 MB / 0 MB"
+	ramText := i18n.T.ViewMainFallbackZeroMb
 	if memTotal > 0 {
 		ramUsed := memTotal - memAvailable
 		ramPercent = int(ramUsed * 100 / memTotal)
-		ramText = fmt.Sprintf("%d MB / %d MB", ramUsed/1024, memTotal/1024)
+		ramText = fmt.Sprintf("%d %s / %d %s", ramUsed/1024, i18n.T.UnitMB, memTotal/1024, i18n.T.UnitMB)
+		// ← Строка 282 УДАЛЕНА
 	}
 
 	// Расчет Swap
 	swapPercent := 0
-	swapText := "0 MB / 0 MB"
+	swapText := i18n.T.ViewMainFallbackZeroMb
 	if swapTotal > 0 {
 		swapUsed := swapTotal - swapFree
 		swapPercent = int(swapUsed * 100 / swapTotal)
-		swapText = fmt.Sprintf("%d MB / %d MB", swapUsed/1024, swapTotal/1024)
+		swapText = fmt.Sprintf("%d %s / %d %s", swapUsed/1024, i18n.T.UnitMB, swapTotal/1024, i18n.T.UnitMB) // ← v8.3.0: i18n
 	}
 
 	return ramPercent, ramText, swapPercent, swapText
 }
 
+// updateStatsCache обновляет статистику, если прошло > 30 сек.
+func updateStatsCache() {
+	statsCacheMu.Lock()
+	defer statsCacheMu.Unlock()
+
+	if time.Since(statsCacheTime) < 30*time.Second {
+		return // Кэш ещё свежий
+	}
+
+	// 1. Размеры логов (os.Stat — быстро)
+	if info, err := os.Stat(config.FileMainLog); err == nil {
+		statsCacheData.logProgSize = info.Size()
+	}
+	if info, err := os.Stat(config.FileTarpitConnLog); err == nil {
+		statsCacheData.logConnSize = info.Size()
+	}
+	if info, err := os.Stat(config.FileTarpitRptLog); err == nil {
+		statsCacheData.logRptSize = info.Size()
+	}
+
+	// 2. Снапшоты (readdir /backup)
+	backupDir := "/backup"
+	if entries, err := os.ReadDir(backupDir); err == nil {
+		count := 0
+		var latest time.Time
+		for _, entry := range entries {
+			if entry.IsDir() {
+				count++
+				if info, err := entry.Info(); err == nil {
+					if info.ModTime().After(latest) {
+						latest = info.ModTime()
+					}
+				}
+			}
+		}
+		statsCacheData.snapshotCount = count
+		statsCacheData.snapshotTime = latest
+	}
+
+	// 3. Ловушки из инвентаря
+	if inv, err := sys.LoadTarpitInventory(sys.TarpitInventoryPath); err == nil {
+		total := 0
+		active := 0
+		for _, trap := range inv.Traps {
+			total++
+			if trap.Status == "ACTIVE" {
+				active++
+			}
+		}
+		statsCacheData.totalTraps = total
+		statsCacheData.activeTraps = active
+	}
+
+	// 4. Открытые порты из периметра
+	if apps, err := config.LoadDetectedApps(); err == nil {
+		count := 0
+		for _, app := range apps {
+			if app.IsActive && app.Port > 0 {
+				count++
+			}
+		}
+		statsCacheData.openPorts = count
+	}
+
+	statsCacheTime = time.Now()
+}
+
+// updateLogCache читает хвост amberguard.log, только если файл вырос.
+func updateLogCache() {
+	logCacheMu.Lock()
+	defer logCacheMu.Unlock()
+
+	logPath := config.FileMainLog
+	info, err := os.Stat(logPath)
+	if err != nil {
+		return
+	}
+
+	currentSize := info.Size()
+
+	// Если размер не изменился — возвращаем кэш
+	if currentSize == logCacheSize && len(logCacheLines) > 0 {
+		return
+	}
+
+	// Файл вырос — читаем последние 5 строк
+	logCacheLines = readLastLines(logPath, 5)
+	logCacheSize = currentSize
+}
+
+// readLastLines читает последние N строк из файла.
+func readLastLines(path string, n int) []string {
+	file, err := os.Open(path)
+	if err != nil {
+		return []string{i18n.T.ViewMainFallbackError}
+	}
+	defer file.Close()
+
+	var lines []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+		if len(lines) > n {
+			lines = lines[1:] // Удаляем старую строку
+		}
+	}
+
+	if len(lines) == 0 {
+		return []string{i18n.T.EmptyLog}
+	}
+
+	return lines
+}
+
 // DrawMainMenuGrid компонует сетку виджетов Главного Меню Сервера (v8.1.3).
 // Редизайн: убраны три Gauge-полосы → два смысловых блока текста.
 // Блок A — СИСТЕМНЫЙ ПАСПОРТ (CPU, RAM, Swap).
-// Блок B — СЛУЖБЫ КОМПЛЕКСА (SSH, UFW, яма, вотчер, боты).
+// Блок B — СЛУЖБЫ КОМПЛЕКСА (SSH, UFW, яма, вотчер, боты, ловушки, порты).
 func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	// Загружаем статику CPU (один раз за процесс)
 	loadCpuInfoOnce()
@@ -281,38 +421,43 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	cpuUsage := getLinuxCpuPercent()
 	ramPercent, ramText, swapPercent, swapText := getLinuxMemoryMetrics()
 
-	// Обновляем кэш статусов юнитов (раз в 10 сек)
+	// Обновляем кэш статусов юнитов (раз в 3 сек)
 	refreshUnitCache()
+
+	// Собираем статистику СРАЗУ, чтобы использовать данные в блоке служб
+	updateStatsCache()
+	statsCacheMu.Lock()
+	activeTraps := statsCacheData.activeTraps
+	totalTraps := statsCacheData.totalTraps
+	openPorts := statsCacheData.openPorts
+	statsCacheMu.Unlock()
 
 	// Состояние SSH и кастлинга
 	activeSshPort := sys.DetectActiveSshPort()
-	castlingLabel := "[[ OFF ]](fg:red,mod:bold)"
+	castlingLabel := fmt.Sprintf("[[ %s ]](fg:red,mod:bold)", i18n.T.StatusOff)
 	if _, err := os.Stat(config.MarkerSshMoved); err == nil {
-		castlingLabel = fmt.Sprintf("[[ ON ] → %d](fg:green,mod:bold)", config.C.RealSshPort)
+		castlingLabel = fmt.Sprintf("[[ %s ] → %d](fg:green,mod:bold)", i18n.T.StatusOn, config.C.RealSshPort)
 	}
 
-	// Счётчик ботов из IPC-моста (закрывает C3)
+	// Счётчик ботов из IPC-моста
 	liveBots := tarpit.GetLiveBotsShmCount()
 
-	// M3f (v8.1.3): индикатор TLS-шлюза спасения (два os.Stat, без exec)
-	tlsLabel := "[[ OFF ]](fg:red)"
+	// M3f (v8.1.3): индикатор TLS-шлюза спасения
+	tlsLabel := fmt.Sprintf("[[ %s ]](fg:red)", i18n.T.StatusOff)
 	if service.IsRescueTLSReady() {
-		tlsLabel = "[[ ON ]](fg:green,mod:bold)"
+		tlsLabel = fmt.Sprintf("[[ %s ]](fg:green,mod:bold)", i18n.T.StatusOn)
 	}
 
 	// ─────────────────────────────────────────────────────────────
 	// 1. ШАПКА (3 строки: y: 1-4)
 	// ─────────────────────────────────────────────────────────────
-	timeStr := time.Now().Format("15:04:05")
-	dateStr := time.Now().Format("2006-01-02")
+	timeStr := time.Now().Format(i18n.T.TimeFormat)
+	dateStr := time.Now().Format(i18n.T.DateFormat)
 	header := widgets.NewParagraph()
-	// v8.3.0 (5.1): версия больше не хардкодится в исходнике —
-	// берётся из buildinfo и внедряется на этапе компиляции через -ldflags.
-	// При голом go build (без Makefile) панель честно покажет "dev":
-	// это маркер нерелизной сборки, а не скрытая подмена версии.
 	header.Title = fmt.Sprintf(" Amber Guard Laboratory - %s ", buildinfo.Version)
-	header.Text = fmt.Sprintf(" [ Главное Меню Комплекса ](fg:cyan,mod:bold) │ Дата: %s │ Время: %s",
-		dateStr, timeStr)
+	header.Text = fmt.Sprintf(i18n.T.ViewMainHeaderTpl,
+		i18n.T.ViewMainLabelMainMenu, i18n.T.ViewMainLabelDate, dateStr,
+		i18n.T.ViewMainLabelTime, timeStr)
 	header.SetRect(2, 1, 102, 4)
 	header.BorderStyle.Fg = ui.ColorCyan
 	header.TitleStyle.Fg = ui.ColorYellow
@@ -320,17 +465,14 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 
 	// ─────────────────────────────────────────────────────────────
 	// 2. БЛОК A: СИСТЕМНЫЙ ПАСПОРТ (4 строки: y: 4-8)
-	//    CPU модель + ядра/потоки + нагрузка; RAM; Swap
 	// ─────────────────────────────────────────────────────────────
 	sysPassport := widgets.NewParagraph()
-	sysPassport.Title = " Системный паспорт хоста "
-	sysPassport.Text = fmt.Sprintf(
-		" CPU: %-40s │ %d×%d │ Нагрузка: [%d%%](fg:green,mod:bold)\n"+
-			" RAM: %-22s │ Использование: [%d%%](fg:green,mod:bold)\n"+
-			" Swap: %-21s │ Использование: [%d%%](fg:cyan,mod:bold)",
-		trunc(cpuModelCached, 40), cpuCoresCached, cpuThreadsCached, cpuUsage,
-		ramText, ramPercent,
-		swapText, swapPercent)
+	sysPassport.Title = i18n.T.ViewMainPassportTitle
+	sysPassport.Text = fmt.Sprintf(i18n.T.ViewMainPassportTpl,
+		i18n.T.ViewMainLabelCpu, trunc(cpuModelCached, 40), cpuCoresCached, cpuThreadsCached,
+		i18n.T.ViewMainLabelLoad, cpuUsage,
+		i18n.T.ViewMainLabelRam, ramText, i18n.T.ViewMainLabelUsage, ramPercent,
+		i18n.T.ViewMainLabelSwap, swapText, i18n.T.ViewMainLabelUsage, swapPercent)
 	sysPassport.SetRect(2, 4, 102, 8)
 	sysPassport.BorderStyle.Fg = ui.ColorCyan
 	sysPassport.TitleStyle.Fg = ui.ColorYellow
@@ -338,56 +480,149 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 
 	// ─────────────────────────────────────────────────────────────
 	// 3. БЛОК B: СЛУЖБЫ КОМПЛЕКСА (4 строки: y: 8-12)
-	//    SSH+кастлинг; UFW; Яма; Вотчер; Боты в капкане
+	//    Теперь включает: Ловушки (акт/всего) и Открытые порты
 	// ─────────────────────────────────────────────────────────────
 	servicesBlock := widgets.NewParagraph()
-	servicesBlock.Title = " Службы комплекса Amber Guard Lab."
-
-	ufwLabel := "[[ OFF ]](fg:red,mod:bold)"
+	servicesBlock.Title = i18n.T.ViewMainServicesTitle
+	ufwLabel := fmt.Sprintf("[[ %s ]](fg:red,mod:bold)", i18n.T.StatusOff)
 	if unitUfwOn {
-		ufwLabel = "[[ ON ]](fg:green,mod:bold)"
+		ufwLabel = fmt.Sprintf("[[ %s ]](fg:green,mod:bold)", i18n.T.StatusOn)
 	}
-	// Источник правды — маркер базовой ловушки (демон пишет/удаляет мгновенно).
-	// Юнит демона живёт постоянно и не отражает состояние ямы.
-	tarpitLabel := "[[ OFF ]](fg:red,mod:bold)"
+	tarpitLabel := fmt.Sprintf("[[ %s ]](fg:red,mod:bold)", i18n.T.StatusOff)
 	if _, errT := os.Stat(config.TarpitMarkerPath(22)); errT == nil {
-		tarpitLabel = "[[ ON ]](fg:green,mod:bold)"
+		tarpitLabel = fmt.Sprintf("[[ %s ]](fg:green,mod:bold)", i18n.T.StatusOn)
 	}
-	watcherLabel := "[[ OFF ]](fg:red,mod:bold)"
+	watcherLabel := fmt.Sprintf("[[ %s ]](fg:red,mod:bold)", i18n.T.StatusOff)
 	if unitWatcherOn {
-		watcherLabel = "[[ ON ]](fg:green,mod:bold)"
+		watcherLabel = fmt.Sprintf("[[ %s ]](fg:green,mod:bold)", i18n.T.StatusOn)
 	}
 
-	servicesBlock.Text = fmt.Sprintf(
-		" WEB WATCHER: %s │ UFW: %s │ SSH: %-5s │ Кастлинг: %s \n"+
-			" TARPIT: %s │ TLS шлюз: %s │ В капкане сейчас: [%d](fg:yellow,mod:bold)",
-		watcherLabel, ufwLabel, activeSshPort, castlingLabel,
-		tarpitLabel, tlsLabel, liveBots)
+	servicesBlock.Text = fmt.Sprintf(i18n.T.ViewMainServicesTpl,
+		i18n.T.ViewMainLabelWebWatcher, watcherLabel, ufwLabel, activeSshPort,
+		i18n.T.ViewMainLabelCastling, castlingLabel,
+		i18n.T.ViewMainLabelTarpit, tarpitLabel, i18n.T.ViewMainLabelTlsGate, tlsLabel,
+		i18n.T.ViewMainLabelBotsTrapped, liveBots,
+		i18n.T.StatsTrapsActive, activeTraps, totalTraps, i18n.T.StatsOpenPorts, openPorts)
+
 	servicesBlock.SetRect(2, 8, 102, 12)
 	servicesBlock.BorderStyle.Fg = ui.ColorCyan
 	servicesBlock.TitleStyle.Fg = ui.ColorYellow
 	servicesBlock.TitleStyle.Modifier = ui.ModifierBold
+	servicesBlock.WrapText = false
 
 	// ─────────────────────────────────────────────────────────────
-	// 4. МЕНЮ РАЗДЕЛОВ (9 строк: y: 12-21)
+	// 4. БЛОК C: КРАТКАЯ СТАТИСТИКА (4 строки: y: 12-16)
+	//    Сокращён на 1 строку (убраны боты, перенесены ловушки/порты)
+	// ─────────────────────────────────────────────────────────────
+	statsCacheMu.Lock()
+	progSizeStr := formatLogSize(statsCacheData.logProgSize)
+	connSizeStr := formatLogSize(statsCacheData.logConnSize)
+	rptSizeStr := formatLogSize(statsCacheData.logRptSize)
+
+	snapshotAgo := i18n.T.StatsNever
+	if !statsCacheData.snapshotTime.IsZero() {
+		d := time.Since(statsCacheData.snapshotTime)
+		if d.Minutes() < 60 {
+			snapshotAgo = fmt.Sprintf(i18n.T.StatsMinutesAgo, int(d.Minutes()))
+		} else if d.Hours() < 24 {
+			snapshotAgo = fmt.Sprintf(i18n.T.StatsHoursAgo, int(d.Hours()))
+		} else {
+			snapshotAgo = fmt.Sprintf(i18n.T.StatsDaysAgo, int(d.Hours()/24))
+		}
+	}
+	snapshotCount := statsCacheData.snapshotCount
+	statsCacheMu.Unlock()
+
+	// ── СОЗДАНИЕ ВИДЖЕТА (ЭТОГО НЕ ХВАТАЕТ) ──
+	statsBlock := widgets.NewParagraph()
+	statsBlock.Title = i18n.T.StatsBlockTitle
+	// ──────────────────────────────────────────
+
+	statsBlock.Text = fmt.Sprintf(
+		" %s: %s (%s) + %s (%s) + %s (%s)\n"+
+			" %s: %s │ %s: %d",
+		i18n.T.StatsLabelLogs,
+		progSizeStr, i18n.T.StatsLogProgram,
+		connSizeStr, i18n.T.StatsLogConnection,
+		rptSizeStr, i18n.T.StatsLogReport,
+		i18n.T.StatsLastSnapshot, snapshotAgo,
+		i18n.T.StatsBackupCount, snapshotCount)
+
+	statsBlock.Text = fmt.Sprintf(
+		" %s: %s (%s) + %s (%s) + %s (%s)\n"+
+			" %s: %s │ %s: %d",
+		i18n.T.StatsLabelLogs,
+		progSizeStr, i18n.T.StatsLogProgram,
+		connSizeStr, i18n.T.StatsLogConnection,
+		rptSizeStr, i18n.T.StatsLogReport,
+		i18n.T.StatsLastSnapshot, snapshotAgo,
+		i18n.T.StatsBackupCount, snapshotCount)
+
+	// Высота 4: 1 (заголовок) + 2 (текст) + 1 (нижняя граница)
+	statsBlock.SetRect(2, 12, 102, 16)
+	statsBlock.BorderStyle.Fg = ui.ColorCyan
+	statsBlock.TitleStyle.Fg = ui.ColorYellow
+	statsBlock.TitleStyle.Modifier = ui.ModifierBold
+
+	// ─────────────────────────────────────────────────────────────
+	// 5. МЕНЮ РАЗДЕЛОВ (9 строк: y: 16-25)
+	//    Сдвинуто вверх на 1 строку благодаря оптимизации блока C
 	// ─────────────────────────────────────────────────────────────
 	menuList := widgets.NewList()
-	menuList.Title = " Выберите административный раздел для работы: "
+	menuList.Title = i18n.T.ViewMainMenuTitle
 	menuList.Rows = []string{
-		" SETTINGS      │ Глобальная  конфигурация  периметра  безопасности",
-		" ANTIDDOS      │ Менеджер   сетевой   брони  (Защита  от  штормов)",
-		" TARPIT        │ Алгоритм «Дегтярная Яма» для парализации ботнетов",
-		" MULTI TARPIT  │ Управление  распределенным  пулом  мульти-ловушек",
-		" PORT MAP      │ Картография  активных сокетов и  инвентарь  хоста",
-		" BACKUP        │ Создание  снапшота  системы  (Архивация контуров)",
-		" EXIT          │ Выход  из панели  управления  обратно  в  консоль",
+		fmt.Sprintf(" SETTINGS      │ %s", i18n.T.ViewMainRowSettings),
+		fmt.Sprintf(" ANTIDDOS      │ %s", i18n.T.ViewMainRowAntiddos),
+		fmt.Sprintf(" TARPIT        │ %s", i18n.T.ViewMainRowTarpit),
+		fmt.Sprintf(" MULTI TARPIT  │ %s", i18n.T.ViewMainRowMultiTarpit),
+		fmt.Sprintf(" PORT MAP      │ %s", i18n.T.ViewMainRowPortMap),
+		fmt.Sprintf(" BACKUP        │ %s", i18n.T.ViewMainRowBackup),
+		fmt.Sprintf(" EXIT          │ %s", i18n.T.ViewMainRowExit),
 	}
-	menuList.SetRect(2, 12, 102, 21)
+	menuList.SetRect(2, 16, 102, 25)
 	menuList.BorderStyle.Fg = ui.ColorCyan
 	menuList.SelectedRow = selectedRow
 	menuList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
 
-	return []ui.Drawable{header, sysPassport, servicesBlock, menuList}, len(menuList.Rows)
+	// ─────────────────────────────────────────────────────────────
+	// 6. БЛОК D: ЛОГИ КОМПЛЕКСА (7 строк: y: 25-32)
+	//    Сдвинуто вверх, теперь вмещает 5 строк логов + заголовок + границы
+	// ─────────────────────────────────────────────────────────────
+	updateLogCache()
+
+	logCacheMu.Lock()
+	logLines := make([]string, len(logCacheLines))
+	copy(logLines, logCacheLines)
+	logCacheMu.Unlock()
+
+	// Обрезаем строки до 96 символов (102 - 6 служебных)
+	for i := range logLines {
+		// Используем rune для правильного подсчёта символов (не байт!)
+		runes := []rune(logLines[i])
+		if len(runes) > 96 {
+			logLines[i] = string(runes[:93]) + "..."
+		}
+	}
+
+	logBlock := widgets.NewParagraph()
+	logBlock.Title = i18n.T.StatsLogBlockTitle
+	logBlock.Text = " " + strings.Join(logLines, "\n ")
+	logBlock.SetRect(2, 25, 102, 30)
+	logBlock.BorderStyle.Fg = ui.ColorCyan
+	logBlock.TitleStyle.Fg = ui.ColorYellow
+	logBlock.TitleStyle.Modifier = ui.ModifierBold
+	logBlock.WrapText = false
+
+	return []ui.Drawable{header, sysPassport, servicesBlock, statsBlock, menuList, logBlock}, len(menuList.Rows)
+}
+
+// formatLogSize возвращает человеко-читаемый размер файла.
+// Если размер < 1 МБ — показывает в КБ, иначе в МБ с одним знаком после запятой.
+func formatLogSize(bytes int64) string {
+	if bytes < 1024*1024 {
+		return fmt.Sprintf("%d %s", bytes/1024, i18n.T.UnitKB)
+	}
+	return fmt.Sprintf("%.1f %s", float64(bytes)/(1024*1024), i18n.T.UnitMB)
 }
 
 // trunc обрезает строку до maxLen символов с многоточием при превышении.

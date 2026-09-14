@@ -47,6 +47,7 @@ import (
 	// "strings"
 
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/sys"
 )
 
@@ -181,7 +182,7 @@ type deferredReject struct {
 func fuseReject(id string, event string, reason string) {
 	// Отказ этого тика: статус честный DISABLED, лог для аудита.
 	sys.LogAction("TARPIT_MANAGER", event, "ALERT",
-		fmt.Sprintf("Ловушка %s отклонена: %s", id, reason))
+		i18n.TrEventf("tarpit_manager.fuse_reject", id, reason))
 	// Файловая фиксация статуса — вне poolMu, это допустимо и желательно.
 	updateInventoryStatus(id, sys.StatusDisabled)
 
@@ -203,7 +204,7 @@ func fuseReject(id string, event string, reason string) {
 		_ = sys.WithInventoryTx(func(inv *sys.TarpitInventory) error {
 			trap, exists := inv.Traps[id]
 			if !exists {
-				return fmt.Errorf("ловушка %s удалена из инвентаря", id)
+				return fmt.Errorf(i18n.T.TarpitManagerTrapRemovedFromInventory, id)
 			}
 			trap.State = sys.StateStopped
 			trap.Status = sys.StatusDisabled
@@ -211,7 +212,7 @@ func fuseReject(id string, event string, reason string) {
 			return nil
 		})
 		sys.LogAction("TARPIT_MANAGER", "DECLARATION_REJECTED", "ALERT",
-			fmt.Sprintf("Декларация %s отклонена предохранителем: %s (попыток: 3). state→STOPPED. Повтор — только осознанно через карточку.", id, reason))
+			i18n.TrEventf("tarpit_manager.declaration_rejected_fuse", id, reason))
 	}
 }
 
@@ -237,7 +238,7 @@ func StartTarpitManager() {
 
 	// ИБ-АУДИТ: Фиксируем старт демона
 	sys.LogAction("TARPIT_MANAGER", "DAEMON_START", "SUCCESS",
-		"Демон ловушек запущен. Инициализация Reconciliation Loop.")
+		i18n.TrEvent("tarpit_manager.daemon_start"))
 
 	// Запускаем Reconciliation Loop (блокирующий вызов для демона)
 	StartManager(ctx)
@@ -274,7 +275,7 @@ func StartManager(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			sys.LogAction("TARPIT_MANAGER", "DAEMON_SHUTDOWN", "SUCCESS",
-				"Демон ловушек получил сигнал завершения. Остановка всех воркеров.")
+				i18n.TrEvent("tarpit_manager.daemon_shutdown"))
 			// Останавливаем все активные воркеры при завершении демона
 			stopAllWorkers()
 			return
@@ -319,7 +320,7 @@ func reconcileOnce() {
 	// с предыдущим успешным снапшотом, чтобы не обрушить ловушки из-за опечатки.
 	if err := config.LoadConfig(config.DirEtc + "/config.json"); err != nil {
 		sys.LogAction("TARPIT_MANAGER", "CONFIG_RELOAD_FAIL", "WARNING",
-			fmt.Sprintf("event=config.reload_failed err=%v. Продолжаю работу с предыдущим снапшотом.", err))
+			i18n.TrEventf("config.reload_failed", err))
 	}
 
 	// -------------------------------------------------------------
@@ -341,7 +342,7 @@ func reconcileOnce() {
 					deferredRejects = append(deferredRejects, deferredReject{
 						id:     id,
 						event:  "CORE_BLOCKED",
-						reason: "рокировка не выполнена — порт 22 занят легитимным OpenSSH",
+						reason: i18n.TrEvent("tarpit_manager.reject_reason_core_blocked"),
 					})
 					continue
 				}
@@ -352,7 +353,7 @@ func reconcileOnce() {
 				deferredRejects = append(deferredRejects, deferredReject{
 					id:     id,
 					event:  "RESCUE_PORT_BLOCKED",
-					reason: fmt.Sprintf("порт %d — канал спасения веб-стука (контракт C8)", required.Port),
+					reason: i18n.TrEventf("tarpit_manager.reject_reason_rescue_port", required.Port),
 				})
 				continue
 			}
@@ -361,7 +362,7 @@ func reconcileOnce() {
 				deferredRejects = append(deferredRejects, deferredReject{
 					id:     id,
 					event:  "SSH_PORT_BLOCKED",
-					reason: fmt.Sprintf("порт %d — активный скрытый порт SSH (контракт C8)", required.Port),
+					reason: i18n.TrEventf("tarpit_manager.reject_reason_ssh_port", required.Port),
 				})
 				continue
 			}
@@ -384,7 +385,7 @@ func reconcileOnce() {
 	for id := range TarpitPool {
 		if _, required := inventory.Traps[id]; !required {
 			sys.LogAction("TARPIT_MANAGER", "ORPHAN_CLEANUP", "WARNING",
-				fmt.Sprintf("Обнаружен воркер-призрак %s. Удаление из пула.", id))
+				i18n.TrEventf("tarpit_manager.orphan_cleanup", id))
 			StopWorker(id)
 		}
 	}
@@ -459,7 +460,7 @@ func LaunchWorker(id string, required sys.TarpitDefinition) {
 	listener, errListen := net.Listen("tcp", addr)
 	if errListen != nil {
 		sys.LogAction("TARPIT_MANAGER", "SOCKET_BIND_FAIL", "CRITICAL",
-			fmt.Sprintf("Не удалось занять порт %d воркером %s: %v", required.Port, id, errListen))
+			i18n.TrEventf("tarpit_manager.socket_bind_fail", required.Port, id, errListen))
 		updateInventoryStatus(id, sys.StatusDisabled)
 		// v8.2.0 (2.2+): ограниченный ретрай, затем терминальный отказ.
 		// 3 попытки поглощают транзиентные гонки (рокировка, рестарт демона);
@@ -472,7 +473,7 @@ func LaunchWorker(id string, required sys.TarpitDefinition) {
 			_ = sys.WithInventoryTx(func(inv *sys.TarpitInventory) error {
 				trap, exists := inv.Traps[id]
 				if !exists {
-					return fmt.Errorf("ловушка %s удалена из инвентаря", id)
+					return fmt.Errorf(i18n.T.TarpitManagerTrapRemovedFromInventory, id)
 				}
 				trap.State = sys.StateStopped // декларация отклонена демоном
 				trap.Status = sys.StatusDisabled
@@ -483,7 +484,7 @@ func LaunchWorker(id string, required sys.TarpitDefinition) {
 			delete(bindFails, id)
 			poolMu.Unlock()
 			sys.LogAction("TARPIT_MANAGER", "DECLARATION_REJECTED", "ALERT",
-				fmt.Sprintf("Декларация %s отклонена: порт %d занят (попыток: %d). state→STOPPED. Повторное включение — только осознанно через карточку.", id, required.Port, fails))
+				i18n.TrEventf("tarpit_manager.declaration_rejected_bind", id, required.Port, fails))
 		}
 		cancel()
 		return
@@ -531,13 +532,12 @@ func LaunchWorker(id string, required sys.TarpitDefinition) {
 	}
 	if err := writeMarkerFile(markerPath, markerContent); err != nil {
 		sys.LogAction("TARPIT_MANAGER", "MARKER_WRITE_FAIL", "ERROR",
-			fmt.Sprintf("Сбой записи маркера для воркера %s: %v", id, err))
+			i18n.TrEventf("tarpit_manager.marker_write_fail", id, err))
 	}
 
 	// ИБ-АУДИТ: Фиксируем успешный запуск воркера
 	sys.LogAction("TARPIT_MANAGER", "WORKER_START", "SUCCESS",
-		fmt.Sprintf("Воркер %s запущен на порту %d. PID=%d, MaxConn=%d",
-			id, required.Port, workerPID, maxConn))
+		i18n.TrEventf("tarpit_manager.worker_start", id, required.Port, workerPID, maxConn))
 
 	// Запуск сетевого контура ловушки (БЛОКИРУЮЩИЙ вызов)
 	// Передаём САНІТИЗИРОВАННУЮ конфигурацию воркера
@@ -622,7 +622,7 @@ func StopWorker(id string) {
 
 	// ИБ-АУДИТ: Фиксируем остановку воркера
 	sys.LogAction("TARPIT_MANAGER", "WORKER_STOP", "SUCCESS",
-		fmt.Sprintf("Воркер %s остановлен на порту %d. Маркер удалён.", id, worker.Port))
+		i18n.TrEventf("tarpit_manager.worker_stop", id, worker.Port))
 }
 
 // stopAllWorkers останавливает все активные воркеры.
@@ -641,7 +641,7 @@ func stopAllWorkers() {
 	RemoveShm()
 
 	sys.LogAction("TARPIT_MANAGER", "ALL_WORKERS_STOPPED", "SUCCESS",
-		"Все воркеры остановлены. Демон завершается.")
+		i18n.TrEvent("tarpit_manager.all_workers_stopped"))
 }
 
 // ============================================================================
@@ -717,7 +717,7 @@ func updateInventoryRuntime(tarpitID string, status string, activatedAt string, 
 	err := sys.WithInventoryTx(func(inv *sys.TarpitInventory) error {
 		trap, exists := inv.Traps[tarpitID]
 		if !exists {
-			return fmt.Errorf("ловушка %s отсутствует в инвентаре (удалена клиентом)", tarpitID)
+			return fmt.Errorf(i18n.T.TarpitManagerTrapMissingFromInventory, tarpitID)
 		}
 		trap.Status = status
 		trap.ActivatedAt = activatedAt
@@ -727,7 +727,7 @@ func updateInventoryRuntime(tarpitID string, status string, activatedAt string, 
 	})
 	if err != nil {
 		sys.LogAction("TARPIT_MANAGER", "INVENTORY_UPDATE_FAIL", "ERROR",
-			fmt.Sprintf("Сбой записи инвентаря при обновлении рантайма: %v", err))
+			i18n.TrEventf("tarpit_manager.inventory_update_fail", err))
 	}
 }
 
@@ -738,7 +738,7 @@ func updateInventoryStatus(tarpitID string, status string) {
 	err := sys.WithInventoryTx(func(inv *sys.TarpitInventory) error {
 		trap, exists := inv.Traps[tarpitID]
 		if !exists {
-			return fmt.Errorf("ловушка %s отсутствует в инвентаре (удалена клиентом)", tarpitID)
+			return fmt.Errorf(i18n.T.TarpitManagerTrapMissingFromInventory, tarpitID)
 		}
 		trap.Status = status
 		inv.Traps[tarpitID] = trap
@@ -750,7 +750,7 @@ func updateInventoryStatus(tarpitID string, status string) {
 	// логируется через событийную модель для последующего анализа.
 	if err != nil {
 		sys.LogAction("TARPIT_MANAGER", "INVENTORY_UPDATE", "WARNING",
-			fmt.Sprintf("event=inventory.update_failed trap=%s err=%v", tarpitID, err))
+			i18n.TrEventf("inventory.update_failed", tarpitID, err))
 	}
 }
 
@@ -768,12 +768,12 @@ func writeMarkerFile(markerPath string, content MarkerContent) error {
 	// Маршалим содержимое маркера в JSON
 	data, err := json.MarshalIndent(content, "", "  ")
 	if err != nil {
-		return fmt.Errorf("сбой сериализации маркера: %w", err)
+		return fmt.Errorf(i18n.T.TarpitManagerMarkerSerializeFail, err)
 	}
 
 	// Записываем на диск
 	if err := sys.WriteAtomic(markerPath, data, 0644); err != nil {
-		return fmt.Errorf("сбой записи маркера на диск: %w", err)
+		return fmt.Errorf(i18n.T.TarpitManagerMarkerWriteDiskFail, err)
 	}
 
 	return nil

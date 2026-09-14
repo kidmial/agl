@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/service"
 
 	ui "github.com/gizak/termui/v3"
@@ -156,9 +157,9 @@ func HandleTarpitMenuClick(currentRow int) (string, bool) {
 func uiCloseAndPrintTarpitLock() {
 	service.ResetUfwCacheSnapshot()
 	ui.Close()
-	fmt.Println("\n[КРИТИЧЕСКАЯ БЛОКИРОВКА БЕЗОПАСНОСТИ]: Отказ выполнения рокировки!")
-	fmt.Println("[ПРИЧИНА]: Дегтярная яма активна на порту 22. Сначала остановите капкан (TARPIT_OFF).")
-	fmt.Println("\n Нажмите ENTER для возврата в пульт управления...")
+	fmt.Println(i18n.T.ViewTarpitCtlLockCritical)
+	fmt.Println(i18n.T.ViewTarpitCtlLockReason)
+	fmt.Println(i18n.T.ViewTarpitCtlPressEnterToReturn)
 	var p string
 	_, _ = fmt.Scanln(&p)
 	_ = ui.Init()
@@ -181,15 +182,15 @@ func uiCloseAndRunCastling() {
 
 	if _, err := os.Stat(markerFile); err == nil {
 		// Маркер существует → рокировка активна → выполняем ОБРАТНУЮ рокировку
-		fmt.Println("\n[СИСТЕМА]: Активирован обратный Кастлинг...")
+		fmt.Println(i18n.T.ViewTarpitCtlReverseCastlingStart)
 		_ = service.ToggleArmorRoute("MOVE_PORT", "OFF")
 	} else {
 		// Маркера нет → рокировка не выполнена → выполняем ПРЯМУЮ рокировку
-		fmt.Println("\n[СИСТЕМА]: Запускаю рокировку портов (Кастлинг)...")
+		fmt.Println(i18n.T.ViewTarpitCtlDirectCastlingStart)
 		_ = service.ToggleArmorRoute("MOVE_PORT", "ON")
 	}
 
-	fmt.Println("[УСПЕХ]: Системные демоны успешно перезапущены.")
+	fmt.Println(i18n.T.ViewTarpitCtlDemonsRestarted)
 	time.Sleep(1 * time.Second)
 	_ = ui.Init()
 }
@@ -200,9 +201,9 @@ func uiCloseAndRunCastling() {
 // ОБНОВЛЕНО В v8.0.1: Без изменений логики.
 func uiCloseAndPrintTarpitActiveWarning() {
 	ui.Close()
-	fmt.Println("\n[ВНИМАНИЕ]: Фоновый демон Дегтярной Ямы УЖЕ запущен и удерживает порт 22.")
-	fmt.Println("Повторная инициализация заблокирована для защиты от коллизии.")
-	fmt.Println("\n Нажмите ENTER для возврата в пульт управления...")
+	fmt.Println(i18n.T.ViewTarpitCtlAlreadyActiveWarning)
+	fmt.Println(i18n.T.ViewTarpitCtlAlreadyActiveCollision)
+	fmt.Println(i18n.T.ViewTarpitCtlPressEnterToReturn)
 	var p string
 	_, _ = fmt.Scanln(&p)
 	_ = ui.Init()
@@ -219,19 +220,19 @@ func uiCloseAndPrintTarpitActiveWarning() {
 // в `tarpitctl` через обновлённый `SetTarpitProtocol("ON")`.
 func uiCloseAndStartTarpitDaemon() {
 	ui.Close()
-	fmt.Println("\n[СИСТЕМА]: Инициализация Дегтярной Ямы на порту 22...")
+	fmt.Println(i18n.T.ViewTarpitCtlStartInit)
 
 	// Вызываем протокол активации через роутер брони.
 	// `SetTarpitProtocol("ON")` делегирует управление в `tarpitctl`.
 	// ОБНОВЛЕНО В v8.0.1.
 	if errTarpit := service.ToggleArmorRoute("TARPIT", "ON"); errTarpit != nil {
-		fmt.Println("\n[КРИТИЧЕСКИЙ ОТКАЗ]: Запуск заблокирован!")
+		fmt.Println(i18n.T.ViewTarpitCtlStartCriticalReject)
 		fmt.Println(errTarpit.Error())
-		fmt.Println("\n Нажмите ENTER для возврата...")
+		fmt.Println("\n" + i18n.T.ViewTarpitCtlProtocolPressEnter)
 		var p string
 		_, _ = fmt.Scanln(&p)
 	} else {
-		fmt.Println("[УСПЕХ]: Дегтярная Яма успешно активирована. Демон подхватит декларацию.")
+		fmt.Println(i18n.T.ViewTarpitCtlStartSuccess)
 		time.Sleep(1 * time.Second)
 	}
 	_ = ui.Init()
@@ -250,7 +251,7 @@ func uiCloseAndStartTarpitDaemon() {
 // Клиент НЕ создаёт и НЕ удаляет маркеры.
 func uiCloseAndStopTarpitDaemon() {
 	ui.Close()
-	fmt.Println("\n[СИСТЕМА]: Демонтаж Дегтярной Ямы из системы...")
+	fmt.Println(i18n.T.ViewTarpitCtlStopDismantle)
 
 	// Вызываем протокол деактивации через роутер брони.
 	// `SetTarpitProtocol("OFF")` делегирует управление в `tarpitctl`.
@@ -270,7 +271,7 @@ func uiCloseAndStopTarpitDaemon() {
 	// Клиент НЕ создаёт и НЕ удаляет маркеры.
 	// =====================================================================
 
-	fmt.Println("[УСПЕХ]: Дегтярная Яма деактивирована. Периметр порта 22 восстановлен.")
+	fmt.Println(i18n.T.ViewTarpitCtlStopSuccess)
 	time.Sleep(1 * time.Second)
 	_ = ui.Init()
 }
@@ -281,8 +282,8 @@ func uiCloseAndStopTarpitDaemon() {
 // ОБНОВЛЕНО В v8.0.1: Без изменений логики.
 func uiCloseAndPrintProtocolInfo() {
 	ui.Close()
-	fmt.Println("\n=== AMBER GUARD LAB - DECEPTION TARPIT PROTOCOL ===")
-	fmt.Println(" Нажмите ENTER для возврата...")
+	fmt.Println(i18n.T.ViewTarpitCtlProtocolHeader)
+	fmt.Println(i18n.T.ViewTarpitCtlProtocolPressEnter)
 	var p string
 	_, _ = fmt.Scanln(&p)
 	_ = ui.Init()

@@ -35,6 +35,7 @@ package tui
 
 import (
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/service"
 	"agl/internal/sys"
 	"fmt"
@@ -90,20 +91,20 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 		rowStr := rows[index]
 		switch {
 		case strings.Contains(rowStr, "SYSCTL"):
-			return "SYSCTL (Оптимизация ядра):\n\tВкл: Максимальная эффективность обработки трафика.\n\tВыкл: Стандартный консервативный режим.\n\tНажатие ENTER переключает протокол ядра.\n\tЭто влияет на общую производительность под нагрузкой."
+			return i18n.T.ViewArmorHintSysctl
 		case strings.Contains(rowStr, "SCAN_PERIMETER"):
-			return "SCAN_PERIMETER (Аудит периметра):\n\tИнициирует полное сканирование открытых портов.\n\tОбнаруживает незащищенные службы хоста.\n\tПомогает выявить потенциальные векторы атаки.\n\tЗапуск занимает около 20-30 секунд."
+			return i18n.T.ViewArmorHintScanPerimeter
 		case strings.Contains(rowStr, "CORE_SETTINGS"):
-			return "CORE_SETTINGS (Броня Anti-DDoS):\n\tНастройка лимитов запросов (Rate Limiting).\n\tКонфигурация буферов для защиты от атак.\n\tПозволяет настроить пороги.\n\tКритично для стабильности сети под нагрузкой."
+			return i18n.T.ViewArmorHintCoreSettings
 		case strings.Contains(rowStr, "ARMOR_ON"):
-			return "ARMOR_ON (Полная броня):\n\tНажатие ENTER взводит ВСЕ рубежи защиты:\n\tsysctl-оптимизацию, rate-limit правила по инвентарю.\n\tДействие применяется ко всем обнаруженным портам."
+			return i18n.T.ViewArmorHintArmorOn
 		case strings.Contains(rowStr, "ARMOR_OFF"):
-			return "ARMOR_OFF (Полный сброс):\n\tНажатие ENTER снимает ВСЮ сетевую защиту.\n\tЯдро возвращается к пре-броневому состоянию (базлайн).\n\tИспользуй осознанно: периметр останется открытым."
+			return i18n.T.ViewArmorHintArmorOff
 		case strings.Contains(rowStr, "BACK"):
-			return "BACK (Назад):\n\tВозврат в главное меню сервера.\n\tСостояние защиты при этом не изменяется."
+			return i18n.T.ViewArmorHintBack
 		default:
 			// ДИНАМИЧЕСКИЙ РУБЕЖ: ручные и авто-обнаруженные порты/службы
-			return "[ДИНАМИЧЕСКИЙ РУБЕЖ]: Нажмите ENTER для инверсии состояния Rate Limit защиты Netfilter.\n\tСтатусы: TARPIT — порт передан дегтярной ловушке;\n\tACTIVE — rate-limit активен; DISARM — рубеж снят."
+			return i18n.T.ViewArmorHintDynamicPerimeter
 		}
 	}
 
@@ -114,14 +115,14 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	if errSysctl := service.CheckSysctlProtocol(); errSysctl != nil {
 		statusSysctl = "[[ DISARM ]](fg:red,mod:bold)"
 	}
-	rows = append(rows, fmt.Sprintf(" SYSCTL          │ %s │ Оптимизация TCP таймаутов ядра Linux", statusSysctl))
+	rows = append(rows, fmt.Sprintf(" SYSCTL          │ %s │ %s", statusSysctl, i18n.T.ViewArmorListSysctl))
 
 	// 2. НОВОЕ В v8.0.2: Кнопка пересканирования периметра (перенесена из SETTINGS)
 	// Размещена сразу после SYSCTL для быстрого доступа к актуализации инвентаря.
-	rows = append(rows, " SCAN_PERIMETER  │ [  SCAN  ] │ Пересканировать открытые порты и службы хоста")
+	rows = append(rows, " SCAN_PERIMETER  │ [  SCAN  ] │ "+i18n.T.ViewArmorListScanPerimeter)
 
 	// 3. Ссылка на подменю детальной настройки (CORE_SETTINGS)
-	rows = append(rows, " CORE_SETTINGS   │ [  EDIT  ] │ Тонкая настройка лимитов Анти-DDoS и буферов сокетов")
+	rows = append(rows, " CORE_SETTINGS   │ [  EDIT  ] │ "+i18n.T.ViewArmorListCoreSettings)
 
 	// -------------------------------------------------------------
 	// АВТО-ОБНАРУЖЕННЫЕ ПОРТЫ ИЗ ИНВЕНТАРЯ ПЕРИМЕТРА
@@ -156,7 +157,7 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 			if len(paddedSysTag) > 15 {
 				paddedSysTag = paddedSysTag[:15]
 			}
-			rows = append(rows, fmt.Sprintf(" %s │ %s │ Защита Rate Limit на порт %d (%s)", paddedSysTag, statusPort, target.Port, target.Service))
+			rows = append(rows, fmt.Sprintf(" %s │ %s │ "+i18n.T.ViewArmorListManualPort, paddedSysTag, statusPort, target.Port, target.Service))
 		}
 	}
 
@@ -201,9 +202,9 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 			formattedAppName := sys.PrettyServiceName(app.Name)
 			// C9 (v8.1.3): порт канала спасения получает собственную метку,
 			// чтобы не маскироваться под обычную службу Agl.
-			displayName := "Служба " + formattedAppName
+			displayName := i18n.T.ViewArmorPrefixService + formattedAppName
 			if defPort == config.C.WebRescuePort {
-				displayName = "WEB KNOCK PORT (канал спасения)"
+				displayName = i18n.T.ViewArmorListWebKnockPort
 			}
 			// Определяем метку состояния приложения
 			appStateLabel := "LISTEN"
@@ -218,17 +219,16 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 			// rows = append(rows, fmt.Sprintf(" %s │ %s │ Найдена служба %s на порту %d (%s)",
 			// 	paddedID, statusPort, formattedAppName, defPort, appStateLabel))
 			// Новая версия вывода
-			rows = append(rows, fmt.Sprintf(" %s │ %s │ [ STATUS: %s ] %s",
-				paddedID, statusPort, appStateLabel, displayName))
+			rows = append(rows, fmt.Sprintf(" %s │ %s │ [ STATUS: %s ] %s", paddedID, statusPort, appStateLabel, displayName))
 		}
 	}
 
 	// -------------------------------------------------------------
 	// 6. ГЛОБАЛЬНЫЕ ТРИГГЕРЫ (Всегда в конце списка)
 	// -------------------------------------------------------------
-	rows = append(rows, " ARMOR_ON        │ ВКЛЮЧИТЬ ПОЛНУЮ БРОНЮ ВСЕХ РУБЕЖЕЙ ЗАЩИТЫ")
-	rows = append(rows, " ARMOR_OFF       │ ОТКЛЮЧИТЬ И СБРОСИТЬ ВСЮ СЕТЕВУЮ ЗАЩИТУ")
-	rows = append(rows, " BACK            │ Назад в главное меню сервера")
+	rows = append(rows, " ARMOR_ON        │ "+i18n.T.ViewArmorListArmorOn)
+	rows = append(rows, " ARMOR_OFF       │ "+i18n.T.ViewArmorListArmorOff)
+	rows = append(rows, " BACK            │ "+i18n.T.ViewArmorListBack)
 
 	// Синхронизируем строки с глобальной памятью для роутера клавиш
 	GlobalArmorMenuRows = rows
@@ -245,14 +245,14 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	}
 	timeStr := time.Now().Format("15:04:05")
 	dateStr := time.Now().Format("2006-01-02")
-	ArmorHeader.Title = " [ Подсистема Anti DDoS Защиты Периметра Amber Guard Lab. ] "
-	ArmorHeader.Text = fmt.Sprintf(" Диспетчер Сетевой Брони Периметра │ [%s](fg:yellow,mod:bold) │ [%s](fg:yellow,mod:bold)", dateStr, timeStr)
+	ArmorHeader.Title = i18n.T.ViewArmorHeaderTitle
+	ArmorHeader.Text = fmt.Sprintf(" %s │ [%s](fg:yellow,mod:bold) │ [%s](fg:yellow,mod:bold)", i18n.T.ViewArmorHeaderDesc, dateStr, timeStr)
 
 	// -------------------------------------------------------------
 	// СПИСОК МЕНЮ (Фиксированная высота 14 строк: y: 4 - 18)
 	// -------------------------------------------------------------
 	armorList := widgets.NewList()
-	armorList.Title = " Управление границами фильтрации пакетов и защитой ядра: "
+	armorList.Title = i18n.T.ViewArmorListTitle
 	armorList.Rows = rows
 	armorList.SetRect(2, 4, 102, 18) // ЖЕСТКАЯ ФИКСАЦИЯ (было 18, оставлено 18 для совместимости)
 	armorList.BorderStyle.Fg = ui.ColorCyan
@@ -263,7 +263,7 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	// ТЕХНИЧЕСКИЙ БОКС ПОДСКАЗОК (Фиксированная высота)
 	// -------------------------------------------------------------
 	infoBox := widgets.NewParagraph()
-	infoBox.Title = " Техническое регулирование существующей границы "
+	infoBox.Title = i18n.T.ViewArmorInfoBoxTitle
 	infoBox.Text = generateHint(selectedRow) // Используем генератор, а не переданный текст
 	infoBox.SetRect(2, 18, 102, 25)          // ЖЕСТКАЯ ФИКСАЦИЯ
 	infoBox.BorderStyle.Fg = ui.ColorYellow
@@ -274,8 +274,8 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	// СИСТЕМНАЯ КОНСОЛЬ НАВИГАЦИИ
 	// -------------------------------------------------------------
 	sysConsole := widgets.NewParagraph()
-	sysConsole.Title = " СИСТЕМНАЯ КОНСОЛЬ НАВИГАЦИИ "
-	sysConsole.Text = " [НАВИГАЦИЯ]: Стрелки ↑/↓   │   [АКТИВАЦИЯ]: Нажмите ENTER для выполнения команды\n [ИНФО]: Скроллинг портов работает автоматически внутри верхней рамки\n [ВЫХОД]: Выберите строку НАЗАД или нажмите ESC для возврата в главное меню"
+	sysConsole.Title = i18n.T.ViewArmorConsoleTitle
+	sysConsole.Text = fmt.Sprintf(" [%s]: %s   │   [%s]: %s\n [%s]: %s\n [%s]: %s", i18n.T.ViewArmorLabelNav, i18n.T.ViewArmorLabelNavArrows, i18n.T.ViewArmorLabelActivation, i18n.T.ViewArmorLabelActivationHint, i18n.T.ViewArmorLabelInfo, i18n.T.ViewArmorLabelScrollInfo, i18n.T.ViewArmorLabelExit, i18n.T.ViewArmorLabelExitHint)
 	sysConsole.SetRect(2, 25, 102, 30) // ЖЕСТКАЯ ФИКСАЦИЯ
 	sysConsole.BorderStyle.Fg = ui.ColorGreen
 	sysConsole.TextStyle.Fg = ui.ColorCyan

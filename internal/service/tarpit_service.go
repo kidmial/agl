@@ -2,6 +2,7 @@
 package service
 
 import (
+	"agl/i18n"
 	"agl/internal/sys"
 	"agl/internal/tarpitctl"
 	"context"
@@ -23,7 +24,7 @@ func ActivateTrap(ctx context.Context, port int, cfg sys.TarpitConfig) error {
 	if err != nil {
 		sys.LogAction("SERVICE_TARPIT", "ACTIVATE_FAIL", "ERROR",
 			fmt.Sprintf("event=tarpit.activate_failed port=%d err=%v", port, err))
-		return fmt.Errorf("сбой активации ловушки на порту %d: %w", port, err)
+		return fmt.Errorf(i18n.T.TarpitServiceActivateFail, port, err)
 	}
 	sys.LogAction("SERVICE_TARPIT", "ACTIVATE_OK", "SUCCESS",
 		fmt.Sprintf("event=tarpit.activated port=%d", port))
@@ -36,7 +37,7 @@ func DeactivateTrap(ctx context.Context, port int) error {
 	if err != nil {
 		sys.LogAction("SERVICE_TARPIT", "DEACTIVATE_FAIL", "ERROR",
 			fmt.Sprintf("event=tarpit.deactivate_failed port=%d err=%v", port, err))
-		return fmt.Errorf("сбой деактивации ловушки на порту %d: %w", port, err)
+		return fmt.Errorf(i18n.T.TarpitServiceDeactivateFail, port, err)
 	}
 	sys.LogAction("SERVICE_TARPIT", "DEACTIVATE_OK", "SUCCESS",
 		fmt.Sprintf("event=tarpit.deactivated port=%d", port))
@@ -49,7 +50,7 @@ func DeleteTrap(ctx context.Context, port int) error {
 	if err != nil {
 		sys.LogAction("SERVICE_TARPIT", "DELETE_FAIL", "ERROR",
 			fmt.Sprintf("event=tarpit.delete_failed port=%d err=%v", port, err))
-		return fmt.Errorf("сбой удаления ловушки на порту %d: %w", port, err)
+		return fmt.Errorf(i18n.T.TarpitServiceDeleteFail, port, err)
 	}
 	sys.LogAction("SERVICE_TARPIT", "DELETE_OK", "SUCCESS",
 		fmt.Sprintf("event=tarpit.deleted port=%d", port))
@@ -62,7 +63,7 @@ func EnsureDaemonRunning() error {
 	if err != nil {
 		sys.LogAction("SERVICE_TARPIT", "DAEMON_ENSURE_FAIL", "ERROR",
 			fmt.Sprintf("event=tarpit.daemon_ensure_failed err=%v", err))
-		return fmt.Errorf("сбой обеспечения работы демона: %w", err)
+		return fmt.Errorf(i18n.T.TarpitServiceDaemonEnsureFail, err)
 	}
 	return nil
 }
@@ -76,7 +77,7 @@ func SyncGlobalConfigToCoreTrap() error {
 	if err != nil {
 		sys.LogAction("SERVICE_TARPIT", "SYNC_CONFIG_FAIL", "ERROR",
 			fmt.Sprintf("event=tarpit.sync_config_failed err=%v", err))
-		return fmt.Errorf("сбой синхронизации конфига с базовой ловушкой: %w", err)
+		return fmt.Errorf(i18n.T.TarpitServiceSyncConfigFail, err)
 	}
 	sys.LogAction("SERVICE_TARPIT", "SYNC_CONFIG_OK", "SUCCESS",
 		"event=tarpit.config_synced")
@@ -92,7 +93,7 @@ func UpdateTrapConfig(port int, cfg sys.TarpitConfig) error {
 	if err != nil {
 		sys.LogAction("SERVICE_TARPIT", "UPDATE_CONFIG_FAIL", "ERROR",
 			fmt.Sprintf("event=tarpit.update_config_failed port=%d err=%v", port, err))
-		return fmt.Errorf("сбой обновления конфига ловушки на порту %d: %w", port, err)
+		return fmt.Errorf(i18n.T.TarpitServiceUpdateConfigFail, port, err)
 	}
 	sys.LogAction("SERVICE_TARPIT", "UPDATE_CONFIG_OK", "SUCCESS",
 		fmt.Sprintf("event=tarpit.config_updated port=%d", port))

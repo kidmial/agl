@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/sys"
 )
 
@@ -50,16 +51,16 @@ func ensureRescueTLS() error {
 		return nil
 	}
 	if err := os.MkdirAll(rescueCertDir, 0700); err != nil {
-		return fmt.Errorf("не удалось создать директорию сертификатов: %w", err)
+		return fmt.Errorf(i18n.T.TlsCertDirCreateFailed, err)
 	}
 
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return fmt.Errorf("генерация ECDSA-ключа: %w", err)
+		return fmt.Errorf(i18n.T.TlsEcdsaKeyGenFailed, err)
 	}
 	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	if err != nil {
-		return fmt.Errorf("генерация серийника: %w", err)
+		return fmt.Errorf(i18n.T.TlsSerialGenFailed, err)
 	}
 
 	template := x509.Certificate{
@@ -74,12 +75,12 @@ func ensureRescueTLS() error {
 	}
 	der, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
 	if err != nil {
-		return fmt.Errorf("создание сертификата: %w", err)
+		return fmt.Errorf(i18n.T.TlsCertCreateFailed, err)
 	}
 
 	keyOut, err := os.OpenFile(rescueKeyPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
-		return fmt.Errorf("файл ключа: %w", err)
+		return fmt.Errorf(i18n.T.TlsKeyFileFailed, err)
 	}
 	if keyDER, errKey := x509.MarshalECPrivateKey(priv); errKey == nil {
 		_ = pem.Encode(keyOut, &pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
@@ -88,13 +89,13 @@ func ensureRescueTLS() error {
 
 	crtOut, err := os.OpenFile(rescueCertPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
-		return fmt.Errorf("файл сертификата: %w", err)
+		return fmt.Errorf(i18n.T.TlsCertFileFailed, err)
 	}
 	_ = pem.Encode(crtOut, &pem.Block{Type: "CERTIFICATE", Bytes: der})
 	_ = crtOut.Close()
 
 	sum := sha256.Sum256(der)
 	sys.LogAction("WEB_RESCUE", "TLS_CERT_GENERATED", "SUCCESS",
-		fmt.Sprintf("Сгенерирован самоподписанный TLS-сертификат (ECDSA P-256, 10 лет). SHA-256 отпечаток для пиннинга: %s", hex.EncodeToString(sum[:])))
+		i18n.TrEventf("web_rescue.tls_cert_generated", hex.EncodeToString(sum[:])))
 	return nil
 }

@@ -27,6 +27,7 @@ package sys
 
 import (
 	"agl/config"
+	"agl/i18n"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -198,12 +199,12 @@ const (
 func LoadTarpitInventory(filePath string) (*TarpitInventory, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("не удалось прочитать инвентарь ловушек %s: %w", filePath, err)
+		return nil, fmt.Errorf(i18n.T.TarpitInvReadFail, filePath, err)
 	}
 
 	var inv TarpitInventory
 	if err := json.Unmarshal(data, &inv); err != nil {
-		return nil, fmt.Errorf("сбой парсинга JSON инвентаря ловушек %s: %w", filePath, err)
+		return nil, fmt.Errorf(i18n.T.TarpitInvParseFail, filePath, err)
 	}
 
 	// Защита от nil-карты при пустом файле
@@ -224,26 +225,26 @@ func SaveTarpitInventory(filePath string, inv *TarpitInventory) error {
 	// Маршалинг структуры в байты с красивыми отступами для читаемости
 	data, err := json.MarshalIndent(inv, "", "    ")
 	if err != nil {
-		return fmt.Errorf("сбой сериализации инвентаря ловушек: %w", err)
+		return fmt.Errorf(i18n.T.TarpitInvSerializeFail, err)
 	}
 
 	// Гарантируем существование директории
 	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-		return fmt.Errorf("не удалось создать директорию для инвентаря: %w", err)
+		return fmt.Errorf(i18n.T.TarpitInvDirCreateFail, err)
 	}
 
 	// Открываем временный файл для записи
 	tmpFile := filePath + ".tmp"
 	f, err := os.OpenFile(tmpFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		return fmt.Errorf("не удалось создать временный файл инвентаря: %w", err)
+		return fmt.Errorf(i18n.T.TarpitInvTmpCreateFail, err)
 	}
 
 	// Запись байтового массива в дескриптор файла
 	if _, err := f.Write(data); err != nil {
 		f.Close()
 		_ = os.Remove(tmpFile)
-		return fmt.Errorf("сбой записи данных инвентаря: %w", err)
+		return fmt.Errorf(i18n.T.TarpitInvDataWriteFail, err)
 	}
 
 	// КРИТИЧЕСКИЙ ШАГ: Принудительно вымываем кеш контроллера диска
@@ -252,7 +253,7 @@ func SaveTarpitInventory(filePath string, inv *TarpitInventory) error {
 	if err := f.Sync(); err != nil {
 		f.Close()
 		_ = os.Remove(tmpFile)
-		return fmt.Errorf("сбой fsync инвентаря: %w", err)
+		return fmt.Errorf(i18n.T.TarpitInvFsyncFail, err)
 	}
 
 	// Закрываем дескриптор перед операцией переименования
@@ -262,7 +263,7 @@ func SaveTarpitInventory(filePath string, inv *TarpitInventory) error {
 	// за одну инструкцию процессора VFS. Исключает состояние гонки.
 	if err := os.Rename(tmpFile, filePath); err != nil {
 		_ = os.Remove(tmpFile)
-		return fmt.Errorf("сбой атомарного переименования инвентаря: %w", err)
+		return fmt.Errorf(i18n.T.TarpitInvRenameFail, err)
 	}
 
 	return nil
@@ -359,12 +360,12 @@ const TarpitInventoryLockPath = TarpitInventoryPath + ".lock"
 func WithInventoryTx(fn func(inv *TarpitInventory) error) error {
 	lockFile, err := os.OpenFile(TarpitInventoryLockPath, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
-		return fmt.Errorf("не удалось открыть lock-файл инвентаря: %w", err)
+		return fmt.Errorf(i18n.T.TarpitInvLockOpenFail, err)
 	}
 	defer lockFile.Close()
 
 	if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX); err != nil {
-		return fmt.Errorf("не удалось захватить блокировку инвентаря: %w", err)
+		return fmt.Errorf(i18n.T.TarpitInvLockAcquireFail, err)
 	}
 	defer syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN)
 
@@ -374,7 +375,7 @@ func WithInventoryTx(fn func(inv *TarpitInventory) error) error {
 		if _, statErr := os.Stat(TarpitInventoryPath); os.IsNotExist(statErr) {
 			inv = &TarpitInventory{Traps: make(map[string]TarpitDefinition)}
 		} else {
-			return fmt.Errorf("инвентарь повреждён внутри транзакции: %w", err)
+			return fmt.Errorf(i18n.T.TarpitInvTxCurrupted, err)
 		}
 	}
 

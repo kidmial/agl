@@ -2,6 +2,7 @@
 package service
 
 import (
+	"agl/i18n"
 	"agl/internal/armor"
 	"agl/internal/sys"
 	"fmt"
@@ -26,7 +27,7 @@ func ToggleArmorRoute(targetID string, action string) error {
 	if err != nil {
 		sys.LogAction("SERVICE_ARMOR", "ROUTE_FAIL", "ERROR",
 			fmt.Sprintf("event=armor.route_failed target=%s action=%s err=%v", targetID, action, err))
-		return fmt.Errorf("сбой маршрутизации брони для %s: %w", targetID, err)
+		return fmt.Errorf(i18n.T.ArmorRouteFail, targetID, err)
 	}
 	sys.LogAction("SERVICE_ARMOR", "ROUTE_OK", "SUCCESS",
 		fmt.Sprintf("event=armor.route_triggered target=%s action=%s", targetID, action))
@@ -40,7 +41,7 @@ func ToggleSysctlProtocol(action string) error {
 	if err != nil {
 		sys.LogAction("SERVICE_SYSCTL", "TOGGLE_FAIL", "ERROR",
 			fmt.Sprintf("event=sysctl.toggle_failed action=%s err=%v", action, err))
-		return fmt.Errorf("сбой переключения sysctl: %w", err)
+		return fmt.Errorf(i18n.T.ArmorSysctlToggleFail, err)
 	}
 	sys.LogAction("SERVICE_SYSCTL", "TOGGLE_OK", "SUCCESS",
 		fmt.Sprintf("event=sysctl.toggled action=%s", action))
@@ -58,7 +59,7 @@ func SetCustomRateLimit(port int, sysTag, targetName, action string) error {
 	if err != nil {
 		sys.LogAction("SERVICE_ARMOR", "RATE_LIMIT_FAIL", "ERROR",
 			fmt.Sprintf("event=armor.custom_rate_failed port=%d action=%s err=%v", port, action, err))
-		return fmt.Errorf("сбой rate-limit правила порта %d: %w", port, err)
+		return fmt.Errorf(i18n.T.ArmorRateLimitFail, port, err)
 	}
 	sys.LogAction("SERVICE_ARMOR", "RATE_LIMIT_OK", "SUCCESS",
 		fmt.Sprintf("event=armor.custom_rate_set port=%d action=%s", port, action))
@@ -104,7 +105,7 @@ func ReloadFirewall() error {
 		sys.LogAction("SERVICE_FIREWALL", "RELOAD_FAIL", "ERROR",
 			fmt.Sprintf("event=firewall.reload_failed err=%v stderr=%s",
 				res.Err, strings.TrimSpace(res.Stderr)))
-		return fmt.Errorf("сбой перезагрузки UFW: %w", res.Err)
+		return fmt.Errorf(i18n.T.ArmorUfwReloadFail, res.Err)
 	}
 	// После наката правил сбрасываем кэш-снепшот UFW, чтобы CHECK-функции
 	// сразу видели свежую таблицу (иначе TUI покажет устаревший статус).
@@ -133,7 +134,7 @@ func ToggleMultiTarpitProtocol(port int, action string) error {
 	if err != nil {
 		sys.LogAction("SERVICE_TARPIT", "MULTI_TOGGLE_FAIL", "ERROR",
 			fmt.Sprintf("event=tarpit.multi_toggle_failed port=%d action=%s err=%v", port, action, err))
-		return fmt.Errorf("сбой переключения мульти-ловушки на порту %d: %w", port, err)
+		return fmt.Errorf(i18n.T.ArmorMultiTarpitToggleFail, port, err)
 	}
 	sys.LogAction("SERVICE_TARPIT", "MULTI_TOGGLE_OK", "SUCCESS",
 		fmt.Sprintf("event=tarpit.multi_toggled port=%d action=%s", port, action))

@@ -52,6 +52,7 @@ import (
 	"time"
 
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/sys"
 )
 
@@ -146,7 +147,7 @@ type TrapStatus struct {
 func ActivateTrap(port int, trapConfig sys.TarpitConfig) error {
 	// ИБ-АУДИТ: Фиксируем попытку активации
 	sys.LogAction("TRAPCTL", "ACTIVATE_REQUEST", "PENDING",
-		fmt.Sprintf("Клиент запросил активацию ловушки на порту %d", port))
+		i18n.TrEventf("tarpitctl.activate_request", port))
 
 	// -------------------------------------------------------------
 	// ШАГ 1: ПРЕДОХРАНИТЕЛЬ ПЕРИМЕТРА
@@ -155,7 +156,7 @@ func ActivateTrap(port int, trapConfig sys.TarpitConfig) error {
 	// -------------------------------------------------------------
 	if err := checkPortAvailable(port); err != nil {
 		sys.LogAction("TRAPCTL", "ACTIVATE_BLOCKED", "ALERT",
-			fmt.Sprintf("Активация заблокирована предохранителем периметра: %v", err))
+			i18n.TrEventf("tarpitctl.activate_blocked_perimeter", err))
 		return err
 	}
 
@@ -167,7 +168,7 @@ func ActivateTrap(port int, trapConfig sys.TarpitConfig) error {
 	if port == config.C.StandardSshPort {
 		if err := checkCastlingDone(); err != nil {
 			sys.LogAction("TRAPCTL", "ACTIVATE_BLOCKED", "ALERT",
-				fmt.Sprintf("Активация базовой ловушки заблокирована: %v", err))
+				i18n.TrEventf("tarpitctl.activate_blocked_castling", err))
 			return err
 		}
 	}
@@ -221,12 +222,12 @@ func ActivateTrap(port int, trapConfig sys.TarpitConfig) error {
 		return nil
 	}); err != nil {
 		sys.LogAction("TRAPCTL", "ACTIVATE_FAIL", "ERROR",
-			fmt.Sprintf("Сбой записи инвентаря: %v", err))
-		return fmt.Errorf("критический сбой записи инвентаря ловушек: %w", err)
+			i18n.TrEventf("tarpitctl.activate_fail", err))
+		return fmt.Errorf(i18n.T.TarpitCtlInventoryWriteCriticalFail, err)
 	}
 
 	sys.LogAction("TRAPCTL", "INVENTORY_UPDATED", "SUCCESS",
-		fmt.Sprintf("Декларация записана: ловушка %s → state=RUNNING", tarpitID))
+		i18n.TrEventf("tarpitctl.inventory_updated_running", tarpitID))
 
 	// -------------------------------------------------------------
 	// ШАГ 5: ОБЕСПЕЧЕНИЕ ЖИЗНИ ДЕМОНА
@@ -235,12 +236,12 @@ func ActivateTrap(port int, trapConfig sys.TarpitConfig) error {
 	// -------------------------------------------------------------
 	if err := EnsureDaemonRunning(); err != nil {
 		sys.LogAction("TRAPCTL", "DAEMON_START_FAIL", "ERROR",
-			fmt.Sprintf("Сбой запуска демона: %v", err))
-		return fmt.Errorf("инвентарь записан, но сбой запуска демона: %w", err)
+			i18n.TrEventf("tarpitctl.daemon_start_fail", err))
+		return fmt.Errorf(i18n.T.TarpitCtlDaemonStartFail, err)
 	}
 
 	sys.LogAction("TRAPCTL", "ACTIVATE_SUCCESS", "SUCCESS",
-		fmt.Sprintf("Ловушка %s активирована. Демон подхватит декларацию.", tarpitID))
+		i18n.TrEventf("tarpitctl.activate_success", tarpitID))
 
 	return nil
 }
@@ -265,13 +266,13 @@ func DeactivateTrap(port int) error {
 
 	// ИБ-АУДИТ: Фиксируем попытку деактивации
 	sys.LogAction("TRAPCTL", "DEACTIVATE_REQUEST", "PENDING",
-		fmt.Sprintf("Клиент запросил деактивацию ловушки на порту %d", port))
+		i18n.TrEventf("tarpitctl.deactivate_request", port))
 
 	// Транзакция: чтение → изменение → запись под flock (Аудит №1)
 	if err := sys.WithInventoryTx(func(inv *sys.TarpitInventory) error {
 		trap, exists := inv.Traps[tarpitID]
 		if !exists {
-			return fmt.Errorf("ловушка %s не найдена в инвентаре", tarpitID)
+			return fmt.Errorf(i18n.T.TarpitCtlTrapNotFound, tarpitID)
 		}
 		trap.State = sys.StateStopped
 		inv.Traps[tarpitID] = trap
@@ -281,7 +282,7 @@ func DeactivateTrap(port int) error {
 	}
 
 	sys.LogAction("TRAPCTL", "INVENTORY_UPDATED", "SUCCESS",
-		fmt.Sprintf("Декларация записана: ловушка %s → state=STOPPED", tarpitID))
+		i18n.TrEventf("tarpitctl.inventory_updated_stopped", tarpitID))
 
 	// -------------------------------------------------------------
 	// ШАГ: ПРОВЕРКА — ОСТАЛИСЬ ЛИ ДРУГИЕ АКТИВНЫЕ ЛОВУШКИ?
@@ -290,7 +291,7 @@ func DeactivateTrap(port int) error {
 	StopDaemonIfIdle()
 
 	sys.LogAction("TRAPCTL", "DEACTIVATE_SUCCESS", "SUCCESS",
-		fmt.Sprintf("Ловушка %s деактивирована. Демон подхватит декларацию.", tarpitID))
+		i18n.TrEventf("tarpitctl.deactivate_success", tarpitID))
 
 	return nil
 }
@@ -317,19 +318,19 @@ func DeleteTrap(port int) error {
 
 	// ИБ-АУДИТ: Фиксируем попытку удаления
 	sys.LogAction("TRAPCTL", "DELETE_REQUEST", "PENDING",
-		fmt.Sprintf("Администратор инициировал удаление ловушки на порту %d", port))
+		i18n.TrEventf("tarpitctl.delete_request", port))
 
 	// Транзакция удаления под flock (Аудит №1)
 	if err := sys.WithInventoryTx(func(inv *sys.TarpitInventory) error {
 		trap, exists := inv.Traps[tarpitID]
 		if !exists {
-			return fmt.Errorf("ловушка %s не найдена в инвентаре", tarpitID)
+			return fmt.Errorf(i18n.T.TarpitCtlTrapNotFound, tarpitID)
 		}
 		if trap.State == sys.StateRunning {
-			return fmt.Errorf("ловушка %s активна. Сначала остановите её (STOP)", tarpitID)
+			return fmt.Errorf(i18n.T.TarpitCtlTrapActiveStop, tarpitID)
 		}
 		if _, errStat := os.Stat(trap.MarkerFilePath); errStat == nil {
-			return fmt.Errorf("демон ещё завершает остановку ловушки %s. Повторите через несколько секунд", tarpitID)
+			return fmt.Errorf(i18n.T.TarpitCtlDaemonStillStopping, tarpitID)
 		}
 		delete(inv.Traps, tarpitID)
 		return nil
@@ -338,13 +339,13 @@ func DeleteTrap(port int) error {
 	}
 
 	sys.LogAction("TRAPCTL", "INVENTORY_UPDATED", "SUCCESS",
-		fmt.Sprintf("Ловушка %s удалена из инвентаря", tarpitID))
+		i18n.TrEventf("tarpitctl.inventory_updated_deleted", tarpitID))
 
 	// Останавливаем демон, если активных ловушек не осталось
 	StopDaemonIfIdle()
 
 	sys.LogAction("TRAPCTL", "DELETE_SUCCESS", "SUCCESS",
-		fmt.Sprintf("Ловушка %s полностью удалена", tarpitID))
+		i18n.TrEventf("tarpitctl.delete_success", tarpitID))
 
 	return nil
 }
@@ -358,14 +359,14 @@ func DeleteTrap(port int) error {
 func UpdateTrapConfig(port int, cfg sys.TarpitConfig) error {
 	tarpitID := sys.GenerateTarpitID(port)
 	sys.LogAction("TRAPCTL", "CONFIG_UPDATE_REQUEST", "PENDING",
-		fmt.Sprintf("Клиент запросил обновление конфигурации ловушки на порту %d", port))
+		i18n.TrEventf("tarpitctl.config_update_request", port))
 	if err := sys.WithInventoryTx(func(inv *sys.TarpitInventory) error {
 		trap, exists := inv.Traps[tarpitID]
 		if !exists {
-			return fmt.Errorf("ловушка %s не найдена в инвентаре", tarpitID)
+			return fmt.Errorf(i18n.T.TarpitCtlTrapNotFound, tarpitID)
 		}
 		if trap.State == sys.StateRunning {
-			return fmt.Errorf("ловушка %s активна. Остановите её перед редактированием", tarpitID)
+			return fmt.Errorf(i18n.T.TarpitCtlTrapActiveEdit, tarpitID)
 		}
 		trap.ConfigConfig = cfg
 		inv.Traps[tarpitID] = trap
@@ -374,7 +375,7 @@ func UpdateTrapConfig(port int, cfg sys.TarpitConfig) error {
 		return err
 	}
 	sys.LogAction("TRAPCTL", "CONFIG_UPDATE_SUCCESS", "SUCCESS",
-		fmt.Sprintf("Конфигурация ловушки %s обновлена", tarpitID))
+		i18n.TrEventf("tarpitctl.config_update_success", tarpitID))
 	return nil
 }
 
@@ -492,7 +493,7 @@ func GetTrapStatusByPort(port int) (*TrapStatus, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("ловушка на порту %d не найдена в инвентаре", port)
+	return nil, fmt.Errorf(i18n.T.TarpitCtlTrapNotFoundByPort, port)
 }
 
 // ============================================================================
@@ -527,7 +528,7 @@ func EnsureDaemonRunning() error {
 	// Быстрая проверка: демон уже жив?
 	if IsDaemonAlive() {
 		sys.LogAction("TRAPCTL", "DAEMON_CHECK", "SUCCESS",
-			"Демон ловушек уже активен. Дополнительный запуск не требуется.")
+			i18n.TrEvent("tarpitctl.daemon_check"))
 		return nil
 	}
 
@@ -535,10 +536,10 @@ func EnsureDaemonRunning() error {
 	if _, err := os.Stat(ServicePath); os.IsNotExist(err) {
 		// Юнит не существует — генерируем и устанавливаем
 		if err := generateAndInstallUnit(); err != nil {
-			return fmt.Errorf("сбой генерации юнита демона: %w", err)
+			return fmt.Errorf(i18n.T.TarpitCtlUnitGenerateFail, err)
 		}
 		sys.LogAction("TRAPCTL", "UNIT_GENERATED", "SUCCESS",
-			"Юнит agld_tarpit.service успешно сгенерирован и установлен.")
+			i18n.TrEvent("tarpitctl.unit_generated"))
 	}
 
 	// Запускаем демон через systemctl.
@@ -565,12 +566,12 @@ func EnsureDaemonRunning() error {
 		// Оборачиваем ошибку и добавляем stderr для диагностики.
 		// В stderr systemd часто пишет реальную причину: "port already in use",
 		// "permission denied", "binary not found".
-		return fmt.Errorf("критический сбой запуска демона ловушек: %w; stderr=%s",
+		return fmt.Errorf(i18n.T.TarpitCtlDaemonStartCriticalFail,
 			startRes.Err, strings.TrimSpace(startRes.Stderr))
 	}
 
 	sys.LogAction("TRAPCTL", "DAEMON_STARTED", "SUCCESS",
-		"Демон ловушек успешно запущен: systemctl start "+ServiceName)
+		i18n.TrEventf("tarpitctl.daemon_started", ServiceName))
 
 	return nil
 }
@@ -591,7 +592,7 @@ func StopDaemonIfIdle() {
 	if err != nil {
 		// Если инвентарь не читается — не рискуем останавливать демон
 		sys.LogAction("TRAPCTL", "STOP_CHECK_SKIP", "WARNING",
-			"Не удалось прочитать инвентарь. Остановка демона пропущена.")
+			i18n.TrEvent("tarpitctl.stop_check_skip_warning"))
 		return
 	}
 
@@ -601,7 +602,7 @@ func StopDaemonIfIdle() {
 	if activeCount > 0 {
 		// Есть активные ловушки — демон должен продолжать работать
 		sys.LogAction("TRAPCTL", "STOP_CHECK_SKIP", "SUCCESS",
-			fmt.Sprintf("Активных ловушек: %d. Демон продолжает работать.", activeCount))
+			i18n.TrEventf("tarpitctl.stop_check_skip_success", activeCount))
 		return
 	}
 
@@ -622,7 +623,7 @@ func StopDaemonIfIdle() {
 		LogWarnIfErr("TRAPCTL", "DAEMON_STOP", "event=systemd.stop_failed")
 
 	sys.LogAction("TRAPCTL", "DAEMON_STOPPED", "SUCCESS",
-		"Все ловушки деактивированы. Демон остановлен.")
+		i18n.TrEvent("tarpitctl.daemon_stopped"))
 
 	// Удаляем юнит из системы
 	_ = os.Remove(ServicePath)
@@ -634,7 +635,7 @@ func StopDaemonIfIdle() {
 		LogWarnIfErr("TRAPCTL", "DAEMON_RELOAD_AFTER_REMOVAL", "event=systemd.daemon_reload_failed")
 
 	sys.LogAction("TRAPCTL", "UNIT_REMOVED", "SUCCESS",
-		"Юнит agld_tarpit.service деинсталлирован из системы.")
+		i18n.TrEvent("tarpitctl.unit_removed"))
 }
 
 // ============================================================================
@@ -674,7 +675,7 @@ WantedBy=multi-user.target
 
 	// Записываем юнит на диск
 	if err := os.WriteFile(ServicePath, []byte(serviceContent), 0644); err != nil {
-		return fmt.Errorf("сбой записи юнита на диск: %w", err)
+		return fmt.Errorf(i18n.T.TarpitCtlUnitWriteDiskFail, err)
 	}
 
 	return nil
@@ -705,7 +706,7 @@ func checkPortAvailable(port int) error {
 	apps, err := config.LoadDetectedApps()
 	if err != nil {
 		sys.LogAction("TRAPCTL", "PERIMETER_CHECK_SKIP", "WARNING",
-			fmt.Sprintf("Инвентарь периметра недоступен: %v. Проверка порта пропущена.", err))
+			i18n.TrEventf("tarpitctl.perimeter_check_skip", err))
 		return nil
 	}
 
@@ -718,8 +719,7 @@ func checkPortAvailable(port int) error {
 				continue
 			}
 
-			return fmt.Errorf(
-				"порт %d занят легитимным процессом %s. Развертывание ловушки невозможно",
+			return fmt.Errorf(i18n.T.TarpitCtlPortOccupiedByProcess,
 				port, app.Name)
 		}
 	}
@@ -737,7 +737,7 @@ func checkPortAvailable(port int) error {
 	probeAddr := fmt.Sprintf(":%d", port)
 	probeListener, errProbe := net.Listen("tcp", probeAddr)
 	if errProbe != nil {
-		return fmt.Errorf("порт %d уже занят в ядре ОС (ground truth): %w", port, errProbe)
+		return fmt.Errorf(i18n.T.TarpitCtlPortOccupiedByKernel, port, errProbe)
 	}
 	// Мгновенно освобождаем — реальный bind произойдёт в демоне позже.
 	_ = probeListener.Close()
@@ -759,20 +759,14 @@ func checkPortAvailable(port int) error {
 func checkCastlingDone() error {
 	// Фактор 1: Наличие маркера рокировки на диске
 	if _, err := os.Stat(CastlingMarkerPath); os.IsNotExist(err) {
-		return fmt.Errorf(
-			"блокировка запуска: рокировка портов не выполнена. " +
-				"Легитимный OpenSSH всё ещё удерживает порт 22. " +
-				"Сначала выполните рокировку (Кастлинг)")
+		return fmt.Errorf("%s", i18n.T.TarpitCtlCastlingNotDone)
 	}
 
 	// Фактор 2: Проверяем, что реальный порт не совпадает со стандартным
 	activePort := sys.DetectActiveSshPort()
 	standardPortStr := fmt.Sprintf("%d", config.C.StandardSshPort)
 	if activePort == standardPortStr {
-		return fmt.Errorf(
-			"блокировка запуска: маркер рокировки существует, но детектор "+
-				"показывает, что OpenSSH всё ещё на порту %s. Рассинхронизация состояния",
-			standardPortStr)
+		return fmt.Errorf(i18n.T.TarpitCtlCastlingDesync, standardPortStr)
 	}
 
 	// Рокировка выполнена — проверка пройдена

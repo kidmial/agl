@@ -3,6 +3,7 @@ package armor
 
 import (
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/sys" // ИНТЕГРАЦИЯ АУДИТОРА v6.4.0
 	"encoding/json"    // ДОБАВИТЬ для маршалинга инвентаря
 	"fmt"
@@ -32,7 +33,7 @@ func ExecuteArmorRoute(targetUUID, action string) error {
 	// ИБ-ФИЛЬТР АУДИТА: Логируем только активные изменения стейтов оператором (ON/OFF), игнорируя CHECK
 	if action == "ON" || action == "OFF" {
 		sys.LogAction("ARMOR_ROUTER", "CHANGE_STATE", "PENDING",
-			fmt.Sprintf("Администратор инициировал смену состояния на [%s] для рубежа [%s]", action, targetUUID))
+			fmt.Sprintf(i18n.T.ArmorRouterAdminStateChange, action, targetUUID))
 	}
 
 	// 1. РОУТИНГ ПО ТИПУ: статические рубежи ядра (sysctl, tarpit, move_port).
@@ -60,8 +61,8 @@ func ExecuteArmorRoute(targetUUID, action string) error {
 	}
 
 	// Фолбэк: неизвестный рубеж защиты
-	sys.LogAction("ARMOR_ROUTER", "CHANGE_STATE", "ERROR", fmt.Sprintf("Неизвестный рубеж защиты: %s", targetUUID))
-	return fmt.Errorf("архитектурный сбой: запрошен неизвестный рубеж защиты [%s]", targetUUID)
+	sys.LogAction("ARMOR_ROUTER", "CHANGE_STATE", "ERROR", fmt.Sprintf(i18n.T.ArmorRouterUnknownPerimeter, targetUUID))
+	return fmt.Errorf(i18n.T.ArmorRouterArchFail, targetUUID)
 
 }
 
@@ -88,11 +89,11 @@ func routeStaticArmor(normalizedUUID, action string) (handled bool, err error) {
 			if action == "ON" || action == "OFF" {
 				sys.LogAction("ARMOR_ROUTER", "SYSCTL_TUNING", "ERROR", err.Error())
 			}
-			return true, fmt.Errorf("сбой применения протокола оптимизации sysctl: %w", err)
+			return true, fmt.Errorf(i18n.T.ArmorRouterSysctlFail, err)
 		}
 		if action == "ON" || action == "OFF" {
 			sys.LogAction("ARMOR_ROUTER", "SYSCTL_TUNING", "SUCCESS",
-				fmt.Sprintf("Протокол оптимизации параметров sysctl успешно переведен в состояние %s", action))
+				fmt.Sprintf(i18n.T.ArmorRouterSysctlSuccess, action))
 		}
 		return true, nil
 
@@ -101,11 +102,11 @@ func routeStaticArmor(normalizedUUID, action string) (handled bool, err error) {
 			if action == "ON" || action == "OFF" {
 				sys.LogAction("ARMOR_ROUTER", "TARPIT_STATION", "ERROR", err.Error())
 			}
-			return true, fmt.Errorf("сбой диспетчеризации дегтярной ловушки tarpit: %w", err)
+			return true, fmt.Errorf(i18n.T.ArmorRouterTarpitFail, err)
 		}
 		if action == "ON" || action == "OFF" {
 			sys.LogAction("ARMOR_ROUTER", "TARPIT_STATION", "SUCCESS",
-				fmt.Sprintf("Модуль автономной ловушки TARPIT успешно переведен в состояние %s", action))
+				fmt.Sprintf(i18n.T.ArmorRouterTarpitSuccess, action))
 		}
 		return true, nil
 
@@ -114,11 +115,11 @@ func routeStaticArmor(normalizedUUID, action string) (handled bool, err error) {
 			if action == "ON" || action == "OFF" {
 				sys.LogAction("ARMOR_ROUTER", "PORT_CASTLING", "ERROR", err.Error())
 			}
-			return true, fmt.Errorf("сбой протокола динамического перемещения портов: %w", err)
+			return true, fmt.Errorf(i18n.T.ArmorRouterCastlingFail, err)
 		}
 		if action == "ON" || action == "OFF" {
 			sys.LogAction("ARMOR_ROUTER", "PORT_CASTLING", "SUCCESS",
-				fmt.Sprintf("Алгоритм Кастлинга портов OpenSSH успешно завершен. Текущее состояние: %s", action))
+				fmt.Sprintf(i18n.T.ArmorRouterCastlingSuccess, action))
 		}
 		return true, nil
 	}
@@ -153,13 +154,13 @@ func routeInventoryArmor(normalizedUUID, action string) (handled bool, err error
 			if errLim := SetCustomRateLimit(target.Port, target.SysTag, target.Service, action); errLim != nil {
 				if action == "ON" || action == "OFF" {
 					sys.LogAction("ARMOR_ROUTER", "CUSTOM_RATE_LIMIT", "ERROR",
-						fmt.Sprintf("Сбой на рубеже %s (порт %d): %v", target.Service, target.Port, errLim))
+						fmt.Sprintf(i18n.T.ArmorRouterRateLimitFail, target.Service, target.Port, errLim))
 				}
-				return true, fmt.Errorf("критический сбой на рубеже %s (порт %d): %w", target.Service, target.Port, errLim)
+				return true, fmt.Errorf(i18n.T.ArmorRouterRateLimitCriticalFail, target.Service, target.Port, errLim)
 			}
 			if action == "ON" || action == "OFF" {
 				sys.LogAction("ARMOR_ROUTER", "CUSTOM_RATE_LIMIT", "SUCCESS",
-					fmt.Sprintf("Динамический рубеж %s (порт %d) переведен в стейт %s", target.Service, target.Port, action))
+					fmt.Sprintf(i18n.T.ArmorRouterRateLimitSuccess, target.Service, target.Port, action))
 			}
 			return true, nil
 		}
@@ -228,7 +229,7 @@ func resolveAutoTarget(normalizedUUID, action string) (extractedPort int, target
 		if foundIdx != -1 {
 			if errUpd := config.UpdateDetectedAppArmorStatus(targetServiceName, extractedPort, action == "ON"); errUpd != nil {
 				sys.LogAction("ARMOR_ROUTER", "INVENTORY_UPDATE_FAIL", "ERROR",
-					fmt.Sprintf("Сбой обновления инвентаря для порта %d: %v", extractedPort, errUpd))
+					fmt.Sprintf(i18n.T.ArmorRouterInventoryUpdateFail, extractedPort, errUpd))
 			}
 		}
 	}
@@ -280,8 +281,8 @@ func executeAutoAction(action string, extractedPort int, targetServiceName, rece
 			// v8.2.0 (2.5): валидация имени службы перед systemctl.
 			if !isValidServiceName(targetServiceName) {
 				sys.LogAction("ARMOR_ROUTER", "SERVICE_NAME_INVALID", "WARNING",
-					fmt.Sprintf("Имя службы '%s' не прошло валидацию. Пропуск включения через systemctl.", targetServiceName))
-				return true, fmt.Errorf("невалидное имя службы: %s", targetServiceName)
+					fmt.Sprintf(i18n.T.ArmorRouterServiceInvalidEnable, targetServiceName))
+				return true, fmt.Errorf(i18n.T.ArmorRouterServiceInvalidErr, targetServiceName)
 			}
 			// Беспортная локальная служба (fail2ban) — управляем через systemctl.
 			//
@@ -305,7 +306,7 @@ func executeAutoAction(action string, extractedPort int, targetServiceName, rece
 		}
 		ResetUfwCacheSnapshot()
 		sys.LogAction("ARMOR_ROUTER", "AUTO_SHIELD_ACTIVATE", "SUCCESS",
-			fmt.Sprintf("Автоматический рубеж защиты Netfilter (Порт: %d / Служба: %s) успешно активирован", extractedPort, targetServiceName))
+			fmt.Sprintf(i18n.T.ArmorRouterAutoShieldActivate, extractedPort, targetServiceName))
 		return true, nil
 
 	case "OFF":
@@ -318,8 +319,8 @@ func executeAutoAction(action string, extractedPort int, targetServiceName, rece
 			// v8.2.0 (2.5): валидация имени службы перед systemctl.
 			if !isValidServiceName(targetServiceName) {
 				sys.LogAction("ARMOR_ROUTER", "SERVICE_NAME_INVALID", "WARNING",
-					fmt.Sprintf("Имя службы '%s' не прошло валидацию. Пропуск выключения через systemctl.", targetServiceName))
-				return true, fmt.Errorf("невалидное имя службы: %s", targetServiceName)
+					fmt.Sprintf(i18n.T.ArmorRouterServiceInvalidDisable, targetServiceName))
+				return true, fmt.Errorf(i18n.T.ArmorRouterServiceInvalidErr, targetServiceName)
 			}
 			// Беспортная локальная служба — тушим через systemctl.
 			//
@@ -338,17 +339,17 @@ func executeAutoAction(action string, extractedPort int, targetServiceName, rece
 		}
 		ResetUfwCacheSnapshot()
 		sys.LogAction("ARMOR_ROUTER", "AUTO_SHIELD_DEACTIVATE", "SUCCESS",
-			fmt.Sprintf("Автоматический рубеж защиты Netfilter (Порт: %d / Служба: %s) успешно деактивирован", extractedPort, targetServiceName))
+			fmt.Sprintf(i18n.T.ArmorRouterAutoShieldDeactivate, extractedPort, targetServiceName))
 		return true, nil
 
 	case "CHECK":
 		// ДВУХФАКТОРНАЯ ВЕРИФИКАЦИЯ ИБ v6.1.0: Исключаем ложные статусы после жесткого ребута
 		if receiptPath == "" {
-			return true, fmt.Errorf("невозможно определить траекторию проверки")
+			return true, fmt.Errorf("%s", i18n.T.ArmorRouterCheckNoTrajectory)
 		}
 		// Фактор 1: Наличие квитанции на диске
 		if _, errStat := os.Stat(receiptPath); os.IsNotExist(errStat) {
-			return true, fmt.Errorf("рубеж деактивирован (квитанция отсутствует)")
+			return true, fmt.Errorf("%s", i18n.T.ArmorRouterCheckReceiptMissing)
 		}
 		// Фактор 2: Реальное наличие правила в ядре Linux / Статус в systemd
 		if extractedPort > 0 {
@@ -356,7 +357,7 @@ func executeAutoAction(action string, extractedPort int, targetServiceName, rece
 			// Если правила UFW физически нет в ядре — у нас рассинхрон после ребута
 			if !VerifyUfwRulePresence(commentCheck, true) {
 				_ = os.Remove(receiptPath) // Самовосстановление: стираем мертвый маркер
-				return true, fmt.Errorf("рассинхронизация: правило Netfilter сброшено ядром")
+				return true, fmt.Errorf("%s", i18n.T.ArmorRouterCheckUfwDesync)
 			}
 		} else if targetServiceName != "" {
 			// v8.2.3 (R-2c): заменяем прямой exec.Command на sys.RunTimeout.
@@ -370,7 +371,7 @@ func executeAutoAction(action string, extractedPort int, targetServiceName, rece
 			checkRes := sys.RunTimeout(5*time.Second, "systemctl", "is-active", targetServiceName)
 			if strings.TrimSpace(checkRes.Stdout) != "active" {
 				_ = os.Remove(receiptPath) // Самовосстановление: стираем мертвый маркер
-				return true, fmt.Errorf("рассинхронизация: служба выключена в ОС")
+				return true, fmt.Errorf("%s", i18n.T.ArmorRouterCheckServiceDesync)
 			}
 		}
 		return true, nil // Проверка пройдена, рубеж ACTIVE

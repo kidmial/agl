@@ -52,6 +52,7 @@ import (
 
 	// "time"
 
+	"agl/i18n"
 	"agl/internal/sys"
 
 	ui "github.com/gizak/termui/v3"
@@ -78,10 +79,13 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 	// 1. ФИКСИРОВАННАЯ ШАПКА (Высота 4 строки)
 	// -------------------------------------------------------------
 	header := widgets.NewParagraph()
-	header.Title = " MULTI-TARPIT - Пул Распределенных Мульти-Ловушек "
-	header.Text = " Управление активными горутинами-воркерами эмуляции служб.\n" +
-		" Декларативный стейт: [DECLARED](fg:cyan) = Что хочет админ │\n" +
-		" [DAEMON](fg:yellow) = Что подтвердил демон │ [MARKER](fg:green) = Присутствие маркера на диске."
+	header.Title = i18n.T.ViewMultiTarpitHeaderTitle
+	header.Text = fmt.Sprintf(" %s\n "+
+		" %s: [DECLARED](fg:cyan) = %s │\n "+
+		" [DAEMON](fg:yellow) = %s │ [MARKER](fg:green) = %s ",
+		i18n.T.ViewMultiTarpitHeaderDesc,
+		i18n.T.ViewMultiTarpitLabelDeclaredState, i18n.T.ViewMultiTarpitLabelAdminWants,
+		i18n.T.ViewMultiTarpitLabelDaemonConfirmed, i18n.T.ViewMultiTarpitLabelMarkerOnDisk)
 	header.SetRect(2, 1, 102, 6)
 	header.BorderStyle.Fg = ui.ColorCyan
 	header.TitleStyle.Fg = ui.ColorYellow
@@ -100,11 +104,11 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 	if err != nil {
 		// Если инвентарь недоступен — показываем сообщение об ошибке
 		menuRows = append(menuRows,
-			" [ОШИБКА]: Не удалось загрузить инвентарь ловушек из "+sys.TarpitInventoryPath)
+			i18n.T.ViewMultiTarpitErrLoadInventoryPrefix+sys.TarpitInventoryPath)
 	} else if len(inv.Traps) == 0 {
 		// Инвентарь пуст — показываем подсказку
 		menuRows = append(menuRows,
-			" [ПУСТО]: В инвентаре нет ни одной ловушки. Нажмите [ ADD NEW TRAP ] для создания.")
+			i18n.T.ViewMultiTarpitInventoryEmpty)
 	} else {
 		// ---------------------------------------------------------
 		// СОРТИРОВКА КЛЮЧЕЙ ДЛЯ СТАБИЛЬНОГО ПОРЯДКА
@@ -134,7 +138,7 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 			// Что демон ПОДТВЕРДИЛ (источник: поле `status` в JSON).
 			daemonStr := "[ DISABLED ](fg:white)"
 			if trap.Status == sys.StatusActive {
-				daemonStr = "[ ACTIVE ](fg:yellow,mod:bold)"
+				daemonStr = "[ ACTIVE   ](fg:yellow,mod:bold)"
 			}
 
 			// === ФАКТОР 3: MARKER (факт на диске) ===
@@ -159,9 +163,8 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 			// рантайм-метаданные перенесены в «Паспорт ловушки» (нижний блок),
 			// чтобы исключить обрезание строк в списке.
 			menuRows = append(menuRows, fmt.Sprintf(
-				" %s%-29s │ Порт: %-5d │ D: %s │ M: %s │ %s",
-				corePrefix, id, trap.Port,
-				declaredStr, daemonStr, markerStr))
+				" %s │ D:%s │ M:%s │ %s: %-5d │ %-29s %s",
+				markerStr, declaredStr, daemonStr, i18n.T.ViewMultiTarpitColPort, trap.Port, id, corePrefix))
 		}
 	}
 
@@ -172,17 +175,17 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 
 	// Кнопка добавления новой ловушки
 	menuRows = append(menuRows,
-		" [ ADD NEW TRAP ]              │ Развернуть новый рубеж капкана через мастер TRAP_CREATOR")
+		fmt.Sprintf(" [ ADD NEW TRAP ] %s", i18n.T.ViewMultiTarpitRowAddNewTrap))
 
 	// Кнопка возврата в главное меню
 	menuRows = append(menuRows,
-		" [ BACK ]                      │ Закрыть диспетчер капканов и вернуться в Главное меню")
+		fmt.Sprintf(" [ BACK ]         %s", i18n.T.ViewMultiTarpitRowBack))
 
 	// -------------------------------------------------------------
 	// 4. БЛОК СПИСКА ЛОВУШЕК (Динамическая высота)
 	// -------------------------------------------------------------
 	trapList := widgets.NewList()
-	trapList.Title = fmt.Sprintf(" Список активных рубежей (всего: %d) ", totalTrapsCount)
+	trapList.Title = fmt.Sprintf(" %s (%s: %d) ", i18n.T.ViewMultiTarpitListTitle, i18n.T.ViewMultiTarpitLabelTotal, totalTrapsCount)
 	trapList.Rows = menuRows
 	// ГЕОМЕТРИЯ v8.0.3: фиксированная высота 12 строк (y: 6-18).
 	// Нижняя половина терминала отдана под «Паспорт ловушки».
@@ -195,15 +198,19 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 	// 5. ИНФОРМАЦИОННЫЙ БЛОК (Справка)
 	// -------------------------------------------------------------
 	infoBox := widgets.NewParagraph()
-	infoBox.Title = " Паспорт ловушки / Системная справка "
+	infoBox.Title = i18n.T.ViewMultiTarpitInfoBoxTitle
 	// Базовая справка по пулу
 	helpText := fmt.Sprintf(
-		" Всего интегрировано рубежей: %d\n"+
-			" Декларативный инвентарь: %s\n"+
-			" Трёхфакторная индикация: DECLARED (state) │ DAEMON (status) │ MARKER (файл на диске)\n"+
-			" [ENTER] на ловушке — проваливание в карточку управления (START/STOP/EDIT/DELETE).\n"+
-			" [ESC] — возврат в Главное меню.",
-		totalTrapsCount, sys.TarpitInventoryPath)
+		" %s: %d\n"+
+			" %s: %s\n"+
+			" %s: DECLARED (state) │ DAEMON (status) │ MARKER (%s)\n"+
+			" %s\n"+
+			" %s",
+		i18n.T.ViewMultiTarpitLabelTotalIntegrated, totalTrapsCount,
+		i18n.T.ViewMultiTarpitLabelDeclInventory, sys.TarpitInventoryPath,
+		i18n.T.ViewMultiTarpitLabelThreeFactor, i18n.T.ViewMultiTarpitLabelFileOnDisk,
+		i18n.T.ViewMultiTarpitHelpEnterLine,
+		i18n.T.ViewMultiTarpitHelpEscLine)
 	// Если выбрана реальная ловушка (не кнопка) — показываем полный паспорт
 	if inv != nil && selectedRow < totalTrapsCount {
 		var trapIDs []string
@@ -214,26 +221,26 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 		if selectedRow < len(trapIDs) {
 			selectedTrap := inv.Traps[trapIDs[selectedRow]]
 			// Рантайм-метаданные демона (перенесены сюда из строки списка)
-			runtimeLine := " Воркер: не поднят (демон ещё не подтвердил активацию)"
+			runtimeLine := fmt.Sprintf(" %s: %s", i18n.T.ViewMultiTarpitLabelWorker, i18n.T.ViewMultiTarpitWorkerIdleText)
 			if selectedTrap.ActivatedAt != "" {
-				runtimeLine = fmt.Sprintf(" Воркер: PID %d │ Поднят: %s",
-					selectedTrap.WorkerPID, selectedTrap.ActivatedAt)
+				runtimeLine = fmt.Sprintf(" %s: PID %d │ %s: %s",
+					i18n.T.ViewMultiTarpitLabelWorker, selectedTrap.WorkerPID, i18n.T.ViewMultiTarpitLabelStarted, selectedTrap.ActivatedAt)
 			}
 			helpText = fmt.Sprintf(
-				" Ловушка: %s │ Порт: %d │ Ядро: %v\n"+
-					" SSH-баннер: %s\n"+
-					" Удержание: %d сек ± %d сек\n"+
-					" Лимит сессий: %d\n"+
+				" %s: %s │ %s: %d │ %s: %v\n"+
+					" %s: %s\n"+
+					" %s: %d %s ± %d %s\n"+
+					" %s: %d\n"+
 					"%s\n"+
-					" Маркер: %s\n\n"+
-					" [ENTER] — карточка управления (START/STOP/EDIT/DELETE). [ESC] — выход.",
-				selectedTrap.TarpitID, selectedTrap.Port, selectedTrap.IsCore,
-				selectedTrap.ConfigConfig.SSHVersion,
-				selectedTrap.ConfigConfig.DelayStep,
-				selectedTrap.ConfigConfig.DelayVariance,
-				selectedTrap.ConfigConfig.MaxConn,
+					" %s: %s\n\n"+
+					" %s",
+				i18n.T.ViewMultiTarpitLabelTrap, selectedTrap.TarpitID, i18n.T.ViewMultiTarpitColPort, selectedTrap.Port, i18n.T.ViewMultiTarpitLabelCore, selectedTrap.IsCore,
+				i18n.T.ViewMultiTarpitLabelSshBanner, selectedTrap.ConfigConfig.SSHVersion,
+				i18n.T.ViewMultiTarpitLabelRetention, selectedTrap.ConfigConfig.DelayStep, i18n.T.ViewMultiTarpitLabelSec, selectedTrap.ConfigConfig.DelayVariance, i18n.T.ViewMultiTarpitLabelSec,
+				i18n.T.ViewMultiTarpitLabelSessionLimit, selectedTrap.ConfigConfig.MaxConn,
 				runtimeLine,
-				selectedTrap.MarkerFilePath)
+				i18n.T.ViewMultiTarpitLabelMarker, selectedTrap.MarkerFilePath,
+				i18n.T.ViewMultiTarpitPassportFooter)
 		}
 	}
 	infoBox.Text = helpText

@@ -49,6 +49,7 @@ import (
 	"unsafe"
 
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/sys"
 )
 
@@ -121,7 +122,7 @@ func getCountryFromGeoTool(clientIP, geoTool string) string {
 	geoStateMu.Unlock()
 	if wasDegraded {
 		sys.LogAction("TARPIT", "GEO_RESTORED", "SUCCESS",
-			"event=geo.restored Гео-аналитика снова доступна.")
+			i18n.TrEvent("geo.restored"))
 	}
 
 	// Разбираем вывод гео-утилиты (страна — во второй части после запятой).

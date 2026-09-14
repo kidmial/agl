@@ -3,6 +3,7 @@ package tui
 
 import (
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/service"
 	"fmt"
 	"os"
@@ -34,7 +35,7 @@ func HandleArmorMenuClick(currentRow int, selectedRowStr string) string {
 		progChan := make(chan string, 10)
 		// Запускаем тяжелый 15-секундный взвод Брони в фоновом асинхронном потоке
 		go func() {
-			progChan <- "Оптимизация SYSCTL параметров..."
+			progChan <- i18n.T.ViewArmorCtlProgSysctlTune
 			service.ResetUfwCacheSnapshot()
 			_ = service.ToggleSysctlProtocol("ON")
 
@@ -51,7 +52,7 @@ func HandleArmorMenuClick(currentRow int, selectedRowStr string) string {
 					continue
 				}
 
-				progChan <- fmt.Sprintf("Взвод лимитов порта %d", p.Port)
+				progChan <- fmt.Sprintf(i18n.T.ViewArmorCtlProgArmPort, p.Port)
 				dynamicID := fmt.Sprintf("port_auto_%d", p.Port)
 				_ = service.ToggleArmorRoute(dynamicID, "ON")
 			}
@@ -69,24 +70,24 @@ func HandleArmorMenuClick(currentRow int, selectedRowStr string) string {
 					}
 
 					// ЛОГ: Имя службы выводится в прогресс-бар
-					progChan <- fmt.Sprintf("Защита службы: %s (порт: %d)", app.Name, app.Port)
+					progChan <- fmt.Sprintf(i18n.T.ViewArmorCtlProgArmService, app.Name, app.Port)
 					dynamicID := fmt.Sprintf("port_auto_%d", app.Port)
 					_ = service.ToggleArmorRoute(dynamicID, "ON")
 				}
 			}
-			progChan <- "Перезапуск таблиц Netfilter..."
+			progChan <- i18n.T.ViewArmorCtlProgNetfilterReload
 			_ = service.ReloadFirewall()
 			close(progChan) // Закрываем канал, давая сигнал окну прогресса
 		}()
 
 		// Запускаем графическое окно прогресса, оно заблокирует UI-поток до завершения канала
-		ShowArmorProgressWindow("Armor Activation", progChan)
-		hintText = "Все защитные рубежи периметра успешно активированы."
+		ShowArmorProgressWindow(i18n.T.ViewArmorCtlProgressTitleOn, progChan)
+		hintText = i18n.T.ViewArmorCtlHintArmorOnDone
 
 	case strings.Contains(selectedRowStr, "ARMOR_OFF"):
 		progChan := make(chan string, 10)
 		go func() {
-			progChan <- "Сброс тюнинга SYSCTL"
+			progChan <- i18n.T.ViewArmorCtlProgSysctlReset
 			service.ResetUfwCacheSnapshot()
 			_ = service.ToggleSysctlProtocol("OFF")
 
@@ -98,7 +99,7 @@ func HandleArmorMenuClick(currentRow int, selectedRowStr string) string {
 					continue
 				}
 				// ЛОГ: Вывод портов ручного инвентаря
-				progChan <- fmt.Sprintf("Снятие лимитов службы: %s (порт: %d)", p.SysTag, p.Port)
+				progChan <- fmt.Sprintf(i18n.T.ViewArmorCtlProgDisarmPort, p.SysTag, p.Port)
 				dynamicID := fmt.Sprintf("port_auto_%d", p.Port)
 				_ = service.ToggleArmorRoute(dynamicID, "OFF")
 			}
@@ -111,18 +112,18 @@ func HandleArmorMenuClick(currentRow int, selectedRowStr string) string {
 						continue
 					}
 					// ЛОГ: Вывод авто-служб
-					progChan <- fmt.Sprintf("Деактивация защиты %s (порт: %d)", app.Name, app.Port)
+					progChan <- fmt.Sprintf(i18n.T.ViewArmorCtlProgDeactivateService, app.Name, app.Port)
 					dynamicID := fmt.Sprintf("port_auto_%d", app.Port)
 					_ = service.ToggleArmorRoute(dynamicID, "OFF")
 				}
 			}
-			progChan <- "Очистка таблиц Netfilter..."
+			progChan <- i18n.T.ViewArmorCtlProgNetfilterCleanup
 			_ = service.ReloadFirewall()
 			close(progChan)
 		}()
 
-		ShowArmorProgressWindow("Armor Deactivation", progChan)
-		hintText = "Сетевой щит полностью демонтирован из ядра Linux."
+		ShowArmorProgressWindow(i18n.T.ViewArmorCtlProgressTitleOff, progChan)
+		hintText = i18n.T.ViewArmorCtlHintArmorOffDone
 
 	case strings.Contains(selectedRowStr, "SYSCTL"):
 		// Одиночный переключатель системных оптимизаций ядра (ручной боевой тумблер)
@@ -166,21 +167,21 @@ func HandleArmorMenuClick(currentRow int, selectedRowStr string) string {
 				// ВЕРСИЯ 6.0.0: ИБ-Предохранитель от конфликта с капканом в ручном режиме
 				tarpitMarker := config.TarpitMarkerPath(targetPort) // РЕБРЕНДИНГ
 				if _, errT := os.Stat(tarpitMarker); errT == nil {
-					hintText = fmt.Sprintf("[ОТКАЗ]: На порту %d уже запущена Дегтярная яма! Установка лимитов невозможна.", targetPort)
+					hintText = fmt.Sprintf(i18n.T.ViewArmorCtlHintTarpitReject, targetPort)
 				} else {
 					if errCheck := service.CheckArmorRouteStatus(targetUUIDOrTag); errCheck != nil {
 						if errAct := service.ToggleArmorRoute(targetUUIDOrTag, "ON"); errAct != nil {
-							hintText = "[Ошибка]: " + errAct.Error()
+							hintText = i18n.T.ViewArmorCtlErrorPrefix + errAct.Error()
 						} else {
 							_ = service.ReloadFirewall()
-							hintText = fmt.Sprintf("Рубеж %s успешно активирован.", targetSysTag)
+							hintText = fmt.Sprintf(i18n.T.ViewArmorCtlHintPerimeterOn, targetSysTag)
 						}
 					} else {
 						if errDeact := service.ToggleArmorRoute(targetUUIDOrTag, "OFF"); errDeact != nil {
-							hintText = "[Ошибка]: " + errDeact.Error()
+							hintText = i18n.T.ViewArmorCtlErrorPrefix + errDeact.Error()
 						} else {
 							_ = service.ReloadFirewall()
-							hintText = fmt.Sprintf("Рубеж %s успешно отключен.", targetSysTag)
+							hintText = fmt.Sprintf(i18n.T.ViewArmorCtlHintPerimeterOff, targetSysTag)
 						}
 					}
 				}
@@ -216,7 +217,7 @@ func HandleCoreSettingsClick(currentRow int, selectedRowStr string) {
 			s.ArmorNetIpv4ConfAllRpFilter = s.DefaultNetIpv4ConfAllRpFilter
 			s.ArmorNetIpv4ConfDefaultRpFilter = s.DefaultNetIpv4ConfDefaultRpFilter // СИНХРОНИЗАЦИЯ: Сбрасываем добавленный параметр rp_filter
 		}); err != nil {
-			CoreAlertMessage = "[ОШИБКА]: Сбой сохранения конфигурации: " + err.Error()
+			CoreAlertMessage = i18n.T.ViewArmorCtlCoreSaveFailPrefix + err.Error()
 			return
 		}
 
@@ -225,10 +226,7 @@ func HandleCoreSettingsClick(currentRow int, selectedRowStr string) {
 			_ = service.ToggleSysctlProtocol("ON")
 		}
 
-		CoreAlertMessage = "[УСПЕХ]: Параметры сброшены к эталонам Amber Guard Lab." // РЕБРЕНДИНГ
-		if config.C.Lang == "en" {
-			CoreAlertMessage = "[SUCCESS]: Parameters reset to Amber Guard Lab templates." // РЕБРЕНДИНГ
-		}
+		CoreAlertMessage = i18n.T.ViewArmorCtlCoreResetSuccess
 		return
 	}
 

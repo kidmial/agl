@@ -2,6 +2,7 @@
 package tui
 
 import (
+	"agl/i18n"
 	"fmt"
 
 	ui "github.com/gizak/termui/v3"
@@ -11,21 +12,23 @@ import (
 // DrawForensicsMenuGrid отрисовывает Суб-панель Диспетчера Форензики (Раздел FORENSIC)
 func DrawForensicsMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	header := widgets.NewParagraph()
-	header.Title = " Подсистема Криминалистического Анализа и Форензики "
-	header.Text = fmt.Sprintf("  [РЕЖИМ СБОРА МЕТРИК]: [ АВТОМАТИЧЕСКИЙ (RAM-Параллельный) ]%s\n  [ЦЕНТРАЛЬНЫЙ SIEM-РЕЕСТР]: [ /var/log/amberguard/ ]%s", ColorYellow, ColorYellow) // РЕБРЕНДИНГ
+	header.Title = i18n.T.ViewForensicsHeaderTitle
+	header.Text = fmt.Sprintf("  [%s]: [ %s ]%s\n  [%s]: [ /var/log/amberguard/ ]%s",
+		i18n.T.ViewForensicsLabelCollectMode, i18n.T.ViewForensicsLabelAutoParallel, ColorYellow,
+		i18n.T.ViewForensicsLabelSiemRegistry, ColorYellow)
 	header.SetRect(2, 1, 102, 5)
 	header.BorderStyle.Fg = ui.ColorCyan
 	header.TitleStyle.Fg = ui.ColorYellow
 
 	menuList := widgets.NewList()
-	menuList.Title = " Выберите криминалистический модуль для проведения расследования: "
+	menuList.Title = i18n.T.ViewForensicsListTitle
 	menuList.Rows = []string{
-		"  THREAT_MAP   │ Сводная интерактивная Карта Угроз экосистемы сервера",
-		"  SSH_LOG      │ Журнал распределенных брутфорс-атак на OpenSSH (auth.log)",
-		"  WEB_LOG      │ Журнал сигнатурного сканирования веб-панелей (access.log)",
-		"  BOTNET       │ Хроника истощения и поведенческого анализа ботнет-сканеров",
-		"  IP_FORENSICS │ Картотека и персональное криминалистическое досье нарушителя",
-		"  BACK         │ Назад в главное меню сервера",
+		fmt.Sprintf("  THREAT_MAP   │ %s", i18n.T.ViewForensicsRowThreatMap),
+		fmt.Sprintf("  SSH_LOG      │ %s", i18n.T.ViewForensicsRowSshLog),
+		fmt.Sprintf("  WEB_LOG      │ %s", i18n.T.ViewForensicsRowWebLog),
+		fmt.Sprintf("  BOTNET       │ %s", i18n.T.ViewForensicsRowBotnet),
+		fmt.Sprintf("  IP_FORENSICS │ %s", i18n.T.ViewForensicsRowIpForensics),
+		fmt.Sprintf("  BACK         │ %s", i18n.T.ViewForensicsRowBack),
 	}
 	menuList.SetRect(2, 5, 102, 15)
 	menuList.BorderStyle.Fg = ui.ColorCyan
@@ -34,7 +37,7 @@ func DrawForensicsMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int
 	menuList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
 
 	infoBox := widgets.NewParagraph()
-	infoBox.Title = " Регламент проведения криминалистического расследования инцидентов "
+	infoBox.Title = i18n.T.ViewForensicsInfoBoxTitle
 	infoBox.Text = hintText
 	infoBox.SetRect(2, 15, 102, 20)
 	infoBox.BorderStyle.Fg = ui.ColorYellow

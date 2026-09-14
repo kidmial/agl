@@ -4,6 +4,7 @@ package tui
 
 import (
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/service"
 	"agl/internal/sys"
 	"fmt"
@@ -19,9 +20,8 @@ import (
 func DrawPortMapGrid(selectedRow int) ([]ui.Drawable, int, []config.AppInventoryItem) {
 	// 1. Верхний текстовый блок заголовка (Высота 4 строки: y: 1 - 5)
 	header := widgets.NewParagraph()
-	header.Title = " [ Мониторинг Сетевого Периметра │ PORT_MAP ] "
-	header.Text = "  Карта легитимных портов хоста. Визуализация занятых сокетов для планирования ловушек.\n" +
-		"  Выполните SCAN_PERIMETER в разделе ANTIDDOS что бы увидеть актуальное состояние"
+	header.Title = fmt.Sprintf(" [ %s │ PORT_MAP ] ", i18n.T.ViewPortMapHeaderTitle)
+	header.Text = i18n.T.ViewPortMapHeaderDesc
 	header.SetRect(2, 1, 102, 5)
 	header.BorderStyle.Fg = ui.ColorCyan
 	header.TitleStyle.Fg = ui.ColorYellow
@@ -66,7 +66,7 @@ func DrawPortMapGrid(selectedRow int) ([]ui.Drawable, int, []config.AppInventory
 		formattedAppName := sys.PrettyServiceName(app.Name)
 		// C9 (v8.1.3): канал спасения не маскируется под обычную службу
 		if app.Port == config.C.WebRescuePort {
-			formattedAppName = "WEB KNOCK PORT"
+			formattedAppName = i18n.T.ViewPortMapWebKnockLabel
 		}
 		paddedAppName := fmt.Sprintf("%-14s", formattedAppName)
 		if len(paddedAppName) > 14 {
@@ -74,16 +74,16 @@ func DrawPortMapGrid(selectedRow int) ([]ui.Drawable, int, []config.AppInventory
 		}
 
 		// Выводим: Программа | Сокет (Интерфейс) | Статус защиты ядра Armor
-		menuRows = append(menuRows, fmt.Sprintf(" %s │ Сокет: %-18s │ Защита: %s",
-			paddedAppName, app.ListenInterface, statusStr))
+		menuRows = append(menuRows, fmt.Sprintf(" %s │ %s: %-18s │ %s: %s",
+			paddedAppName, i18n.T.ViewPortMapColSocket, app.ListenInterface, i18n.T.ViewPortMapColDefense, statusStr))
 	}
 
 	// Единственная интерактивная кнопка для выхода назад
-	menuRows = append(menuRows, " BACK           │ Вернуться в Главное меню сервера")
+	menuRows = append(menuRows, fmt.Sprintf(" BACK           │ %s", i18n.T.ViewPortMapRowBack))
 
 	// 2. Основной блок списка сокетов (ЖЕСТКАЯ ФИКСАЦИЯ: Высота ровно 13 строк, y: 5 - 18)
 	portList := widgets.NewList()
-	portList.Title = " Картография активных сетевых сокетов (Пассивный режим): "
+	portList.Title = i18n.T.ViewPortMapListTitle
 	portList.Rows = menuRows
 	portList.SetRect(2, 5, 102, 18) // Высота 13 строк зафиксирована жестко по ТЗ
 	portList.BorderStyle.Fg = ui.ColorCyan
@@ -92,8 +92,8 @@ func DrawPortMapGrid(selectedRow int) ([]ui.Drawable, int, []config.AppInventory
 
 	// 3. Информационная справка (Фиксированная высота 5 строк, y: 18 - 23)
 	infoBox := widgets.NewParagraph()
-	infoBox.Title = " Информационная справка "
-	infoBox.Text = " Свободные порты могут быть использованы для развертывания мульти-ловушек в меню MULTI_TARPIT.\n Для выхода нажмите [Esc] или выберите в меню пункт BACK и нажмите клавишу [ENTER]."
+	infoBox.Title = i18n.T.ViewPortMapInfoBoxTitle
+	infoBox.Text = i18n.T.ViewPortMapInfoBoxText
 	infoBox.SetRect(2, 18, 102, 23)
 	infoBox.BorderStyle.Fg = ui.ColorYellow
 	infoBox.TextStyle.Fg = ui.ColorCyan
@@ -101,8 +101,10 @@ func DrawPortMapGrid(selectedRow int) ([]ui.Drawable, int, []config.AppInventory
 
 	// 4. Системная консоль навигации (Фиксированная высота 6 строк до нижней границы футера, y: 23 - 29)
 	sysConsole := widgets.NewParagraph()
-	sysConsole.Title = " СИСТЕМНАЯ КОНСОЛЬ НАВИГАЦИИ "
-	sysConsole.Text = " [НАВИГАЦИЯ]: Стрелки ↑/↓ │ [ВЫХОД]: Выберите BACK и нажмите [ENTER] или используйте [Esc]\n [ИНФО]: Скроллинг списка сокетов работает автоматически внутри рамки списка\n [СТАТУС]: Контур мониторинга синхронизирован с подсистемой автоматического инвентаря"
+	sysConsole.Title = i18n.T.ViewPortMapConsoleTitle
+	sysConsole.Text = fmt.Sprintf(" [%s]: %s │ [%s]: %s\n [%s]: %s\n [%s]: %s",
+		i18n.T.ViewPortMapLabelNav, i18n.T.ViewPortMapLabelNavArrows, i18n.T.ViewPortMapLabelExit, i18n.T.ViewPortMapLabelExitHint,
+		i18n.T.ViewPortMapLabelInfo, i18n.T.ViewPortMapLabelScrollInfo, i18n.T.ViewPortMapLabelStatus, i18n.T.ViewPortMapLabelStatusSync)
 	sysConsole.SetRect(2, 23, 102, 29)
 	sysConsole.BorderStyle.Fg = ui.ColorGreen
 	sysConsole.TextStyle.Fg = ui.ColorCyan
