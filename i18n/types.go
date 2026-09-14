@@ -81,6 +81,7 @@ type UITranslation struct {
 	ConfigErrSyncConfig         string
 	ConfigErrCloseTempFile      string
 	ConfigErrRenameConfig       string
+	ConfigErrSaveAfterPrefixGen string
 
 	// --- config/config_inventory.go (ошибки и системные сообщения) ---
 	ConfigErrInitScan              string // Ошибка инициализации при сканировании

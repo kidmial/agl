@@ -82,6 +82,7 @@ func startWebRescueServer(port int) *http.Server {
 		}
 		return nil
 	}
+
 	tlsAlerted = false
 
 	mux := http.NewServeMux()
@@ -90,13 +91,32 @@ func startWebRescueServer(port int) *http.Server {
 	knockPrefix := "/" + config.C.WebKnockHashPrefix + "/"
 	interfacePrefix := "/" + config.C.WebInterfaceHashPrefix + "/"
 
-	// 1. Канал спасения (веб-стук)
+	// 1. Редирект с корня префикса на /rescue (удобство для админа)
+	// При заходе на https://ip:55111/a3f9c2e1b4d0/ → редирект на /rescue
+	mux.HandleFunc(knockPrefix, func(w http.ResponseWriter, r *http.Request) {
+		// Проверяем, что это именно корень префикса (без дополнительных путей)
+		if r.URL.Path == knockPrefix || r.URL.Path == knockPrefix+"/" {
+			http.Redirect(w, r, knockPrefix+"rescue", http.StatusFound) // 302 Found
+			return
+		}
+		// Если кто-то пытается зайти на /prefix/что-то-ещё → 404
+		handle404Stub(w, r)
+	})
+
+	// 2. Канал спасения (веб-стук)
 	mux.HandleFunc(knockPrefix+"rescue", handleWebRescue)
 
-	// 2. Заглушка для будущего веб-интерфейса
-	mux.HandleFunc(interfacePrefix+"panel", handleWebPanelStub)
+	// 3. Редирект с корня префикса интерфейса на /panel (для симметрии)
+	mux.HandleFunc(interfacePrefix, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == interfacePrefix || r.URL.Path == interfacePrefix+"/" {
+			http.Redirect(w, r, interfacePrefix+"panel", http.StatusFound)
+			return
+		}
+		handle404Stub(w, r)
+	})
 
-	// 3. Всё остальное → строгий 404 (защита от сканеров)
+	// 4. Заглушка для будущего веб-интерфейса
+	mux.HandleFunc(interfacePrefix+"panel", handleWebPanelStub)
 	mux.HandleFunc("/", handle404Stub)
 
 	srv := &http.Server{
@@ -467,8 +487,96 @@ func handleWebPanelStub(w http.ResponseWriter, r *http.Request) {
 }
 
 // handle404Stub — обработка всех неизвестных путей (защита от сканирования).
+//
+//	func handle404Stub(w http.ResponseWriter, r *http.Request) {
+//		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+//		w.WriteHeader(http.StatusNotFound)
+//		_, _ = w.Write([]byte("<!DOCTYPE html><html><body><h1>404 Not Found</h1></body></html>"))
+//	}
+
+// handle404Stub — обработка всех неизвестных путей (защита от сканирования).
 func handle404Stub(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusNotFound)
-	_, _ = w.Write([]byte("<!DOCTYPE html><html><body><h1>404 Not Found</h1></body></html>"))
+	fmt.Fprintf(w, `
+        <!DOCTYPE html>
+        <html lang="ru">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Ошибка 404</title>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    background-color: #131722;
+                    color: #ffffff;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    text-align: center;
+                }
+                .error-container {
+                    background-color: #1c2030;
+                    padding: 40px 60px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+                    border: 1px solid #2a2e39;
+                    max-width: 500px;
+                }
+                .error-code {
+                    font-size: 72px;
+                    font-weight: bold;
+                    color: #f23645;
+                    margin: 0;
+                    line-height: 1;
+                }
+                .error-title {
+                    font-size: 18px;
+                    font-weight: 500;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    margin: 15px 0 25px 0;
+                    color: #b2b5be;
+                    border-bottom: 1px solid #2a2e39;
+                    padding-bottom: 15px;
+                }
+                .error-message {
+                    font-size: 14px;
+                    line-height: 1.6;
+                    color: #d1d4dc;
+                    margin-bottom: 30px;
+                }
+                .btn-back {
+                    display: inline-block;
+                    background-color: #2962ff;
+                    color: #ffffff;
+                    text-decoration: none;
+                    padding: 12px 24px;
+                    border-radius: 4px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    transition: background-color 0.2s ease;
+                }
+                .btn-back:hover {
+                    background-color: #1e4bd8;
+                }
+                .system-status {
+                    margin-top: 25px;
+                    font-size: 11px;
+                    color: #787b86;
+                }
+            </style>
+        </head>
+        <body>
+
+            <div class="error-container">
+                <div class="error-code">404</div>
+            </div>
+
+        </body>
+        </html>
+    `)
 }

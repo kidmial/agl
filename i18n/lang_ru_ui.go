@@ -77,6 +77,7 @@ func init() {
 		ConfigErrSyncConfig:         "авария синхронизации конфигурации с диском: %v",
 		ConfigErrCloseTempFile:      "авария закрытия временного файла конфига: %v",
 		ConfigErrRenameConfig:       "авария атомарного переименования конфигурации: %v",
+		ConfigErrSaveAfterPrefixGen: "ошибка сохранения конфигурации после генерации префикса: %w",
 
 		// --- config/config_inventory.go ---
 		ConfigErrInitScan:              "ошибка инициализации базы при сканировании: %w",

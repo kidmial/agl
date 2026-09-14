@@ -77,6 +77,7 @@ func init() {
 		ConfigErrSyncConfig:         "config disk sync failure: %v",
 		ConfigErrCloseTempFile:      "temporary config file close failure: %v",
 		ConfigErrRenameConfig:       "atomic config rename failure: %v",
+		ConfigErrSaveAfterPrefixGen: "failed to save config after prefix generation: %w",
 
 		// --- config/config_inventory.go ---
 		ConfigErrInitScan:              "database initialization error during scan: %w",
