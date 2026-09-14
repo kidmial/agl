@@ -2,14 +2,14 @@
 package config
 
 import (
+	"agl/i18n"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
-
-	"agl/i18n" // <-- ДОБАВЛЕНО: пакет локализации (проверь префикс модуля в go.mod)
 )
 
 // SysctlCoreConfig изолирует двухуровневые параметры тюнинга сетевого стека ядра Linux.
@@ -79,18 +79,31 @@ type Config struct {
 	// Тумблер включения/выключения канала спасения через веб-стук.
 	// Дефолт: true. Настраивается через SETTINGS.
 	WebRescueEnabled bool `json:"web_rescue_enabled"`
+
 	// --- M3b (v8.1.2): Автономный HTTP-сервер веб-стука ---
 	// Порт, на котором слушает лёгкий HTTP-сервер веб-стука.
 	// Дефолт: 55111. Настраивается через SETTINGS.
 	WebRescuePort int `json:"web_rescue_port"`
+
 	// Пароль псевдо-2FA для веб-стука.
 	// Дефолт: "KeyKey" (по геному `secured_rescue_gate.php`).
 	// ВАЖНО: каждый админ должен сменить пароль на уникальный!
 	WebRescuePassword string `json:"web_rescue_password,omitempty"`
+
 	// --- M3g (v8.1.3): ХЭШ пароля веб-стука (plaintext изъят из конфига) ---
 	// SHA-256 (hex) пароля псевдо-2FA. Без соли — осознанный компромисс
 	// (первичная защита — TLS-шлюз; хэш прикрывает утечки backup-копий).
 	WebRescuePasswordHash string `json:"web_rescue_password_hash"`
+
+	// --- M4a (v8.3.0): Префикс для канала спасения (веб-стук) ---
+	// Случайная hex-строка (12 символов), генерируемая при первом старте.
+	// Пример: https://ip:55111/a3f9c2e1b4d0/rescue
+	WebKnockHashPrefix string `json:"web_knock_hash_prefix,omitempty"`
+
+	// --- M4b (v8.3.0): Префикс для будущего веб-интерфейса ---
+	// Отдельный префикс для панели управления (пока заглушка).
+	// Пример: https://ip:55111/x7k2m9p4q1w8/panel
+	WebInterfaceHashPrefix string `json:"web_interface_hash_prefix,omitempty"`
 }
 
 // C — глобальный синглтон настроек, доступный из любой точки программы.
@@ -214,10 +227,31 @@ func LoadConfig(filePath string) error {
 		local.WebRescuePassword = ""
 	}
 
+	// --- M4a & M4b (v8.3.0): Генерация префиксов при первом запуске ---
+	prefixGenerated := false
+
+	if local.WebKnockHashPrefix == "" {
+		local.WebKnockHashPrefix = generateRandomPrefix(6) // 6 байт = 12 hex-символов
+		prefixGenerated = true
+	}
+
+	if local.WebInterfaceHashPrefix == "" {
+		local.WebInterfaceHashPrefix = generateRandomPrefix(6)
+		prefixGenerated = true
+	}
+
+	// Сохраняем конфиг на диск, если были сгенерированы новые префиксы
+	if prefixGenerated {
+		if err := saveConfigLocked(filePath, local); err != nil {
+			return fmt.Errorf(i18n.T.ConfigErrSaveAfterPrefixGen, err)
+		}
+	}
+
 	// --- Автоматическая стабилизация окружения на сервере ---
 	if err := os.MkdirAll(DirLib, 0755); err != nil {
 		return fmt.Errorf(i18n.T.ConfigErrDiskGeometry, DirLib, err)
 	}
+
 	// Папка в ОЗУ /var/run/amberguard должна быть доступна (обычно создается systemd, но страхуем рантайм)
 	_ = os.MkdirAll(DirRun, 0750)
 
@@ -401,4 +435,15 @@ func GetSysctlParamNameByIndex(index int) string {
 		return names[index]
 	}
 	return "unknown_param"
+}
+
+// generateRandomPrefix создаёт криптографически стойкую случайную hex-строку.
+// lengthBytes = 6 даст 12-символьный префикс (например, "a3f9c2e1b4d0").
+func generateRandomPrefix(lengthBytes int) string {
+	b := make([]byte, lengthBytes)
+	if _, err := rand.Read(b); err != nil {
+		// Крайне маловероятный фолбэк, но удовлетворяет компилятор
+		return "fallback123456"
+	}
+	return hex.EncodeToString(b)
 }

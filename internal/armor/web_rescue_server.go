@@ -85,7 +85,20 @@ func startWebRescueServer(port int) *http.Server {
 	tlsAlerted = false
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", handleWebRescue)
+
+	// Формируем уникальные префиксы из конфига (гарантированно не пустые после LoadConfig)
+	knockPrefix := "/" + config.C.WebKnockHashPrefix + "/"
+	interfacePrefix := "/" + config.C.WebInterfaceHashPrefix + "/"
+
+	// 1. Канал спасения (веб-стук)
+	mux.HandleFunc(knockPrefix+"rescue", handleWebRescue)
+
+	// 2. Заглушка для будущего веб-интерфейса
+	mux.HandleFunc(interfacePrefix+"panel", handleWebPanelStub)
+
+	// 3. Всё остальное → строгий 404 (защита от сканеров)
+	mux.HandleFunc("/", handle404Stub)
+
 	srv := &http.Server{
 		Addr:              fmt.Sprintf("0.0.0.0:%d", port),
 		Handler:           mux,
@@ -444,4 +457,18 @@ body { background: #0f141c; color: #00ff66; font-family: monospace; display: fle
 </html>`, i18n.T.WebRescuePageSuccessTitle, i18n.T.WebRescuePageAccessGranted, i18n.T.WebRescuePageIPAddress, adminIP, i18n.T.WebRescuePageRecorded, i18n.T.WebRescuePageWaiting)
 
 	_, _ = w.Write([]byte(html))
+}
+
+// handleWebPanelStub — заглушка для будущего веб-интерфейса.
+func handleWebPanelStub(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusNotImplemented)
+	_, _ = w.Write([]byte("<!DOCTYPE html><html><body><h1>501 Not Implemented</h1><p>Web Panel is under construction.</p></body></html>"))
+}
+
+// handle404Stub — обработка всех неизвестных путей (защита от сканирования).
+func handle404Stub(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusNotFound)
+	_, _ = w.Write([]byte("<!DOCTYPE html><html><body><h1>404 Not Found</h1></body></html>"))
 }
