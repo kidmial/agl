@@ -548,16 +548,6 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 		i18n.T.StatsLastSnapshot, snapshotAgo,
 		i18n.T.StatsBackupCount, snapshotCount)
 
-	statsBlock.Text = fmt.Sprintf(
-		" %s: %s (%s) + %s (%s) + %s (%s)\n"+
-			" %s: %s │ %s: %d",
-		i18n.T.StatsLabelLogs,
-		progSizeStr, i18n.T.StatsLogProgram,
-		connSizeStr, i18n.T.StatsLogConnection,
-		rptSizeStr, i18n.T.StatsLogReport,
-		i18n.T.StatsLastSnapshot, snapshotAgo,
-		i18n.T.StatsBackupCount, snapshotCount)
-
 	// Высота 4: 1 (заголовок) + 2 (текст) + 1 (нижняя граница)
 	statsBlock.SetRect(2, 12, 102, 16)
 	statsBlock.BorderStyle.Fg = ui.ColorCyan

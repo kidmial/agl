@@ -87,7 +87,6 @@ func DrawBackupProgressGrid() {
 	}
 
 	// Бэкап успешно завершен — подсвечиваем контур полезного действия зеленым
-	consoleList.BorderStyle.Fg = ui.ColorGreen
 	ui.Clear()
 	ui.Render(gaugeBorder, pGauge, consoleList, confirmBox)
 
