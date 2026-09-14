@@ -883,10 +883,12 @@ func ReconcileArmorStates() {
 
 // ShowInfoPanel отображает интерактивное или плоское информационное меню.
 func ShowInfoPanel(plain bool) {
+	if err := config.LoadConfig(config.FileConfig); err != nil {
+		fmt.Fprintf(os.Stderr, "Error Configuration loading: %v\n", err)
+		os.Exit(1)
+	}
 	// Загружаем конфиг для получения актуальных параметров.
 	// Если конфига нет, LoadConfig сам подставит дефолты.
-	_ = config.LoadConfig(config.FileConfig)
-
 	// Проверка: является ли stdout терминалом (для детекции пайпов/редиректов)
 	fileInfo, _ := os.Stdout.Stat()
 	isTerminal := (fileInfo.Mode() & os.ModeCharDevice) != 0

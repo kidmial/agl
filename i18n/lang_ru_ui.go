@@ -421,7 +421,7 @@ func init() {
 		ViewMainFallbackZeroMb:     "0 MB / 0 MB",
 
 		// --- tui/view_main.go (stats block) ---
-		StatsBlockTitle:    "Краткая Статистика",
+		StatsBlockTitle:    " Краткая Статистика ",
 		StatsTrapsActive:   "Ловушек",
 		StatsOpenPorts:     "Открытых портов",
 		StatsLogProgram:    "программа",
@@ -433,7 +433,7 @@ func init() {
 		StatsMinutesAgo:    "%d мин назад",
 		StatsHoursAgo:      "%d ч назад",
 		StatsDaysAgo:       "%d дн назад",
-		StatsLogBlockTitle: "Логи комплекса",
+		StatsLogBlockTitle: " Логи комплекса ",
 
 		// --- tui/view_main.go (additional) ---
 		StatsLabelLogs:     "Логи",
