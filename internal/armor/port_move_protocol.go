@@ -576,14 +576,8 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 		for i := len(lines) - 1; i >= 0; i-- {
 			line := lines[i]
 			if strings.Contains(line, sigHidden) && strings.Contains(line, customPort) {
-				// Извлекаем номер правила из формата "[ 12]"
-				numStr := ""
-				if idx := strings.Index(line, "["); idx != -1 {
-					end := strings.Index(line[idx:], "]")
-					if end != -1 {
-						numStr = strings.TrimSpace(line[idx+1 : idx+end])
-					}
-				}
+				// Извлекаем номер правила через общую функцию (DRY)
+				numStr := extractRuleNumber(line)
 				if numStr != "" {
 					// БЛОК 3.1: удаление больше не слепое.
 					delHiddenRes := sys.RunTimeout(10*time.Second, "ufw", "--force", "delete", numStr)

@@ -421,7 +421,7 @@ func init() {
 		ViewMainFallbackZeroMb:     "0 MB / 0 MB",
 
 		// --- tui/view_main.go (stats block) ---
-		StatsBlockTitle:    "Quick Statistics",
+		StatsBlockTitle:    " Quick Statistics ",
 		StatsTrapsActive:   "Traps",
 		StatsOpenPorts:     "Open ports",
 		StatsLogProgram:    "Program",
@@ -433,7 +433,7 @@ func init() {
 		StatsMinutesAgo:    "%d minutes ago",
 		StatsHoursAgo:      "%d hours ago",
 		StatsDaysAgo:       "%d days ago",
-		StatsLogBlockTitle: "System Logs",
+		StatsLogBlockTitle: " System Logs ",
 
 		// --- tui/view_main.go (additional) ---
 		StatsLabelLogs:     "Logs",
