@@ -65,7 +65,7 @@ func ensureRescueTLS() error {
 
 	template := x509.Certificate{
 		SerialNumber:          serial,
-		Subject:               pkix.Name{CommonName: "AmberGuard Rescue Gate", Organization: []string{"Amber Guard Lab"}},
+		Subject:               pkix.Name{CommonName: "AmberGuard service", Organization: []string{"Amber Guard Laboratory"}},
 		NotBefore:             time.Now().Add(-1 * time.Hour),
 		NotAfter:              time.Now().AddDate(10, 0, 0), // 10 лет
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,

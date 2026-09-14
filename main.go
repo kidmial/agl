@@ -1111,14 +1111,14 @@ func printNetworkParams(plain bool) {
 	if plain {
 		fmt.Printf("Стандартный порт:    %d\n", c.StandardSshPort)
 		fmt.Printf("Скрытый порт:        %d\n", c.RealSshPort)
-		fmt.Printf("Рокировка:           %s\n", castlingActive)
+		fmt.Printf("Рокировка порта:     %s\n", castlingActive)
 		fmt.Printf("Джиттер:             %d ± %d сек\n", c.DelayStep, c.DelayVariance)
 		fmt.Printf("Лимит сессий:        %d\n", c.TarpitMaxConn)
 		fmt.Printf("Таймаут простоя:     %d мин\n", c.AdminIdleTimeout)
 	} else {
 		fmt.Printf("Стандартный порт:    \033[1;33m%d\033[0m\n", c.StandardSshPort)
 		fmt.Printf("Скрытый порт:        \033[1;33m%d\033[0m\n", c.RealSshPort)
-		fmt.Printf("Рокировка:           \033[%s%s\033[0m\n", colorizeStatusActive(castlingActive), castlingActive)
+		fmt.Printf("Рокировка порта:     \033[%s%s\033[0m\n", colorizeStatusActive(castlingActive), castlingActive)
 		fmt.Printf("Джиттер:             \033[1;33m%d ± %d сек\033[0m\n", c.DelayStep, c.DelayVariance)
 		fmt.Printf("Лимит сессий:        \033[1;33m%d\033[0m\n", c.TarpitMaxConn)
 		fmt.Printf("Таймаут простоя:     \033[1;33m%d мин\033[0m\n", c.AdminIdleTimeout)
