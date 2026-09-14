@@ -423,6 +423,40 @@ type UITranslation struct {
 	ViewMainFallbackError      string
 	ViewMainFallbackZeroMb     string
 
+	// --- tui/view_main.go (stats block) ---
+	StatsBlockTitle    string
+	StatsTrapsActive   string
+	StatsOpenPorts     string
+	StatsLogProgram    string
+	StatsLogConnection string
+	StatsLogReport     string
+	StatsLastSnapshot  string
+	StatsBackupCount   string
+	StatsNever         string
+	StatsMinutesAgo    string
+	StatsHoursAgo      string
+	StatsDaysAgo       string
+	StatsLogBlockTitle string
+
+	// --- tui/view_main.go (additional) ---
+	StatsLabelLogs      string
+	StatsLabelSnapshot  string
+	StatsLabelBackups   string
+	StatsLabelTraps     string
+	StatsLabelPorts     string
+	StatusOn            string
+	StatusOff           string
+	UnitMB              string
+	UnitKB              string
+	EmptyLog            string
+	DateFormat          string
+	TimeFormat          string
+	ViewMainHeaderTpl   string
+	ViewMainPassportTpl string
+	ViewMainServicesTpl string
+	ViewMainStatsTpl1   string
+	ViewMainStatsTpl2   string
+
 	// --- tui/view_multi_tarpit.go ---
 	ViewMultiTarpitHeaderTitle            string
 	ViewMultiTarpitHeaderDesc             string

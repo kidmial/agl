@@ -138,7 +138,7 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 			// Что демон ПОДТВЕРДИЛ (источник: поле `status` в JSON).
 			daemonStr := "[ DISABLED ](fg:white)"
 			if trap.Status == sys.StatusActive {
-				daemonStr = "[ ACTIVE ](fg:yellow,mod:bold)"
+				daemonStr = "[ ACTIVE   ](fg:yellow,mod:bold)"
 			}
 
 			// === ФАКТОР 3: MARKER (факт на диске) ===
@@ -163,9 +163,8 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 			// рантайм-метаданные перенесены в «Паспорт ловушки» (нижний блок),
 			// чтобы исключить обрезание строк в списке.
 			menuRows = append(menuRows, fmt.Sprintf(
-				" %s%-29s │ %s: %-5d │ D: %s │ M: %s │ %s",
-				corePrefix, id, i18n.T.ViewMultiTarpitColPort, trap.Port,
-				declaredStr, daemonStr, markerStr))
+				" %s │ D:%s │ M:%s │ %s: %-5d │ %-29s %s",
+				markerStr, declaredStr, daemonStr, i18n.T.ViewMultiTarpitColPort, trap.Port, id, corePrefix))
 		}
 	}
 
@@ -176,11 +175,11 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 
 	// Кнопка добавления новой ловушки
 	menuRows = append(menuRows,
-		fmt.Sprintf(" [ ADD NEW TRAP ]              │ %s", i18n.T.ViewMultiTarpitRowAddNewTrap))
+		fmt.Sprintf(" [ ADD NEW TRAP ] %s", i18n.T.ViewMultiTarpitRowAddNewTrap))
 
 	// Кнопка возврата в главное меню
 	menuRows = append(menuRows,
-		fmt.Sprintf(" [ BACK ]                      │ %s", i18n.T.ViewMultiTarpitRowBack))
+		fmt.Sprintf(" [ BACK ]         %s", i18n.T.ViewMultiTarpitRowBack))
 
 	// -------------------------------------------------------------
 	// 4. БЛОК СПИСКА ЛОВУШЕК (Динамическая высота)
