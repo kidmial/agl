@@ -93,7 +93,7 @@ func ensureDefaultConfig(configPath string) {
 	}
 
 	// Файл отсутствует. Порождаем эталонную конфигурацию мажорной версии.
-	// ОБНОВЛЕНО В v8.0.1: Структура соответствует обновлённому `config.go`.
+	// ОБНОВЛЕНО В v8.3.0: Структура полностью синхронизирована с дефолтами LoadConfig.
 	defaultConfig := config.Config{
 		Lang:             "en", // v8.3.0 (6.3): дефолт генерации — английский
 		StandardSshPort:  22,
@@ -102,29 +102,33 @@ func ensureDefaultConfig(configPath string) {
 		DelayVariance:    8,
 		TarpitMaxConn:    100,
 		TarpitBacklog:    1024,
+		AdminIdleTimeout: 10,                       // M2: дефолт 10 минут
+		WebRescueEnabled: true,                     // M3: канал спасения включён по умолчанию
+		WebRescuePort:    55111,                    // M3b: порт автономного HTTP-сервера веб-стука
 		TarpitConnLog:    config.FileTarpitConnLog, // БЛОК 4.4: Константа пути
 		TarpitRptLog:     config.FileTarpitRptLog,  // БЛОК 4.4: Константа пути
 		AglLogarchiveDir: config.DirLog,            // БЛОК 4.4: Константа пути
 		BackupRootDir:    "/backup",
 		GeoTool:          "geoiplookup",
 		SysctlCore: config.SysctlCoreConfig{
-			// Default (заводские эталоны)
+			// Default (Честный стандарт ядра Linux — безопасный baseline)
 			DefaultNetIpv4TcpSyncookies:       1,
-			DefaultNetIpv4TcpFinTimeout:       15,
-			DefaultNetIpv4TcpSynRetries:       2,
-			DefaultNetIpv4TcpSynackRetries:    2,
-			DefaultNetCoreSomaxconn:           4096,
-			DefaultNetIpv4TcpMaxSynBacklog:    4096,
-			DefaultNetIpv4ConfAllRpFilter:     1,
-			DefaultNetIpv4ConfDefaultRpFilter: 1,
-			// Armor (боевые параметры администратора)
+			DefaultNetIpv4TcpFinTimeout:       60,
+			DefaultNetIpv4TcpSynRetries:       6,
+			DefaultNetIpv4TcpSynackRetries:    5,
+			DefaultNetCoreSomaxconn:           128,
+			DefaultNetIpv4TcpMaxSynBacklog:    128,
+			DefaultNetIpv4ConfAllRpFilter:     0,
+			DefaultNetIpv4ConfDefaultRpFilter: 0,
+
+			// Armor (Боевые параметры под 1 ГБ RAM с защитой от OOM)
 			ArmorNetIpv4TcpSyncookies:       1,
 			ArmorNetIpv4TcpFinTimeout:       15,
 			ArmorNetIpv4TcpSynRetries:       2,
 			ArmorNetIpv4TcpSynackRetries:    2,
-			ArmorNetCoreSomaxconn:           4096,
-			ArmorNetIpv4TcpMaxSynBacklog:    4096,
-			ArmorNetIpv4ConfAllRpFilter:     1,
+			ArmorNetCoreSomaxconn:           2048, // Не задушит ОС по памяти при DDoS
+			ArmorNetIpv4TcpMaxSynBacklog:    4096, // syncookies спасет, память под SYN не течет
+			ArmorNetIpv4ConfAllRpFilter:     1,    // Strict mode для одиночных VPS
 			ArmorNetIpv4ConfDefaultRpFilter: 1,
 		},
 	}
