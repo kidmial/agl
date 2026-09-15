@@ -86,7 +86,6 @@ type Config struct {
 	WebRescuePort int `json:"web_rescue_port"`
 
 	// Пароль псевдо-2FA для веб-стука.
-	// Дефолт: "KeyKey" (по геному `secured_rescue_gate.php`).
 	// ВАЖНО: каждый админ должен сменить пароль на уникальный!
 	WebRescuePassword string `json:"web_rescue_password,omitempty"`
 
