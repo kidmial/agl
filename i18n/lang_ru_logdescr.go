@@ -39,8 +39,8 @@ func init() {
 			// --- internal/armor/watcher_protocol.go ---
 			"watcher.start":                 "Наблюдатель простоя администратора запущен. Период тикера: 60 сек.",
 			"config.reload_failed":          "event=config.reload_failed err=%v. Продолжаю работу с предыдущим снапшотом.",
-			"watcher.safe_reopened_knock":   "Веб-стук принят. Вотчер вышел из дремоты, цикл возобновлён.",
-			"watcher.safe_reopened_session": "Сессия админа появилась в utmp. Вотчер вышел из дремоты.",
+			"watcher.safe_reopened_knock":   "Веб-стук принят. Наблюдатель активен, цикл возобновлён.",
+			"watcher.safe_reopened_session": "Сессия админа появилась в utmp. Наблюдатель активен.",
 			"watcher.session_appeared":      "Сессия администратора появилась. Счётчик простоя сброшен.",
 			"watcher.idle_started":          "Сессия администратора исчезла. Начат отсчёт простоя.",
 			"watcher.idle_half_warning":     "Простой админа %d мин. Сейф захлопнется через %d мин.",
@@ -130,6 +130,7 @@ func init() {
 			"main.armor_restore_fail":         "Сбой восстановления брони на порту %d: %v",
 			"main.armor_rule_restored":        "Броня на порту %d (%s) успешно восстановлена.",
 			"main.armor_rule_without_receipt": "Обнаружено правило брони без квитанции: порт %d (%s). Правило сохранено (ручное создание?).",
+			"main.armor_reconcile_summary":    "Сверка брони завершена. Восстановлено правил: %d. Предупреждений: %d.",
 
 			// --- internal/backup/backup.go ---
 			"backup.transaction_start":   "Инициирована транзакция резервного копирования (три файла сессии).",

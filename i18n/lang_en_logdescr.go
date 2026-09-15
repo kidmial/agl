@@ -39,8 +39,8 @@ func init() {
 			// --- internal/armor/watcher_protocol.go ---
 			"watcher.start":                 "Admin idle watcher started. Ticker period: 60 sec.",
 			"config.reload_failed":          "event=config.reload_failed err=%v. Continuing with the previous snapshot.",
-			"watcher.safe_reopened_knock":   "Web knock accepted. Watcher exited dormancy, cycle resumed.",
-			"watcher.safe_reopened_session": "Admin session appeared in utmp. Watcher exited dormancy.",
+			"watcher.safe_reopened_knock":   "Web knock accepted. The watcher is active, cycle resumed.",
+			"watcher.safe_reopened_session": "Admin session appeared in utmp. The watcher is active.",
 			"watcher.session_appeared":      "Administrator session appeared. Idle counter reset.",
 			"watcher.idle_started":          "Administrator session disappeared. Idle counting started.",
 			"watcher.idle_half_warning":     "Admin idle %d min. Safe will slam shut in %d min.",
@@ -130,6 +130,7 @@ func init() {
 			"main.armor_restore_fail":         "Armor restore failure on port %d: %v",
 			"main.armor_rule_restored":        "Armor on port %d (%s) successfully restored.",
 			"main.armor_rule_without_receipt": "Armor rule without receipt detected: port %d (%s). Rule preserved (manual creation?).",
+			"main.armor_reconcile_summary":    "Armor reconciliation completed. Rules restored: %d. Warnings: %d.",
 
 			// --- internal/backup/backup.go ---
 			"backup.transaction_start":   "Backup transaction initiated (three session files).",
