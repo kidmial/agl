@@ -64,7 +64,7 @@ func ShowArmorProgressWindow(actionName string, progressChan chan string) {
 	// Готовим строки финального отчёта (без префикса времени)
 	finalLines := []string{
 		"",
-		"\n  [[" + i18n.T.ViewArmorProgressLabelSystemStatus + "]](fg:yellow,mod:bold): " + i18n.T.ViewArmorProgressNetfilterRebuilt,
+		"  [[" + i18n.T.ViewArmorProgressLabelSystemStatus + "]](fg:yellow,mod:bold): " + i18n.T.ViewArmorProgressNetfilterRebuilt,
 		"  --------------------------------------------------------------------------",
 		"  [[" + i18n.T.ViewArmorProgressLabelSuccess + "]](fg:green,mod:bold) " + i18n.T.ViewArmorProgressArmorTransferred,
 		"",
