@@ -558,15 +558,14 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 	sys.LogAction("PORT_CASTLING", "SSHD_CONFIG_RESTORE", "SUCCESS", i18n.TrEvent("port_castling.sshd_config_restore"))
 
 	// ─────────────────────────────────────────────────────────────
-	// M1 (v8.1.2): OFF — удаление по сигнатурам.
-	// Удаляем ТОЛЬКО SIG_HIDDEN (IP админа).
-	// SIG_LOCALE (127.0.0.1) остаётся нетронутым.
+	// M1 (v8.1.2): OFF — полная очистка правил анти-локаута.
+	// При возврате на порт 22, все правила для customPort (и SIG_HIDDEN,
+	// и SIG_LOCALE) должны быть безжалостно удалены как мусор.
 	// ─────────────────────────────────────────────────────────────
 	sigHidden := fmt.Sprintf("Amber Guard Lab. Private SSH Invisible Port %s", customPort)
+	sigLocale := "Amber Guard Lab. Master Admin Anti-Lockout"
 
-	// Парсим вывод ufw и удаляем правила с сигнатурой SIG_HIDDEN.
-	// БЛОК 3.1: статус через единый интерфейс; сбой чтения — WARNING,
-	// дедупликация пропускается, но откат продолжается.
+	// Парсим вывод ufw и удаляем ЛЮБЫЕ правила AGL для кастомного порта.
 	statusOffRes := sys.RunTimeout(5*time.Second, "ufw", "status", "numbered")
 	if statusOffRes.Err != nil {
 		statusOffRes.LogWarnIfErr("PORT_CASTLING", "ANTI_LOCKOUT_REMOVE", "event=ufw.status_failed")
@@ -575,14 +574,15 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 		// Итерируем в обратном порядке, чтобы номера правил не съезжали при удалении
 		for i := len(lines) - 1; i >= 0; i-- {
 			line := lines[i]
-			if strings.Contains(line, sigHidden) && strings.Contains(line, customPort) {
+			// Удаляем правило, если оно относится к кастомному порту И содержит нашу сигнатуру (внешнюю или локальную)
+			if strings.Contains(line, customPort) && (strings.Contains(line, sigHidden) || strings.Contains(line, sigLocale)) {
 				// Извлекаем номер правила через общую функцию (DRY)
 				numStr := extractRuleNumber(line)
 				if numStr != "" {
 					// БЛОК 3.1: удаление больше не слепое.
-					delHiddenRes := sys.RunTimeout(10*time.Second, "ufw", "--force", "delete", numStr)
-					if delHiddenRes.Err != nil {
-						delHiddenRes.LogWarnIfErr("PORT_CASTLING", "ANTI_LOCKOUT_REMOVE", "event=ufw.hidden_delete_failed")
+					delRes := sys.RunTimeout(10*time.Second, "ufw", "--force", "delete", numStr)
+					if delRes.Err != nil {
+						delRes.LogWarnIfErr("PORT_CASTLING", "ANTI_LOCKOUT_REMOVE", "event=ufw.castling_rule_delete_failed")
 					} else {
 						sys.LogAction("PORT_CASTLING", "ANTI_LOCKOUT_REMOVE", "SUCCESS",
 							i18n.TrEventf("port_castling.anti_lockout_remove", customPort, numStr))
