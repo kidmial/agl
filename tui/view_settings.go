@@ -201,6 +201,7 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 			)
 			statusBox.BorderStyle.Fg = ui.ColorYellow
 			statusBox.TextStyle.Fg = ui.ColorCyan
+			statusBox.WrapText = false
 		}
 	}
 

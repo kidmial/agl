@@ -553,6 +553,7 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	statsBlock.BorderStyle.Fg = ui.ColorCyan
 	statsBlock.TitleStyle.Fg = ui.ColorYellow
 	statsBlock.TitleStyle.Modifier = ui.ModifierBold
+	statsBlock.WrapText = false
 
 	// ─────────────────────────────────────────────────────────────
 	// 5. МЕНЮ РАЗДЕЛОВ (9 строк: y: 16-25)
