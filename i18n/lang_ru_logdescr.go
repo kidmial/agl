@@ -33,7 +33,7 @@ func init() {
 			"web_rescue.server_start":       "Автономный HTTPS-сервер веб-стука запущен на порту %d (TLS 1.2+)",
 			"web_rescue.ufw_gate_closed":    "Гейт UFW веб-стука снят: порт %d",
 			"web_rescue.signal_write_fail":  "Не удалось записать файл сигнала: %v",
-			"web_rescue.signal_written":     "Файл сигнала записан (0600): IP=%s. Воркер подхватит на следующем тике.",
+			"web_rescue.signal_written":     "Файл сигнала записан (0600). IP: %s. Воркер подхватит на следующем тике.",
 			"web_rescue.bruteforce_lockout": "Пять неудачных попыток пароля подряд — канал веб-стука заблокирован на 60 секунд.",
 
 			// --- internal/armor/watcher_protocol.go ---
@@ -55,8 +55,8 @@ func init() {
 			"watcher.web_rescue_dir_init":   "Директория веб-стука инициализирована (0700): %s",
 			"watcher.web_knock_read_fail":   "Не удалось прочитать файл веб-стука: %v",
 			"watcher.web_knock_invalid_ip":  "Файл веб-стука содержит невалидный IP: %s",
-			"web_knock.ufw_persist_failed":  "event=web_knock.ufw_persist_failed ip=%s port=%s. Сигнал сохранён для повторной обработки.",
-			"watcher.web_knock_processed":   "Веб-стук обработан: IP=%s, порт=%s. Точечное правило внедрено.",
+			"web_knock.ufw_persist_failed":  "event=web_knock.ufw_persist_failed IP: %s, Port: %s. Сигнал сохранён для повторной обработки.",
+			"watcher.web_knock_processed":   "Веб-стук обработан. IP: %s, Порт: %s. UFW правило интегрировано.",
 			"web_rescue.server_disabled":    "Канал веб-стука выключен в SETTINGS. Сервер остановлен, гейт снят.",
 			"web_rescue.server_restart":     "Порт веб-стука изменён в SETTINGS. Сервер перезапущен на порту %d.",
 
@@ -70,7 +70,7 @@ func init() {
 			"port_castling.watcher_start":               "Юнит наблюдателя простоя администратора запущен: agld_watcher.service",
 			"sshd.rollback_failed":                      "event=sshd.rollback_failed err=%v stderr=%s. Восстанови sshd_config вручную из бэкапа: %s",
 			"port_castling.sshd_config_write":           "Конфигурация sshd_config успешно переведена на кастомный порт управления %s",
-			"port_castling.anti_lockout_admin":          "Точечное правило анти-локаута для администратора: IP=%s, порт=%s",
+			"port_castling.anti_lockout_admin":          "Точечное правило анти-локаута для администратора. IP: %s, Порт: %s",
 			"port_castling.anti_lockout_alert":          "Не удалось определить IP администратора (SSH_CONNECTION пуста). Создано только правило локальной петли.",
 			"port_castling.socket_mask":                 "Системный управляющий сокет ssh.socket успешно остановлен и замаскирован",
 			"port_castling.ssh_service_restart":         "SSH Служба ssh.service успешно перезапущена на кастомном порту %s",

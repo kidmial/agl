@@ -33,7 +33,7 @@ func init() {
 			"web_rescue.server_start":       "Autonomous web rescue HTTPS server started on port %d (TLS 1.2+)",
 			"web_rescue.ufw_gate_closed":    "Web rescue UFW gate removed: port %d",
 			"web_rescue.signal_write_fail":  "Failed to write signal file: %v",
-			"web_rescue.signal_written":     "Signal file written (0600): IP=%s. Worker will pick up on next tick.",
+			"web_rescue.signal_written":     "Signal file written (0600). IP: %s. Worker will pick up on next tick.",
 			"web_rescue.bruteforce_lockout": "Five consecutive failed password attempts — web rescue channel locked for 60 seconds.",
 
 			// --- internal/armor/watcher_protocol.go ---
@@ -55,8 +55,8 @@ func init() {
 			"watcher.web_rescue_dir_init":   "Web knock directory initialized (0700): %s",
 			"watcher.web_knock_read_fail":   "Failed to read web knock file: %v",
 			"watcher.web_knock_invalid_ip":  "Web knock file contains invalid IP: %s",
-			"web_knock.ufw_persist_failed":  "event=web_knock.ufw_persist_failed ip=%s port=%s. Signal retained for retry.",
-			"watcher.web_knock_processed":   "Web knock processed: IP=%s, port=%s. Point rule injected.",
+			"web_knock.ufw_persist_failed":  "event=web_knock.ufw_persist_failed IP: %s, Port: %s. Signal retained for retry.",
+			"watcher.web_knock_processed":   "Web knock processed. IP: %s, Port: %s. UFW rule injected.",
 			"web_rescue.server_disabled":    "Web knock channel disabled in SETTINGS. Server stopped, gate removed.",
 			"web_rescue.server_restart":     "Web knock port changed in SETTINGS. Server restarted on port %d.",
 
@@ -70,7 +70,7 @@ func init() {
 			"port_castling.watcher_start":               "Admin idle watcher unit started: agld_watcher.service",
 			"sshd.rollback_failed":                      "event=sshd.rollback_failed err=%v stderr=%s. Restore sshd_config manually from backup: %s",
 			"port_castling.sshd_config_write":           "sshd_config successfully moved to custom control port %s",
-			"port_castling.anti_lockout_admin":          "Point anti-lockout rule for administrator: IP=%s, port=%s",
+			"port_castling.anti_lockout_admin":          "Point anti-lockout rule for administrator. IP: %s, Port: %s",
 			"port_castling.anti_lockout_alert":          "Failed to determine administrator IP (SSH_CONNECTION is empty). Only local loopback rule created.",
 			"port_castling.socket_mask":                 "System control socket ssh.socket successfully stopped and masked",
 			"port_castling.ssh_service_restart":         "SSH service ssh.service successfully restarted on custom port %s",

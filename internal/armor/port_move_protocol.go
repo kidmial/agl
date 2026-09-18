@@ -331,7 +331,12 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 	// БЛОК 3.1: сбой не игнорируем — локальный доступ тоже канал спасения.
 	localeRes := sys.RunTimeout(10*time.Second, "ufw", "allow", "from", "127.0.0.1",
 		"to", "any", "port", customPort, "proto", "tcp", "comment", sigLocale)
-	localeRes.LogWarnIfErr("PORT_CASTLING", "ANTI_LOCKOUT_LOCALE", "event=ufw.locale_allow_failed")
+	if localeRes.Err != nil {
+		localeRes.LogWarnIfErr("PORT_CASTLING", "ANTI_LOCKOUT_LOCALE", "event=ufw.locale_allow_failed")
+	} else {
+		sys.LogAction("PORT_CASTLING", "ANTI_LOCKOUT_LOCALE_CREATED", "SUCCESS",
+			i18n.TrEventf("port_castling.anti_lockout_locale_created", customPort))
+	}
 
 	// Правило 2: точечный whitelist IP админа
 	adminIP := ""

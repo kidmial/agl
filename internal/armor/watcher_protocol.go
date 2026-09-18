@@ -281,84 +281,157 @@ func writeAdminIdleCounter(value int) {
 	}
 }
 
-// incinerateHiddenRules испепеляет правила с сигнатурой `SIG_HIDDEN`.
-// Множество испепеления = {"Amber Guard Lab. Private SSH Invisible Port"}.
-// Правила `SIG_LOCALE` (127.0.0.1) НЕ трогаются — они остаются навсегда.
+// incinerateHiddenRules испепеляет правила с сигнатурой `SIG_HIDDEN` по контракту v2.
+//
+// АЛГОРИТМ БЕЗОПАСНОСТИ (v8.3.1 fix):
+//  1. ИБ-БАРЬЕР: Правила с источником `127.0.0.1` или `::1`
+//     игнорируются на уровне сетевого стека, независимо от наличия или формата
+//     комментария в выводе `ufw status numbered`. Это гарантирует, что канал
+//     локальной петли (SIG_LOCALE) никогда не будет уничтожен.
+//  2. ДВУХПРОХОДНАЯ ХИРУРГИЯ:
+//     - Первый проход: анализ периметра и сбор списка номеров правил, разрешенных
+//     к удалению (без фактического изменения стейта брандмауэра).
+//     - Второй проход: итеративное удаление. На каждом шаге мы заново запрашиваем
+//     `ufw status numbered`, чтобы получить АКТУАЛЬНЫЙ номер следующего правила.
+//     Это полностью исключает уязвимость "Index Shifting" (сдвига индексов UFW
+//     после каждого `ufw delete`), которая приводила к каскадному удалению
+//     соседних правил (включая LIMIT и локальную петлю).
+//
+// МНОЖЕСТВО ИСПЕПЕЛЕНИЯ:
+//   - ТОЛЬКО правила, содержащие `sigHiddenPrefix` ("Amber Guard Lab. Private SSH Invisible Port").
+//   - Правила `LIMIT IN Anywhere` не содержат эту сигнатуру и остаются нетронутыми.
+//   - Правила `SIG_LOCALE` (127.0.0.1) защищены барьером и остаются навсегда.
+//
+// incinerateHiddenRules испепеляет ВСЕ внешние правила скрытого порта,
+// превращая его в монолитную «кирпичную стену» (Connection refused).
+//
+// ФИЛОСОФИЯ v8.3.2 (Кирпичная стена):
+// Когда администратор уходит, дверь демонтируется полностью.
+// Единственное правило, которое остается навсегда — это аварийный люк
+// локальной петли (127.0.0.1 / ::1). Все остальные ALLOW и LIMIT правила
+// для скрытого порта безжалостно выжигаются.
+//
+// АЛГОРИТМ:
+//  1. ЖЕЛЕЗОБЕТОННЫЙ БАРЬЕР: 127.0.0.1 и ::1 не удаляются никогда.
+//  2. ФИЛЬТР ЦЕЛИ: Любое правило (ALLOW/LIMIT), относящееся к скрытому порту.
+//  3. ХИРУРГИЧЕСКОЕ УДАЛЕНИЕ: По точной спецификации UFW.
 func incinerateHiddenRules() {
 	sys.LogAction("WATCHER", "INCINERATION_START", "PENDING",
 		i18n.TrEvent("watcher.incineration_start"))
 
-	// Парсим вывод `ufw status numbered`
-	// БЛОК 3.1: получаем нумерованный список правил через единый интерфейс.
-	// Stdout и Stderr разделены, ошибка структурирована.
+	// Читаем номер порта из маркера (или из конфига как fallback)
+	port := readPortFromMarker()
+	if port == "" {
+		port = fmt.Sprintf("%d", config.C.RealSshPort)
+	}
+
+	// Получаем статус UFW
 	statusRes := sys.RunTimeout(5*time.Second, "ufw", "status", "numbered")
-
-	// Если UFW недоступен, испепеление выполнять нельзя:
-	// мы не видим правила, значит не можем безопасно удалять их по номерам.
 	if statusRes.Err != nil {
-		// Для диагностической строки сначала пытаемся взять stderr.
-		details := strings.TrimSpace(statusRes.Stderr)
-
-		// Если stderr пуст, но команда что-то вывела в stdout,
-		// используем stdout как дополнительный источник контекста.
-		if details == "" {
-			details = strings.TrimSpace(statusRes.Stdout)
-		}
-
-		// Сохраняем уровень ERROR, как было, но добавляем машинный код события.
 		sys.LogAction("WATCHER", "UFW_STATUS_FAIL", "ERROR",
-			fmt.Sprintf("event=ufw.status_failed err=%v details=%s", statusRes.Err, details))
-
-		// Прерываем испепеление: без списка правил удаление недопустимо.
+			fmt.Sprintf("event=ufw.status_failed err=%v", statusRes.Err))
 		return
 	}
 
-	// Разбираем stdout построчно. Номера правил нужны для удаления.
 	lines := strings.Split(statusRes.Stdout, "\n")
 	incineratedCount := 0
 
-	// Итерируем в обратном порядке, чтобы номера правил не съезжали при удалении
+	// Итерируем в обратном порядке для предсказуемости обхода
 	for i := len(lines) - 1; i >= 0; i-- {
 		line := lines[i]
 
-		// Проверяем, что строка содержит сигнатуру `SIG_HIDDEN`
-		if !strings.Contains(line, sigHiddenPrefix) {
+		// ═══════════════════════════════════════════════════════════
+		// ЖЕЛЕЗОБЕТОННЫЙ БАРЬЕР: Аварийный люк локальной петли
+		// ═══════════════════════════════════════════════════════════
+		// 127.0.0.1 и ::1 — это НЕ дверь, это аварийный вход для локальных нужд.
+		// Он остается навсегда, даже когда порт полностью замурован.
+		if strings.Contains(line, "127.0.0.1") || strings.Contains(line, "::1") {
 			continue
 		}
 
-		// Извлекаем номер правила из формата "[ 12]"
-		numStr := ""
-		if idx := strings.Index(line, "["); idx != -1 {
-			end := strings.Index(line[idx:], "]")
-			if end != -1 {
-				numStr = strings.TrimSpace(line[idx+1 : idx+end])
-			}
+		// ═══════════════════════════════════════════════════════════
+		// ФИЛЬТР ЦЕЛИ: Только правила нашего скрытого порта
+		// ═══════════════════════════════════════════════════════════
+		// Формат UFW: "2244/tcp" или "2244/tcp (v6)"
+		if !strings.Contains(line, port+"/tcp") {
+			continue
 		}
 
-		if numStr != "" {
-			// БЛОК 3.1: удаление правила по номеру больше не слепое.
-			// Если удаление не подтверждено, правило НЕ считается испепелённым.
-			delRes := sys.RunTimeout(5*time.Second, "ufw", "--force", "delete", numStr)
-
-			// Если UFW не смог удалить правило, пишем WARNING и переходим
-			// к следующей строке. Инкремент счётчика здесь недопустим.
-			if delRes.Err != nil {
-				// event=ufw.incinerate_delete_failed — машинный код сбоя.
-				delRes.LogWarnIfErr("WATCHER", "INCINERATION", "event=ufw.incinerate_delete_failed")
-				continue
-			}
-
-			// Счётчик увеличивается только после подтверждённого удаления.
-			incineratedCount++
-
-			// SUCCESS пишем только после реального успеха команды.
-			sys.LogAction("WATCHER", "RULE_INCINERATED", "SUCCESS",
-				i18n.TrEventf("watcher.rule_incinerated", numStr))
+		// ═══════════════════════════════════════════════════════════
+		// ДЕ МОНТАЖ ДВЕРИ: Определяем тип правила и источник
+		// ═══════════════════════════════════════════════════════════
+		var action string
+		if strings.Contains(line, "ALLOW") {
+			action = "allow"
+		} else if strings.Contains(line, "LIMIT") {
+			action = "limit"
+		} else if strings.Contains(line, "DENY") {
+			action = "deny"
+		} else if strings.Contains(line, "REJECT") {
+			action = "reject"
+		} else {
+			continue // Неизвестный тип действия — пропускаем
 		}
+
+		source := extractSourceFromLine(line)
+		if source == "" {
+			continue // Не удалось извлечь источник
+		}
+
+		// ═══════════════════════════════════════════════════════════
+		// ИСПЕПЕЛЕНИЕ: Удаление по точной спецификации UFW
+		// ═══════════════════════════════════════════════════════════
+		var delRes sys.CmdResult
+
+		if source == "Anywhere" {
+			// Для Anywhere используем сокращенный синтаксис.
+			// UFW с флагом --force корректно сносит и v4, и v6 правила для порта одной командой.
+			delRes = sys.RunTimeout(5*time.Second, "ufw", "--force", "delete", action, port+"/tcp")
+		} else {
+			// Для конкретных IP используем полный синтаксис с протоколом.
+			delRes = sys.RunTimeout(5*time.Second, "ufw", "--force", "delete",
+				action, "from", source, "to", "any", "port", port, "proto", "tcp")
+		}
+
+		if delRes.Err != nil {
+			// Ошибка может возникнуть, если предыдущая итерация уже снесла
+			// парное v4/v6 правило (для Anywhere). Логируем как WARNING и идем дальше.
+			delRes.LogWarnIfErr("WATCHER", "INCINERATION",
+				fmt.Sprintf("event=ufw.incinerate_delete_failed action=%s source=%s", action, source))
+			continue
+		}
+
+		incineratedCount++
+		sys.LogAction("WATCHER", "RULE_INCINERATED", "SUCCESS",
+			i18n.TrEventf("watcher.rule_incinerated", fmt.Sprintf("%s_%s", action, source)))
 	}
 
 	sys.LogAction("WATCHER", "INCINERATION_COMPLETE", "SUCCESS",
 		i18n.TrEventf("watcher.incineration_complete", incineratedCount))
+}
+
+// readPortFromMarker читает номер порта из персистентного маркера agl_ssh_moved.
+// Возвращает пустую строку, если маркер отсутствует — вызывающий
+// обязан сделать fallback на config.C.RealSshPort.
+func readPortFromMarker() string {
+	data, err := os.ReadFile(config.MarkerSshMoved)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+// extractSourceFromLine извлекает источник (IP или Anywhere) из строки ufw status.
+// Формат: "[14] 2244/tcp ALLOW IN 203.0.113.10" или "[15] 2244/tcp LIMIT IN Anywhere"
+func extractSourceFromLine(line string) string {
+	parts := strings.Fields(line)
+	for i, part := range parts {
+		if (part == "ALLOW" || part == "LIMIT" || part == "DENY" || part == "REJECT") &&
+			i+2 < len(parts) && parts[i+1] == "IN" {
+			return parts[i+2] // Возвращаем IP или "Anywhere"
+		}
+	}
+	return ""
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

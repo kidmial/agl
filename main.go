@@ -614,6 +614,53 @@ func ReconcileSystemStates() {
 	}
 
 	// -------------------------------------------------------------
+	// КОНТУР 1.5: АУДИТ ПРАВИЛ АНТИ-ЛОКАУТА КАСТЛИНГА
+	// Если рокировка активна (маркер существует), убеждаемся, что правило
+	// для локальной петли (127.0.0.1 → скрытый порт) присутствует.
+	// Это критично: без этого правила админ не сможет подключиться локально
+	// через VPN после испепеления внешнего IP вотчером простоя.
+	// -------------------------------------------------------------
+	if _, err := os.Stat(markerCastling); err == nil {
+		portBytes, errRead := os.ReadFile(markerCastling)
+		if errRead == nil {
+			customPort := strings.TrimSpace(string(portBytes))
+			sigLocale := "Amber Guard Lab. Master Admin Anti-Lockout"
+
+			// Проверяем наличие правила через парсинг ufw status
+			statusRes := sys.RunTimeout(5*time.Second, "ufw", "status", "numbered")
+			if statusRes.Err == nil {
+				localeRuleExists := false
+				lines := strings.Split(statusRes.Stdout, "\n")
+				for _, line := range lines {
+					if strings.Contains(line, sigLocale) &&
+						strings.Contains(line, customPort) &&
+						strings.Contains(line, "127.0.0.1") {
+						localeRuleExists = true
+						break
+					}
+				}
+
+				if !localeRuleExists {
+					// Правило отсутствует — восстанавливаем
+					sys.LogAction("RECONCILE", "CASTLING_LOCALE_MISSING", "PENDING",
+						fmt.Sprintf("event=castling.locale_missing port=%s", customPort))
+					localeRes := sys.RunTimeout(10*time.Second, "ufw", "allow", "from", "127.0.0.1",
+						"to", "any", "port", customPort, "proto", "tcp", "comment", sigLocale)
+					if localeRes.Err != nil {
+						sys.LogAction("RECONCILE", "CASTLING_LOCALE_RESTORE_FAIL", "ALERT",
+							fmt.Sprintf("event=castling.locale_restore_fail port=%s err=%v", customPort, localeRes.Err))
+					} else {
+						sys.LogAction("RECONCILE", "CASTLING_LOCALE_RESTORED", "SUCCESS",
+							fmt.Sprintf("event=castling.locale_restored port=%s", customPort))
+						reloadRes := sys.RunTimeout(10*time.Second, "ufw", "reload")
+						reloadRes.LogWarnIfErr("RECONCILE", "CASTLING_LOCALE_RELOAD", "event=ufw.reload_failed")
+					}
+				}
+			}
+		}
+	}
+
+	// -------------------------------------------------------------
 	// КОНТУР 2: АУДИТ СТАТУСА ДЕМОНА
 	//
 	// ФИКС ПРОБЛЕМЫ 2 (КОРЕНЬ Б): Полный отказ от нестабильной проверки

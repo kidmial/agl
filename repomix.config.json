@@ -1,6 +1,6 @@
 {
   "output": {
-    "removeComments": true,
+    "removeComments": false,
     "filePath": "repository.txt",
     "style": "xml"
   },
