@@ -19,10 +19,9 @@ func init() {
 			"sysctl_tune.core_misconfiguration": "Обнаружено рассогласование параметров ядра! Текущий fin_timeout в ОС=%d, эталонное значение Laboratory=%d",
 
 			// --- internal/sys/utils.go ---
-			"ss.probe_restored": "event=ss.probe_restored Опрос ss снова доступен.",
-			// "ssh_detect.port_mismatch":           "Расхождение геометрии SSH: sshd_config декларирует %s, ядро (ss) слушает %s. Приоритет: конфиг (намерение админа). AGL не правит sshd_config вне рокировки. Если расхождение не осознанно выполните systemctl reload ssh.",
+			"ss.probe_restored":                  "event=ss.probe_restored Опрос ss снова доступен.",
 			"ssh_detect.port_mismatch_resolved":  "Геометрия SSH восстановлена: sshd_config и ядро слушают порт %s.",
-			"ssh_detect.port_mismatch":           "Порт %s не слушается; ядро: %s. Приоритет: конфиг. Решение: reload ssh.",
+			"ssh_detect.port_mismatch":           "Расхождение геометрии SSH. Порт %s не слушается; ядро: %s. Приоритет: конфиг. Решение: reload ssh.",
 			"ssh_detect.extra_listeners":         "Дополнительные слушатели OpenSSH вне рокировки: %s. Геометрия согласована.",
 			"ssh_detect.extra_listeners_cleared": "Дополнительные слушатели OpenSSH отсутствуют: контур рокировки единственен.",
 			"ssh_detect.no_listeners":            "OpenSSH не слушает ни одного порта: декларация %s не подтверждена ядром.",
