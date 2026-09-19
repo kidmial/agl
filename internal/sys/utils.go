@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +33,14 @@ var (
 	// v8.2.2 (3.1): edge-triggered флаг деградации опроса `ss`.
 	// Гонок нет: detectActiveSshPortUncached вызывается под sshPortCacheMu.
 	ssDegraded bool
+
+	// v8.3.5: edge-состояния контракта множественной геометрии SSH.
+	// extrasSeen: первый снимок процесса — молчаливая база
+	// (состояние не есть событие); логируем только изменение набора.
+	lastExtraListeners string
+	extrasSeen         bool
+	// noListenersEdge: ребро «sshd не слушает ничего» (реальная проблема).
+	noListenersEdge bool
 )
 
 // PrettyServiceName — v8.2.0 (2.5-ext): локальная замена deprecated strings.Title.
@@ -124,24 +133,76 @@ func detectActiveSshPortUncached() string {
 	// Регулярка ищет ":<порт>" в адресе прослушивания + "sshd" в имени процесса
 	re := regexp.MustCompile(`:(\d+)\s+.*users:\(\("sshd"`)
 	matches := re.FindAllStringSubmatch(ssRes.Stdout, -1)
-	if len(matches) > 0 {
-		// Берём первый найденный порт (обычно sshd слушает один порт)
-		realPort := matches[0][1]
-		if realPort != configPort {
-			// v8.2.0 (2.8-ext): логируем только НОВОЕ расхождение
-			if realPort != lastMismatchReal || configPort != lastMismatchConfig {
-				LogAction("SSH_DETECT", "PORT_MISMATCH", "WARNING",
-					i18n.TrEventf("ssh_detect.port_mismatch", configPort, realPort))
-				lastMismatchConfig = configPort
-				lastMismatchReal = realPort
-			}
-		} else if lastMismatchReal != "" {
-			// Расхождение исчезло — один SUCCESS и сброс состояния
+	// v8.3.5: МНОЖЕСТВО слушателей вместо «первой строки дампа».
+	// sshd не умеет слушать необъявленный порт: каждый элемент множества —
+	// воля админа (рокировка, rescue.conf, личные каналы).
+	listeners := make(map[string]bool, len(matches))
+	for _, m := range matches {
+		listeners[m[1]] = true
+	}
+
+	// Случай C: sshd не слушает ничего — реальная проблема (демон мёртв).
+	if len(listeners) == 0 {
+		if !noListenersEdge {
+			noListenersEdge = true
+			LogAction("SSH_DETECT", "NO_LISTENERS", "WARNING",
+				i18n.TrEventf("ssh_detect.no_listeners", configPort))
+		}
+		lastMismatchConfig, lastMismatchReal = "", ""
+		lastExtraListeners, extrasSeen = "", false
+		return configPort
+	}
+	if noListenersEdge {
+		noListenersEdge = false
+		LogAction("SSH_DETECT", "NO_LISTENERS_RESOLVED", "SUCCESS",
+			i18n.TrEventf("ssh_detect.no_listeners_resolved", configPort))
+	}
+
+	// Случай A: декларированный порт слушается — геометрия согласована.
+	if listeners[configPort] {
+		if lastMismatchReal != "" {
 			LogAction("SSH_DETECT", "PORT_MISMATCH_RESOLVED", "SUCCESS",
 				i18n.TrEventf("ssh_detect.port_mismatch_resolved", configPort))
-			lastMismatchConfig = ""
-			lastMismatchReal = ""
+			lastMismatchConfig, lastMismatchReal = "", ""
 		}
+		// Дополнительные слушатели: состояние, а не событие.
+		// Первый снимок — молчаливая база; логируем только изменение набора.
+		extras := make([]string, 0, len(listeners))
+		for p := range listeners {
+			if p != configPort {
+				extras = append(extras, p)
+			}
+		}
+		sort.Strings(extras)
+		extrasKey := strings.Join(extras, ",")
+		if !extrasSeen {
+			extrasSeen = true
+			lastExtraListeners = extrasKey
+		} else if extrasKey != lastExtraListeners {
+			if extrasKey != "" {
+				LogAction("SSH_DETECT", "EXTRA_LISTENERS", "INFO",
+					i18n.TrEventf("ssh_detect.extra_listeners", extrasKey))
+			} else {
+				LogAction("SSH_DETECT", "EXTRA_LISTENERS_CLEARED", "INFO",
+					i18n.TrEvent("ssh_detect.extra_listeners_cleared"))
+			}
+			lastExtraListeners = extrasKey
+		}
+		return configPort
+	}
+
+	// Случай B: декларированный порт не слушается — реальное расхождение.
+	actual := make([]string, 0, len(listeners))
+	for p := range listeners {
+		actual = append(actual, p)
+	}
+	sort.Strings(actual)
+	actualKey := strings.Join(actual, ",")
+	if actualKey != lastMismatchReal || configPort != lastMismatchConfig {
+		LogAction("SSH_DETECT", "PORT_MISMATCH", "WARNING",
+			i18n.TrEventf("ssh_detect.port_mismatch", configPort, actualKey))
+		lastMismatchConfig = configPort
+		lastMismatchReal = actualKey
 	}
 	return configPort
 }

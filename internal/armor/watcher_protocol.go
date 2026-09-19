@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -281,40 +282,24 @@ func writeAdminIdleCounter(value int) {
 	}
 }
 
-// incinerateHiddenRules испепеляет правила с сигнатурой `SIG_HIDDEN` по контракту v2.
+// incinerateHiddenRules испепеляет все внешние правила скрытого порта,
+// превращая его в «невидимый ров» (DROP по умолчанию, долгое молчание).
 //
-// АЛГОРИТМ БЕЗОПАСНОСТИ (v8.3.1 fix):
-//  1. ИБ-БАРЬЕР: Правила с источником `127.0.0.1` или `::1`
-//     игнорируются на уровне сетевого стека, независимо от наличия или формата
-//     комментария в выводе `ufw status numbered`. Это гарантирует, что канал
-//     локальной петли (SIG_LOCALE) никогда не будет уничтожен.
-//  2. ДВУХПРОХОДНАЯ ХИРУРГИЯ:
-//     - Первый проход: анализ периметра и сбор списка номеров правил, разрешенных
-//     к удалению (без фактического изменения стейта брандмауэра).
-//     - Второй проход: итеративное удаление. На каждом шаге мы заново запрашиваем
-//     `ufw status numbered`, чтобы получить АКТУАЛЬНЫЙ номер следующего правила.
-//     Это полностью исключает уязвимость "Index Shifting" (сдвига индексов UFW
-//     после каждого `ufw delete`), которая приводила к каскадному удалению
-//     соседних правил (включая LIMIT и локальную петлю).
+// КОНТРАКТ v8.3.3 «ТРАНЗАКЦИЯ РОВ»: намеренный акт одновременно убивает
+// всех трёх свидетелей состояния брони:
+//  1. правила в ядре (ALLOW SIG_HIDDEN + LIMIT v4/v6);
+//  2. квитанции на диске (agl_armor_active_port.N / agl_armor_ratelimit_port.N);
+//  3. декларацию в инвентаре периметра (is_armor_enabled=false).
 //
-// МНОЖЕСТВО ИСПЕПЕЛЕНИЯ:
-//   - ТОЛЬКО правила, содержащие `sigHiddenPrefix` ("Amber Guard Lab. Private SSH Invisible Port").
-//   - Правила `LIMIT IN Anywhere` не содержат эту сигнатуру и остаются нетронутыми.
-//   - Правила `SIG_LOCALE` (127.0.0.1) защищены барьером и остаются навсегда.
+// Без пункта 3 RECONCILE_ARMOR в main.go при входе в TUI читает живую
+// декларацию и «восстанавливает» лимитер, вскрывая ров: во рву слушатель
+// sshd остаётся на порту, поэтому ss-рескан консервирует устаревшую
+// декларацию навсегда. Единственная точка правды — сам акт испепеления.
 //
-// incinerateHiddenRules испепеляет ВСЕ внешние правила скрытого порта,
-// превращая его в монолитную «кирпичную стену» (Connection refused).
-//
-// ФИЛОСОФИЯ v8.3.2 (Кирпичная стена):
-// Когда администратор уходит, дверь демонтируется полностью.
-// Единственное правило, которое остается навсегда — это аварийный люк
-// локальной петли (127.0.0.1 / ::1). Все остальные ALLOW и LIMIT правила
-// для скрытого порта безжалостно выжигаются.
-//
-// АЛГОРИТМ:
-//  1. ЖЕЛЕЗОБЕТОННЫЙ БАРЬЕР: 127.0.0.1 и ::1 не удаляются никогда.
-//  2. ФИЛЬТР ЦЕЛИ: Любое правило (ALLOW/LIMIT), относящееся к скрытому порту.
-//  3. ХИРУРГИЧЕСКОЕ УДАЛЕНИЕ: По точной спецификации UFW.
+// БАРЬЕРЫ:
+//   - 127.0.0.1 / ::1 (SIG_LOCALE) не испепеляются никогда;
+//   - LIMIT не удаляется в цикле: его снимает хвост транзакции через
+//     PurgeLimitRule (без надгробия «Disabled», которое пробило бы ров).
 func incinerateHiddenRules() {
 	sys.LogAction("WATCHER", "INCINERATION_START", "PENDING",
 		i18n.TrEvent("watcher.incineration_start"))
@@ -324,8 +309,8 @@ func incinerateHiddenRules() {
 	if port == "" {
 		port = fmt.Sprintf("%d", config.C.RealSshPort)
 	}
+	portInt, _ := strconv.Atoi(port)
 
-	// Получаем статус UFW
 	statusRes := sys.RunTimeout(5*time.Second, "ufw", "status", "numbered")
 	if statusRes.Err != nil {
 		sys.LogAction("WATCHER", "UFW_STATUS_FAIL", "ERROR",
@@ -335,67 +320,54 @@ func incinerateHiddenRules() {
 
 	lines := strings.Split(statusRes.Stdout, "\n")
 	incineratedCount := 0
+	sawLimit := false
 
-	// Итерируем в обратном порядке для предсказуемости обхода
 	for i := len(lines) - 1; i >= 0; i-- {
 		line := lines[i]
 
-		// ═══════════════════════════════════════════════════════════
-		// ЖЕЛЕЗОБЕТОННЫЙ БАРЬЕР: Аварийный люк локальной петли
-		// ═══════════════════════════════════════════════════════════
-		// 127.0.0.1 и ::1 — это НЕ дверь, это аварийный вход для локальных нужд.
-		// Он остается навсегда, даже когда порт полностью замурован.
+		// ЖЕЛЕЗОБЕТОННЫЙ БАРЬЕР: аварийный люк локальной петли неприкосновенен
 		if strings.Contains(line, "127.0.0.1") || strings.Contains(line, "::1") {
 			continue
 		}
 
-		// ═══════════════════════════════════════════════════════════
-		// ФИЛЬТР ЦЕЛИ: Только правила нашего скрытого порта
-		// ═══════════════════════════════════════════════════════════
-		// Формат UFW: "2244/tcp" или "2244/tcp (v6)"
+		// ФИЛЬТР ЦЕЛИ: только правила нашего скрытого порта
 		if !strings.Contains(line, port+"/tcp") {
 			continue
 		}
 
-		// ═══════════════════════════════════════════════════════════
-		// ДЕ МОНТАЖ ДВЕРИ: Определяем тип правила и источник
-		// ═══════════════════════════════════════════════════════════
+		// LIMIT не сносим здесь: хвост транзакции удалит v4+v6 одним ударом
+		// и заодно убьёт квитанции (M4-гигиена).
+		if strings.Contains(line, "LIMIT") {
+			sawLimit = true
+			continue
+		}
+
+		// ТОЧЕЧНЫЙ ДЕМОНТАЖ ДВЕРЕЙ: ALLOW/DENY/REJECT с конкретным источником
 		var action string
-		if strings.Contains(line, "ALLOW") {
+		switch {
+		case strings.Contains(line, "ALLOW"):
 			action = "allow"
-		} else if strings.Contains(line, "LIMIT") {
-			action = "limit"
-		} else if strings.Contains(line, "DENY") {
+		case strings.Contains(line, "DENY"):
 			action = "deny"
-		} else if strings.Contains(line, "REJECT") {
+		case strings.Contains(line, "REJECT"):
 			action = "reject"
-		} else {
-			continue // Неизвестный тип действия — пропускаем
+		default:
+			continue
 		}
 
 		source := extractSourceFromLine(line)
-		if source == "" {
-			continue // Не удалось извлечь источник
+		if source == "" || source == "Anywhere" || source == "Anywhere (v6)" {
+			// Бессточниковое правило на скрытом порту — аномалия (не дверь
+			// админа и не стук). Не трогаем: fail closed против самовскрытия,
+			// но аномалия обязана быть видна в журнале.
+			sys.LogAction("WATCHER", "MOAT_ANOMALY", "WARNING",
+				fmt.Sprintf("event=watcher.moat_anomaly line=%s", strings.TrimSpace(line)))
+			continue
 		}
 
-		// ═══════════════════════════════════════════════════════════
-		// ИСПЕПЕЛЕНИЕ: Удаление по точной спецификации UFW
-		// ═══════════════════════════════════════════════════════════
-		var delRes sys.CmdResult
-
-		if source == "Anywhere" {
-			// Для Anywhere используем сокращенный синтаксис.
-			// UFW с флагом --force корректно сносит и v4, и v6 правила для порта одной командой.
-			delRes = sys.RunTimeout(5*time.Second, "ufw", "--force", "delete", action, port+"/tcp")
-		} else {
-			// Для конкретных IP используем полный синтаксис с протоколом.
-			delRes = sys.RunTimeout(5*time.Second, "ufw", "--force", "delete",
-				action, "from", source, "to", "any", "port", port, "proto", "tcp")
-		}
-
+		delRes := sys.RunTimeout(5*time.Second, "ufw", "--force", "delete",
+			action, "from", source, "to", "any", "port", port, "proto", "tcp")
 		if delRes.Err != nil {
-			// Ошибка может возникнуть, если предыдущая итерация уже снесла
-			// парное v4/v6 правило (для Anywhere). Логируем как WARNING и идем дальше.
 			delRes.LogWarnIfErr("WATCHER", "INCINERATION",
 				fmt.Sprintf("event=ufw.incinerate_delete_failed action=%s source=%s", action, source))
 			continue
@@ -406,8 +378,61 @@ func incinerateHiddenRules() {
 			i18n.TrEventf("watcher.rule_incinerated", fmt.Sprintf("%s_%s", action, source)))
 	}
 
+	// ─────────────────────────────────────────────────────────────
+	// ХВОСТ ТРАНЗАКЦИИ: РОВ. Выполняется ТОЛЬКО если акт состоялся:
+	// в простое и при старте вотчер не меняет геометрию и декларации.
+	// ─────────────────────────────────────────────────────────────
+	if incineratedCount > 0 || sawLimit {
+		sealMoat(portInt)
+		if sawLimit {
+			incineratedCount++ // лимитер учитываем как одно испепелённое правило
+		}
+	}
+
 	sys.LogAction("WATCHER", "INCINERATION_COMPLETE", "SUCCESS",
 		i18n.TrEventf("watcher.incineration_complete", incineratedCount))
+}
+
+// sealMoat — хвост транзакции РОВ (v8.3.3): убивает свидетелей №2 и №3
+// после того, как свидетель №1 (правила ядра) уже мёртв.
+//
+//   - PurgeLimitRule: снос LIMIT v4/v6 БЕЗ надгробия «Disabled» + обе
+//     квитанции (квитанция живёт и умирает вместе с правилом);
+//   - инвентарь периметра: is_armor_enabled=false для службы скрытого
+//     порта — иначе ss-рескан законсервирует ложь, а RECONCILE_ARMOR
+//     восстановит лимитер при входе в TUI;
+//   - сброс кэша UFW + аудит MOAT_SEALED.
+//
+// Идемпотентна: при отсутствующем лимитере ufw delete подтверждённо
+// пропускает, квитанции и декларация гасятся в no-op.
+func sealMoat(portInt int) {
+	// Свидетель №2: квитанции и остаток лимитера (C1-санитар без надгробия).
+	PurgeLimitRule(portInt)
+
+	// Свидетель №3: декларация в /etc/amberguard/perimeter_inventory.json.
+	// Матчим по порту: в инвентаре может быть несколько записей SSHD
+	// (скрытый порт и прочие), порт — единственный надёжный ключ.
+	apps, err := config.LoadDetectedApps()
+	if err != nil {
+		sys.LogAction("WATCHER", "MOAT_INVENTORY_SKIP", "WARNING",
+			fmt.Sprintf("event=watcher.moat_inventory_skip err=%v", err))
+	} else {
+		for _, app := range apps {
+			if app.Port == portInt {
+				if errUpd := config.UpdateDetectedAppArmorStatus(app.Name, app.Port, false); errUpd != nil {
+					sys.LogAction("WATCHER", "MOAT_INVENTORY_FAIL", "WARNING",
+						fmt.Sprintf("event=watcher.moat_inventory_fail port=%d err=%v", portInt, errUpd))
+					continue
+				}
+				sys.LogAction("WATCHER", "MOAT_INVENTORY_FLIPPED", "SUCCESS",
+					fmt.Sprintf("event=watcher.moat_inventory_flipped service=%s port=%d", app.Name, portInt))
+			}
+		}
+	}
+
+	ResetUfwCacheSnapshot()
+	sys.LogAction("WATCHER", "MOAT_SEALED", "SUCCESS",
+		fmt.Sprintf("event=watcher.moat_sealed port=%d", portInt))
 }
 
 // readPortFromMarker читает номер порта из персистентного маркера agl_ssh_moved.

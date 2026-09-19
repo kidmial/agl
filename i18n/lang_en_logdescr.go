@@ -19,9 +19,14 @@ func init() {
 			"sysctl_tune.core_misconfiguration": "Kernel parameter mismatch detected! Current fin_timeout in OS=%d, Laboratory reference value=%d",
 
 			// --- internal/sys/utils.go ---
-			"ss.probe_restored":                 "event=ss.probe_restored ss probe available again.",
-			"ssh_detect.port_mismatch":          "SSH geometry mismatch: sshd_config declares %s, kernel (ss) listens %s. Priority: config (admin intent). AGL does not modify sshd_config outside castling. If mismatch is unintentional, run systemctl reload ssh.",
-			"ssh_detect.port_mismatch_resolved": "SSH geometry restored: sshd_config and kernel listen port %s.",
+			"ss.probe_restored": "event=ss.probe_restored ss probe available again.",
+			// "ssh_detect.port_mismatch":          "SSH geometry mismatch: sshd_config declares %s, kernel (ss) listens %s. Priority: config (admin intent). AGL does not modify sshd_config outside castling. If mismatch is unintentional, run systemctl reload ssh.",
+			"ssh_detect.port_mismatch_resolved":  "SSH geometry restored: sshd_config and kernel listen port %s.",
+			"ssh_detect.port_mismatch":           "Port %s not listening; kernel: %s. Priority: config. Remedy: reload ssh.",
+			"ssh_detect.extra_listeners":         "Additional OpenSSH listeners outside castling: %s. Geometry consistent.",
+			"ssh_detect.extra_listeners_cleared": "No additional OpenSSH listeners: castling contour is singular.",
+			"ssh_detect.no_listeners":            "OpenSSH listens on no port: declared %s not confirmed by kernel.",
+			"ssh_detect.no_listeners_resolved":   "OpenSSH resumed listening: declared %s confirmed by kernel.",
 
 			// --- internal/armor/web_rescue_tls.go ---
 			"web_rescue.tls_cert_generated": "Generated self-signed TLS certificate (ECDSA P-256, 10 years). SHA-256 fingerprint for pinning: %s",
