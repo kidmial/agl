@@ -803,6 +803,39 @@ func checkAndInstallGeoTool() {
 	}
 }
 
+// ============================================================================
+// ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ: ОПРЕДЕЛЕНИЕ IP-АДРЕСА СЕРВЕРА
+// ============================================================================
+// getServerIP определяет основной IP-адрес сервера для инфопанели (--info).
+// Использует `ip route get 1.1.1.1` для чтения таблицы маршрутизации ядра.
+// Работает даже без активного интернет-соединения (не требует DNS и сети).
+// При сбое делает фолбэк на `hostname -I`, а затем на заглушку.
+func getServerIP() string {
+	// === КОНТУР 1: Исходящий IP через таблицу маршрутизации ядра ===
+	res := sys.RunTimeout(2*time.Second, "ip", "-4", "route", "get", "1.1.1.1")
+	if res.Err == nil && res.Stdout != "" {
+		// Пример вывода: "1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.100 uid 0 \n"
+		parts := strings.Fields(res.Stdout)
+		for i, part := range parts {
+			if part == "src" && i+1 < len(parts) {
+				return parts[i+1]
+			}
+		}
+	}
+
+	// === КОНТУР 2: Фолбэк на hostname ===
+	res2 := sys.RunTimeout(2*time.Second, "hostname", "-I")
+	if res2.Err == nil && res2.Stdout != "" {
+		ips := strings.Fields(res2.Stdout)
+		if len(ips) > 0 {
+			return ips[0]
+		}
+	}
+
+	// === Fail-safe: если ядро и hostname недоступны ===
+	return "<IP_СЕРВЕРА>"
+}
+
 // showAlertScreen выводит предупреждение о нарушении целостности конфигурации.
 // Вызывается если файл `config.json` был регенерирован при старте.
 // Блокирует выполнение до нажатия ENTER.
@@ -1036,22 +1069,28 @@ func printWebRescueInfo(plain bool) {
 	c := config.C
 	fmt.Println()
 	if c.WebRescueEnabled && c.WebRescuePort > 0 {
-		hashPrefix := "unknown"
-		if len(c.WebRescuePasswordHash) >= 12 {
-			hashPrefix = c.WebRescuePasswordHash[:12]
+		// === ФИКС M4a (v8.3.5): используем префикс веб-стука, а не хэш пароля ===
+		hashPrefix := c.WebKnockHashPrefix
+		if hashPrefix == "" {
+			hashPrefix = "unknown"
 		}
+
+		// === Определяем реальный IP сервера ===
+		serverIP := getServerIP()
+
 		if plain {
 			fmt.Println("Канал спасения: ВКЛЮЧЁН")
 			fmt.Printf("Порт: %d\n", c.WebRescuePort)
-			fmt.Printf("Хэш-префикс: /%s/\n", hashPrefix)
-			fmt.Printf("Полный адрес: https://<IP_СЕРВЕРА>:%d/%s/\n", c.WebRescuePort, hashPrefix)
+			fmt.Printf("Хэш-префикс: /%s\n", hashPrefix)
+			fmt.Printf("Полный адрес: https://%s:%d/%s/rescue\n", serverIP, c.WebRescuePort, hashPrefix)
 			fmt.Println("Логин: —")
 			fmt.Println("Пароль: ******** (установлен)")
 		} else {
 			fmt.Println("\033[1;32mКанал спасения: ВКЛЮЧЁН\033[0m")
 			fmt.Printf("Порт: \033[1;33m%d\033[0m\n", c.WebRescuePort)
-			fmt.Printf("Хэш-префикс: \033[1;33m/%s/\033[0m\n", hashPrefix)
-			fmt.Printf("Полный адрес: \033[1;34mhttps://<IP_СЕРВЕРА>:%d/%s/\033[0m\n", c.WebRescuePort, hashPrefix)
+			fmt.Printf("Хэш-префикс: \033[1;33m/%s\033[0m\n", hashPrefix)
+			// === Подсветка IP и пути для удобства копирования ===
+			fmt.Printf("Полный адрес: \033[1;33mhttps://%s:%d/%s/rescue\033[0m\n", serverIP, c.WebRescuePort, hashPrefix)
 			fmt.Println("Логин: —")
 			fmt.Println("Пароль: \033[1;33m********\033[0m (установлен)")
 		}
