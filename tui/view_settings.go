@@ -113,7 +113,7 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	header := widgets.NewList()
 	header.Title = i18n.T.SettingsUiTitleBox
 	header.Rows = []string{"                           " + i18n.T.SettingsUiHeaderDesc}
-	// ЖЕСТКАЯ ФИКСАЦИЯ КООРДИНАТ ПО ТЗ СИСТЕМНОГО АНАЛИТИКА
+	// ЖЕСТКАЯ ФИКСАЦИЯ КООРДИНАТ
 	header.SetRect(2, 1, 102, 4)
 	header.BorderStyle.Fg = ui.ColorCyan
 	header.TextStyle.Fg = ui.ColorYellow
@@ -122,7 +122,7 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	// 2. Сборка центрального интерактивного блока параметров
 	formBox := widgets.NewList()
 	formBox.Title = i18n.T.SettingsUiFormTitle
-	// ЖЕСТКАЯ ФИКСАЦИЯ КООРДИНАТ ПО ТЗ СИСТЕМНОГО АНАЛИТИКА (ВЫСОТА ДО 23 СТРОКИ)
+	// ЖЕСТКАЯ ФИКСАЦИЯ КООРДИНАТ (ВЫСОТА ДО 23 СТРОКИ)
 	formBox.SetRect(2, 4, 102, 23)
 	formBox.BorderStyle.Fg = ui.ColorCyan
 	formBox.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
@@ -149,9 +149,9 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 			currentVal := item.ValueGetter()
 			// M5 (v8.4.0): бинарные тумблеры подсвечиваются жёлтыми скобками, как язык
 			if item.Key == "lang" || item.Key == "auto_update_enabled" || item.Key == "auto_update_reboot" {
-				finalRowStr = fmt.Sprintf("%-5s%-48s:  [[ %s ]](fg:yellow,mod:bold)", cursor, label, currentVal)
+				finalRowStr = fmt.Sprintf("%-5s%-55s:  [[ %s ]](fg:yellow,mod:bold)", cursor, label, currentVal)
 			} else {
-				finalRowStr = fmt.Sprintf("%-5s%-48s:  %s", cursor, label, currentVal)
+				finalRowStr = fmt.Sprintf("%-5s%-55s:  %s", cursor, label, currentVal)
 			}
 		}
 		visibleRows = append(visibleRows, finalRowStr)

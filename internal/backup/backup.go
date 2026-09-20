@@ -333,21 +333,21 @@ func packTargetArray(targets []string, archivePath string, startPct, endPct int,
 			if walkErr != nil {
 				return walkErr
 			}
-
 			// Генерируем внутренний заголовок TAR на основе слепка метаданных
 			header, err := tar.FileInfoHeader(fileInfo, fileInfo.Name())
 			if err != nil {
 				return err
 			}
-
-			// Вычисляем чистый относительный путь для сохранения структуры при распаковке в корень /
-			relPath, err := filepath.Rel(filepath.Dir(target), path)
+			// ФИКС v8.4.1: Вычисляем относительный путь от корня файловой системы,
+			// а не от родительской директории target. Это сохраняет полную структуру
+			// путей в архиве: /etc/apache2 → etc/apache2, а не apache2.
+			// При распаковке в корень / структура восстанавливается корректно.
+			relPath, err := filepath.Rel("/", path)
 			if err != nil {
 				header.Name = filepath.ToSlash(path)
 			} else {
 				header.Name = filepath.ToSlash(relPath)
 			}
-
 			// Фиксируем метаданные в TAR-поток
 			if err := tw.WriteHeader(header); err != nil {
 				return err

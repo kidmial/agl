@@ -51,13 +51,13 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	cfg := config.C.SysctlCore
 	// Динамически подставляем числовые параметры из глобального ОЗУ-состояния синглтона.
 	// TD-1: геометрия (номера, теги, [ %d ], │) живёт в коде; описание — в i18n.
-	menuRows = append(menuRows, fmt.Sprintf(" 1. tcp_syncookies      │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpSyncookies, i18n.T.ViewCoreSettingsRowSyncookies))
+	menuRows = append(menuRows, fmt.Sprintf(" 1. tcp_syncookies      │ [ %d ]  │ %s", cfg.ArmorNetIpv4TcpSyncookies, i18n.T.ViewCoreSettingsRowSyncookies))
 	menuRows = append(menuRows, fmt.Sprintf(" 2. tcp_fin_timeout     │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpFinTimeout, i18n.T.ViewCoreSettingsRowFinTimeout))
-	menuRows = append(menuRows, fmt.Sprintf(" 3. tcp_syn_retries     │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpSynRetries, i18n.T.ViewCoreSettingsRowSynRetries))
-	menuRows = append(menuRows, fmt.Sprintf(" 4. tcp_synack_retries  │ [ %d ] │ %s", cfg.ArmorNetIpv4TcpSynackRetries, i18n.T.ViewCoreSettingsRowSynackRetries))
+	menuRows = append(menuRows, fmt.Sprintf(" 3. tcp_syn_retries     │ [ %d ]  │ %s", cfg.ArmorNetIpv4TcpSynRetries, i18n.T.ViewCoreSettingsRowSynRetries))
+	menuRows = append(menuRows, fmt.Sprintf(" 4. tcp_synack_retries  │ [ %d ]  │ %s", cfg.ArmorNetIpv4TcpSynackRetries, i18n.T.ViewCoreSettingsRowSynackRetries))
 	menuRows = append(menuRows, fmt.Sprintf(" 5. somaxconn           │ [%d] │ %s", cfg.ArmorNetCoreSomaxconn, i18n.T.ViewCoreSettingsRowSomaxconn))
 	menuRows = append(menuRows, fmt.Sprintf(" 6. tcp_max_syn_backlog │ [%d] │ %s", cfg.ArmorNetIpv4TcpMaxSynBacklog, i18n.T.ViewCoreSettingsRowMaxSynBacklog))
-	menuRows = append(menuRows, fmt.Sprintf(" 7. rp_filter (All)     │ [ %d ] │ %s", cfg.ArmorNetIpv4ConfAllRpFilter, i18n.T.ViewCoreSettingsRowRpFilter))
+	menuRows = append(menuRows, fmt.Sprintf(" 7. rp_filter (All)     │ [ %d ]  │ %s", cfg.ArmorNetIpv4ConfAllRpFilter, i18n.T.ViewCoreSettingsRowRpFilter))
 	menuRows = append(menuRows, " RESET_TO_FACTORY       │ "+i18n.T.ViewCoreSettingsRowResetToFactory)
 	menuRows = append(menuRows, " BACK_TO_ARMOR          │ "+i18n.T.ViewCoreSettingsRowBackToArmor)
 	GlobalCoreMenuRows = menuRows
