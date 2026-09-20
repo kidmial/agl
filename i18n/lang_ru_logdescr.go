@@ -144,6 +144,27 @@ func init() {
 			"backup.log_tar_fail":        "Критический сбой упаковки архива SIEM-логов: %v",
 			"backup.transaction_success": "Транзакция резервного копирования завершена: сессия %s",
 
+			// --- internal/maintenance/server_autoupdate.go ---
+			"autoupdate.disabled":                  "Автообновления отключены в конфиге (AutoUpdateEnabled=false).",
+			"autoupdate.lock_busy":                 "Одновременный запуск заблокирован flock-локом. Пропуск цикла.",
+			"autoupdate.check_start":               "Начат цикл проверки обновлений ОС.",
+			"autoupdate.check_no_updates":          "Обновлений не обнаружено. Цикл завершён.",
+			"autoupdate.config_load_fail":          "Сбой загрузки конфига: %v. Автообновления прерваны.",
+			"autoupdate.apt_update_fail":           "Сбой apt-get update: %v. stderr: %s. Продолжаю с текущими списками.",
+			"autoupdate.upgrade_start":             "Начат apt-get dist-upgrade. Пакетов к обновлению: %d.",
+			"autoupdate.upgrade_done":              "Обновление завершено успешно. Обновлено пакетов: %d.",
+			"autoupdate.upgrade_fail":              "Критический сбой apt-get dist-upgrade: %v. stderr: %s.",
+			"autoupdate.reboot_required":           "Требуется перезагрузка для применения обновлений: %s.",
+			"autoupdate.reboot_skipped":            "Перезагрузка требуется, но AutoUpdateReboot=false. Админ ребутает вручную.",
+			"autoupdate.reboot_scheduled":          "Запланирована перезагрузка через %d мин (shutdown -r +1).",
+			"autoupdate.reboot_fail":               "Сбой планирования перезагрузки: %v.",
+			"autoupdate.last_run_write_fail":       "Не удалось записать маркер last_run: %v.",
+			"autoupdate.pending_reboot_write_fail": "Не удалось записать маркер pending_reboot: %v.",
+			"autoupdate.unit_write_fail":           "Сбой записи systemd-юнита %s: %v.",
+			"autoupdate.timer_enable_fail":         "Сбой включения таймера agld_autoupdate.timer: %v.",
+			"autoupdate.units_ensured":             "Systemd-юниты автообновления созданы и активированы.",
+			"autoupdate.units_removed":             "Systemd-юниты автообновления остановлены и удалены.",
+
 			// --- internal/tarpit/tarpit_listener.go ---
 			"geo.restored": "event=geo.restored Гео-аналитика снова доступна.",
 

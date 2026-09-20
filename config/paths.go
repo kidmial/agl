@@ -44,6 +44,12 @@ const (
 
 	// Runtime-директории
 	DirWebRescue = "/dev/shm/agl_proto_web_rescue" // Временная папка веб-стука (tmpfs, очищается при ребуте)
+
+	// --- M5 (v8.4.0): Автообновления сервера ---
+	MarkerAutoUpdateLastRun       = DirLib + "/agl_autoupdate_last_run"       // Unix-time последнего успешного обновления
+	MarkerAutoUpdatePendingReboot = DirLib + "/agl_autoupdate_pending_reboot" // Маркер «ожидается ребут» (снимается после ребута)
+	FileAutoUpdateLock            = DirRun + "/agl_autoupdate.lock"           // Летучий flock-лок oneshot-запуска (переживает только до ребута)
+
 )
 
 // ArmorServiceMarkerPath возвращает путь к квитанции брони для именованного сервиса.

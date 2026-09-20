@@ -561,6 +561,10 @@ type UITranslation struct {
 	SettingsGroupSystem                      string
 	SettingsGroupDefault                     string
 
+	// --- M5 (v8.4.0): Автообновления сервера ---
+	SettingsLabelAutoUpdateEnabled string // Тумблер автообновлений (0=выкл / 1=вкл)
+	SettingsLabelAutoUpdateReboot  string // Тумблер авто-ребута после обновлений (0=выкл / 1=вкл)
+
 	// --- tui/view_core_settings.go (TD-2: подписи справки) ---
 	CoreDocDesc    string
 	CoreDocAttack  string
@@ -768,6 +772,14 @@ func InitLanguage(currentLang string) {
 		T = val
 	} else {
 		T = UILanguages["en"]
+	}
+
+	// M5 (v8.4.0): фолбэк для новых полей автообновлений, если словарь неполный
+	if T.SettingsLabelAutoUpdateEnabled == "" {
+		T.SettingsLabelAutoUpdateEnabled = "Auto-update server (0=off / 1=on)"
+	}
+	if T.SettingsLabelAutoUpdateReboot == "" {
+		T.SettingsLabelAutoUpdateReboot = "Auto-reboot after kernel updates (0=off / 1=on)"
 	}
 
 	if val, ok := LogLanguages[currentLang]; ok {

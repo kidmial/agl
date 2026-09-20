@@ -144,6 +144,27 @@ func init() {
 			"backup.log_tar_fail":        "Critical failure packing the SIEM logs archive: %v",
 			"backup.transaction_success": "Backup transaction completed: session %s",
 
+			// --- internal/maintenance/server_autoupdate.go ---
+			"autoupdate.disabled":                  "Auto-updates disabled in config (AutoUpdateEnabled=false).",
+			"autoupdate.lock_busy":                 "Concurrent run blocked by flock. Skipping cycle.",
+			"autoupdate.check_start":               "Starting OS update check cycle.",
+			"autoupdate.check_no_updates":          "No updates available. Cycle completed.",
+			"autoupdate.config_load_fail":          "Failed to load config: %v. Auto-updates aborted.",
+			"autoupdate.apt_update_fail":           "apt-get update failed: %v. stderr: %s. Continuing with current lists.",
+			"autoupdate.upgrade_start":             "Starting apt-get dist-upgrade. Packages to upgrade: %d.",
+			"autoupdate.upgrade_done":              "Upgrade completed successfully. Packages upgraded: %d.",
+			"autoupdate.upgrade_fail":              "Critical apt-get dist-upgrade failure: %v. stderr: %s.",
+			"autoupdate.reboot_required":           "Reboot required to apply updates: %s.",
+			"autoupdate.reboot_skipped":            "Reboot required but AutoUpdateReboot=false. Admin must reboot manually.",
+			"autoupdate.reboot_scheduled":          "Reboot scheduled in %d min (shutdown -r +1).",
+			"autoupdate.reboot_fail":               "Failed to schedule reboot: %v.",
+			"autoupdate.last_run_write_fail":       "Failed to write last_run marker: %v.",
+			"autoupdate.pending_reboot_write_fail": "Failed to write pending_reboot marker: %v.",
+			"autoupdate.unit_write_fail":           "Failed to write systemd unit %s: %v.",
+			"autoupdate.timer_enable_fail":         "Failed to enable agld_autoupdate.timer: %v.",
+			"autoupdate.units_ensured":             "Auto-update systemd units created and activated.",
+			"autoupdate.units_removed":             "Auto-update systemd units stopped and removed.",
+
 			// --- internal/tarpit/tarpit_listener.go ---
 			"geo.restored": "event=geo.restored Geo analytics available again.",
 

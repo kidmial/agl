@@ -48,6 +48,7 @@ import (
 	"agl/i18n"
 	"agl/internal/armor"
 	"agl/internal/buildinfo"
+	"agl/internal/maintenance"
 	"agl/internal/sys"
 	"agl/internal/tarpit"
 	"agl/internal/tarpitctl"
@@ -228,6 +229,7 @@ func main() {
 	watcher := flag.Bool("watcher", false, "Запуск наблюдателя простоя")
 	version := flag.Bool("version", false, "Показать версию и выйти")
 	info := flag.Bool("info", false, "Показать служебную информацию")
+	autoupdate := flag.Bool("autoupdate", false, "Oneshot cycle: apt-get update + dist-upgrade + reboot-check")
 	plain := flag.Bool("plain", false, "Чистый текстовый вывод без псевдографики (для --info)")
 	// v8.3.0 (6.3): разовый переопределитель языка. Не пишется в config.json (А.1).
 	// Пустая строка = «не задан», тогда идём дальше по приоритетам.
@@ -311,6 +313,37 @@ func main() {
 			time.Now().Format("2006-01-02 15:04:05"))
 	}
 	ensureDefaultConfig(configPath)
+
+	// =========================================================================
+	// M5 (v8.4.0): ONESHOT-РЕЖИМ АВТООБНОВЛЕНИЯ (--autoupdate)
+	// =========================================================================
+	// Вызывается systemd-таймером agld_autoupdate.timer ежедневно.
+	// Выполняет один цикл: apt-get update → dist-upgrade → проверка reboot-required.
+	// При необходимости инициирует отложенный ребут через `shutdown -r +1`.
+	// НЕ требует singleton-lock: oneshot-процесс завершается сам, flock внутри
+	// RunServerAutoUpdate() защищает от ручного параллельного запуска.
+	if *autoupdate {
+		// Загружаем конфиг для чтения тумблеров AutoUpdateEnabled/AutoUpdateReboot.
+		if err := config.LoadConfig(configPath); err != nil {
+			fmt.Fprintf(os.Stderr, "AGL autoupdate: failed to load config: %v\n", err)
+			os.Exit(1)
+		}
+		// Язык для машинных событий журнала.
+		autoupdateLang := config.C.Lang
+		if *langFlag != "" {
+			autoupdateLang = *langFlag
+		} else if envLang := os.Getenv("AGL_LANG"); envLang != "" {
+			autoupdateLang = envLang
+		}
+		if autoupdateLang != "ru" && autoupdateLang != "en" {
+			autoupdateLang = "en"
+		}
+		i18n.InitLanguage(autoupdateLang)
+
+		// Запускаем oneshot-цикл и выходим с кодом результата.
+		exitCode := maintenance.RunServerAutoUpdate()
+		os.Exit(exitCode)
+	}
 
 	// =========================================================================
 	//   ЭТАП 2: РЕЖИМ ДЕМОНА ЛОВУШЕК (--tarpit-daemon)

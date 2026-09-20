@@ -208,6 +208,10 @@ func init() {
 		BackupTarFlushFail:          "TAR flush error: %w",
 		BackupGzipFlushFail:         "GZIP flush error: %w",
 
+		// --- internal/maintenance/server_autoupdate.go ---
+		SettingsLabelAutoUpdateEnabled: "Auto-update server (0=off / 1=on)",
+		SettingsLabelAutoUpdateReboot:  "Auto-reboot after kernel updates (0=off / 1=on)",
+
 		// --- internal/forensics/tarpit_report.go ---
 		ForensicsReportTitle:           "FORENSIC CHRONICLE OF THE TAR PIT",
 		ForensicsGenDate:               "Generation date: %s",

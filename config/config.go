@@ -103,6 +103,16 @@ type Config struct {
 	// Отдельный префикс для панели управления (пока заглушка).
 	// Пример: https://ip:55111/x7k2m9p4q1w8/panel
 	WebInterfaceHashPrefix string `json:"web_interface_hash_prefix,omitempty"`
+
+	// --- M5 (v8.4.0): Автообновления сервера ---
+	// Тумблер включения суточного oneshot-обновления через apt-get dist-upgrade.
+	// Дефолт: false. Настраивается через SETTINGS.
+	// Юниты agld_autoupdate.service/timer декларативно создаются/удаляются этим тумблером.
+	AutoUpdateEnabled bool `json:"auto_update_enabled"`
+	// Тумблер автоматической перезагрузки после обновлений ядра.
+	// Активен ТОЛЬКО если AutoUpdateEnabled=true И /var/run/reboot-required существует.
+	// Дефолт: false (админ ребутает руками). Настраивается через SETTINGS.
+	AutoUpdateReboot bool `json:"auto_update_reboot"`
 }
 
 // C — глобальный синглтон настроек, доступный из любой точки программы.
@@ -154,9 +164,11 @@ func LoadConfig(filePath string) error {
 	local.DelayVariance = 8
 	local.TarpitMaxConn = 100
 	local.TarpitBacklog = 1024
-	local.AdminIdleTimeout = 10   // M2: дефолт 10 минут
-	local.WebRescueEnabled = true // M3: канал спасения включён по умолчанию
-	local.WebRescuePort = 55111   // M3b: порт автономного HTTP-сервера веб-стука
+	local.AdminIdleTimeout = 10     // M2: дефолт 10 минут
+	local.WebRescueEnabled = true   // M3: канал спасения включён по умолчанию
+	local.WebRescuePort = 55111     // M3b: порт автономного HTTP-сервера веб-стука
+	local.AutoUpdateEnabled = false // M5: дефолт — автообновления ВЫКЛЮЧЕНЫ
+	local.AutoUpdateReboot = false  // M5: дефолт — ребут только руками
 	local.GeoTool = "geoiplookup"
 	local.AglLogarchiveDir = DirLog // БЛОК 4.4: Используем константу из paths.go
 	local.BackupRootDir = "/backup"

@@ -208,6 +208,10 @@ func init() {
 		BackupTarFlushFail:          "ошибка фиксации TAR: %w",
 		BackupGzipFlushFail:         "ошибка фиксации GZIP: %w",
 
+		// --- internal/maintenance/server_autoupdate.go ---
+		SettingsLabelAutoUpdateEnabled: "Автообновления сервера (0=выкл / 1=вкл)",
+		SettingsLabelAutoUpdateReboot:  "Авто-ребут после обновлений ядра (0=выкл / 1=вкл)",
+
 		// --- internal/forensics/tarpit_report.go ---
 		ForensicsReportTitle:           "КРИМИНАЛИСТИЧЕСКАЯ ХРОНИКА ДЕГТЯРНОЙ ЯМЫ",
 		ForensicsGenDate:               "Дата генерации: %s",

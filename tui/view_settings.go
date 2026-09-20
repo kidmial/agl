@@ -43,19 +43,16 @@ func InitSettingsRegistry() {
 	if len(SettingsRegistry) > 0 {
 		return
 	}
-
 	SettingsRegistry = []SettingItem{
 		// --- ГРУППА 1: РЕГЛАМЕНТ ЛОКАЛИЗАЦИИ И ИНТЕРФЕЙСА ---
 		{IsHeader: true, Group: "LANG"},
 		{Key: "lang", Label: func() string { return i18n.T.SettingsLabelLang }, Group: "LANG", ValueGetter: func() string { return strings.ToUpper(config.C.Lang) }},
-
 		// --- ГРУППА 2: ПАРАМЕТРЫ ЯДРА ДЕГТЯРНОЙ ЯМЫ SSH ---
 		{IsHeader: true, Group: "TARPIT"},
 		{Key: "standard_ssh_port", Label: func() string { return i18n.T.SettingsLabelStandardSshPort }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.StandardSshPort) }},
 		{Key: "real_ssh_port", Label: func() string { return i18n.T.SettingsLabelRealSshPort }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.RealSshPort) }},
 		{Key: "delay_step", Label: func() string { return i18n.T.SettingsLabelDelayStep }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.DelayStep) }},
 		{Key: "delay_variance", Label: func() string { return i18n.T.SettingsLabelDelayVariance }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.DelayVariance) }},
-
 		// --- ГРУППА 3: СИСТЕМНЫЕ ЛИМИТЫ И АНТИДОС-ОБОРОНА ---
 		{IsHeader: true, Group: "LIMITS"},
 		{Key: "tarpit_max_conn", Label: func() string { return i18n.T.SettingsLabelTarpitMaxConn }, Group: "LIMITS", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.TarpitMaxConn) }},
@@ -73,9 +70,21 @@ func InitSettingsRegistry() {
 			}
 			return i18n.T.ViewSettingsPasswordNotSet
 		}},
-
 		// --- ГРУППА 4: ИНВЕНТАРИЗАЦИЯ И СЕРВИСНЫЕ КОМАНДЫ ---
 		{IsHeader: true, Group: "SYSTEM"},
+		// --- M5 (v8.4.0): Автообновления сервера (бинарные тумблеры, стрелки ←/→) ---
+		{Key: "auto_update_enabled", Label: func() string { return i18n.T.SettingsLabelAutoUpdateEnabled }, Group: "SYSTEM", ValueGetter: func() string {
+			if config.C.AutoUpdateEnabled {
+				return "1"
+			}
+			return "0"
+		}},
+		{Key: "auto_update_reboot", Label: func() string { return i18n.T.SettingsLabelAutoUpdateReboot }, Group: "SYSTEM", ValueGetter: func() string {
+			if config.C.AutoUpdateReboot {
+				return "1"
+			}
+			return "0"
+		}},
 		{Key: "BACK", Label: func() string { return i18n.T.SettingsLabelBack }, Group: "SYSTEM"},
 	}
 }
@@ -121,7 +130,6 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	var visibleRows []string
 	tuiToRegistryMap := make(map[int]int)
 	visibleLineCounter := 0
-
 	for regIdx, item := range SettingsRegistry {
 		if item.IsHeader {
 			headerText := settingsGroupHeader(item.Group)
@@ -129,26 +137,23 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 			visibleLineCounter += 2
 			continue
 		}
-
 		label := item.Label()
-
 		cursor := "     "
 		if regIdx == ActiveRowIndex {
 			cursor = " --> "
 		}
-
 		var finalRowStr string
 		if item.Key == "BACK" {
 			finalRowStr = fmt.Sprintf("%-5s%s", cursor, label)
 		} else {
 			currentVal := item.ValueGetter()
-			if item.Key == "lang" {
+			// M5 (v8.4.0): бинарные тумблеры подсвечиваются жёлтыми скобками, как язык
+			if item.Key == "lang" || item.Key == "auto_update_enabled" || item.Key == "auto_update_reboot" {
 				finalRowStr = fmt.Sprintf("%-5s%-48s:  [[ %s ]](fg:yellow,mod:bold)", cursor, label, currentVal)
 			} else {
 				finalRowStr = fmt.Sprintf("%-5s%-48s:  %s", cursor, label, currentVal)
 			}
 		}
-
 		visibleRows = append(visibleRows, finalRowStr)
 		tuiToRegistryMap[visibleLineCounter] = regIdx
 		visibleLineCounter++
@@ -167,12 +172,10 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	// 3. Расширенный нижний бокс консоли (Координаты 23 -> 29, высота ровно 6 символов)
 	statusBox := widgets.NewParagraph()
 	statusBox.SetRect(2, 23, 102, 29)
-
 	if IsEditMode {
 		statusBox.Title = i18n.T.SettingsUiEditingMode
 		currentItem := SettingsRegistry[ActiveRowIndex]
 		label := currentItem.Label()
-
 		statusBox.Text = fmt.Sprintf("  %s: [ %s ]\n  %s: [ %s_ ](fg:white,mod:bold)",
 			i18n.T.SettingsUiEnterNew, label,
 			i18n.T.SettingsUiInputPrompt, CurrentInputBuf)
@@ -204,7 +207,6 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 			statusBox.WrapText = false
 		}
 	}
-
 	return []ui.Drawable{header, formBox, statusBox}
 }
 
@@ -278,6 +280,15 @@ func HandleSettingsNavigation(key string) (bool, string) {
 			errStr := SaveSettingValueToDisk("lang", newLang)
 			return true, errStr
 		}
+		// M5 (v8.4.0): бинарные тумблеры — инверсия 0/1 стрелками без входа в режим ввода
+		if currentItem.Key == "auto_update_enabled" || currentItem.Key == "auto_update_reboot" {
+			newVal := "1"
+			if currentItem.ValueGetter() == "1" {
+				newVal = "0"
+			}
+			errStr := SaveSettingValueToDisk(currentItem.Key, newVal)
+			return true, errStr
+		}
 	case "<Enter>":
 		if currentItem.Key == "BACK" {
 			return true, ""
@@ -296,14 +307,12 @@ func HandleSettingsNavigation(key string) (bool, string) {
 	case "<Escape>":
 		return true, ""
 	}
-
 	return false, ""
 }
 
 // SaveSettingValueToDisk производит атомарную фиксацию измененного параметра на диск по стандартам Amber Guard Lab
 func SaveSettingValueToDisk(key, value string) string {
 	value = strings.TrimSpace(value)
-
 	if key == "SCAN_PERIMETER" || key == "BACK" {
 		return ""
 	}
@@ -339,7 +348,16 @@ func SaveSettingValueToDisk(key, value string) string {
 			return i18n.T.SettingsErrDigits
 		}
 		valInt, _ := strconv.Atoi(value)
-		if valInt <= 0 || valInt > 65535 {
+		// M5 (v8.4.0): бинарные тумблеры валидируются строго 0/1 и минуют
+		// общую границу 1..65535 (ноль — легальное значение тумблера).
+		// ПОПУТНЫЙ ФИКС: web_rescue_enabled раньше НЕ мог принять "0" через
+		// эту границу (valInt <= 0) — канал спасения нельзя было выключить вводом.
+		isBinaryKey := key == "auto_update_enabled" || key == "auto_update_reboot" || key == "web_rescue_enabled"
+		if isBinaryKey {
+			if valInt != 0 && valInt != 1 {
+				return i18n.T.SettingsUiOutOfBounds
+			}
+		} else if valInt <= 0 || valInt > 65535 {
 			return i18n.T.SettingsUiOutOfBounds
 		}
 		// ВЕРСИЯ 6.0.0: ИБ-ПРЕДОХРАНИТЕЛИ И ВАЛИДАЦИЯ ПЕРЕСЕЧЕНИЙ ПОРТОВ
@@ -379,6 +397,12 @@ func SaveSettingValueToDisk(key, value string) string {
 			case "web_rescue_port":
 				// M3b (v8.1.2): Порт автономного HTTP-сервера веб-стука.
 				c.WebRescuePort = valInt
+			case "auto_update_enabled":
+				// M5 (v8.4.0): 0=выкл, 1=вкл. Сверка юнитов — после публикации снепшота.
+				c.AutoUpdateEnabled = (valInt == 1)
+			case "auto_update_reboot":
+				// M5 (v8.4.0): авто-ребут после обновлений ядра.
+				c.AutoUpdateReboot = (valInt == 1)
 			}
 		})
 	} else {
@@ -402,6 +426,14 @@ func SaveSettingValueToDisk(key, value string) string {
 		return i18n.T.ViewSettingsErrSavePrefix + updateErr.Error()
 	}
 
+	// M5 (v8.4.0): декларативная сверка systemd-юнитов автообновления.
+	// Декларация в конфиге УЖЕ опубликована → приводим факт через сервисный мост.
+	if key == "auto_update_enabled" {
+		if errUnits := service.SyncAutoUpdateUnits(config.C.AutoUpdateEnabled); errUnits != nil {
+			return i18n.T.ViewSettingsErrSavePrefix + errUnits.Error()
+		}
+	}
+
 	// АКТИВАЦИЯ КОНТУРА SELF-HEALING (САМОВОССТАНОВЛЕНИЯ)
 	if key == "standard_ssh_port" || key == "real_ssh_port" {
 		service.ResetUfwCacheSnapshot()
@@ -417,7 +449,6 @@ func SaveSettingValueToDisk(key, value string) string {
 		_ = service.SyncGlobalConfigToCoreTrap()
 		// Демон подхватит новые параметры на следующем тике (15 сек)
 	}
-
 	return ""
 }
 
