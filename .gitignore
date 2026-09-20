@@ -23,6 +23,7 @@
 .env.local
 config/config.local.yml
 
-# Repomix output (если не нужен в репозитории)
+# Repomix config
 repomix.config.json
+# Repomix output
 repository.txt
