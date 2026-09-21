@@ -461,7 +461,7 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	header.SetRect(2, 1, 102, 4)
 	header.BorderStyle.Fg = ui.ColorCyan
 	header.TitleStyle.Fg = ui.ColorYellow
-	header.TitleStyle.Modifier = ui.ModifierBold
+	// header.TitleStyle.Modifier = ui.ModifierBold
 
 	// ─────────────────────────────────────────────────────────────
 	// 2. БЛОК A: СИСТЕМНЫЙ ПАСПОРТ (4 строки: y: 4-8)

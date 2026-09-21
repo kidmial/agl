@@ -8,6 +8,7 @@ import (
 
 	// "path/filepath" // Добавлен для вычисления абсолютных траекторий config.json
 	"agl/config"
+	"agl/internal/buildinfo"
 	"agl/internal/service" // Интегрируем пакет брони для проверки active-маркеров рантайма
 	"regexp"
 	"strconv"
@@ -53,9 +54,9 @@ func InitSettingsRegistry() {
 		{Key: "real_ssh_port", Label: func() string { return i18n.T.SettingsLabelRealSshPort }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.RealSshPort) }},
 		{Key: "delay_step", Label: func() string { return i18n.T.SettingsLabelDelayStep }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.DelayStep) }},
 		{Key: "delay_variance", Label: func() string { return i18n.T.SettingsLabelDelayVariance }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.DelayVariance) }},
+		{Key: "tarpit_max_conn", Label: func() string { return i18n.T.SettingsLabelTarpitMaxConn }, Group: "LIMITS", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.TarpitMaxConn) }},
 		// --- ГРУППА 3: СИСТЕМНЫЕ ЛИМИТЫ И АНТИДОС-ОБОРОНА ---
 		{IsHeader: true, Group: "LIMITS"},
-		{Key: "tarpit_max_conn", Label: func() string { return i18n.T.SettingsLabelTarpitMaxConn }, Group: "LIMITS", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.TarpitMaxConn) }},
 		{Key: "admin_idle_timeout", Label: func() string { return i18n.T.SettingsLabelAdminIdleTimeout }, Group: "LIMITS", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.AdminIdleTimeout) }},
 		{Key: "web_rescue_enabled", Label: func() string { return i18n.T.SettingsLabelWebRescueEnabled }, Group: "LIMITS", ValueGetter: func() string {
 			if config.C.WebRescueEnabled {
@@ -105,17 +106,43 @@ func settingsGroupHeader(group string) string {
 	}
 }
 
+// === ФИКС v8.4.1: Нормализация позиции курсора SETTINGS ===
+// ensureActiveRowSelectable гарантирует, что ActiveRowIndex указывает
+// на выбираемый пункт, а не на заголовок группы (у заголовков ValueGetter = nil,
+// вызов которого раньше ронял панель в nil pointer dereference).
+// Вызывается при отрисовке и при обработке событий:
+//   - при первом входе курсор встаёт на первый пункт (lang), а не «в пустоту»;
+//   - запомненная между визитами позиция СОХРАНЯЕТСЯ — коррекция срабатывает
+//     только если индекс указывает на заголовок или вышел за границы.
+func ensureActiveRowSelectable() {
+	if ActiveRowIndex < 0 || ActiveRowIndex >= len(SettingsRegistry) {
+		ActiveRowIndex = 0
+	}
+	if !SettingsRegistry[ActiveRowIndex].IsHeader {
+		return
+	}
+	for i := ActiveRowIndex + 1; i < len(SettingsRegistry); i++ {
+		if !SettingsRegistry[i].IsHeader {
+			ActiveRowIndex = i
+			return
+		}
+	}
+}
+
 // DrawSettingsGrid производит динамическую транзакционную отрисовку экрана SETTINGS
 func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	InitSettingsRegistry()
+	ensureActiveRowSelectable() // ФИКС v8.4.1: курсор всегда на выбираемом пункте
 
 	// 1. Сборка верхней информационной шапки
 	header := widgets.NewList()
-	header.Title = i18n.T.SettingsUiTitleBox
+	// header.Title = i18n.T.SettingsUiTitleBox
+	header.Title = fmt.Sprintf(" Amber Guard Laboratory - %s ", buildinfo.Version)
 	header.Rows = []string{"                           " + i18n.T.SettingsUiHeaderDesc}
 	// ЖЕСТКАЯ ФИКСАЦИЯ КООРДИНАТ
 	header.SetRect(2, 1, 102, 4)
 	header.BorderStyle.Fg = ui.ColorCyan
+	header.TitleStyle.Fg = ui.ColorYellow
 	header.TextStyle.Fg = ui.ColorYellow
 	header.TextStyle.Modifier = ui.ModifierBold
 
@@ -123,7 +150,7 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	formBox := widgets.NewList()
 	formBox.Title = i18n.T.SettingsUiFormTitle
 	// ЖЕСТКАЯ ФИКСАЦИЯ КООРДИНАТ (ВЫСОТА ДО 23 СТРОКИ)
-	formBox.SetRect(2, 4, 102, 23)
+	formBox.SetRect(2, 4, 102, 24)
 	formBox.BorderStyle.Fg = ui.ColorCyan
 	formBox.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
 
@@ -133,8 +160,12 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	for regIdx, item := range SettingsRegistry {
 		if item.IsHeader {
 			headerText := settingsGroupHeader(item.Group)
-			visibleRows = append(visibleRows, "", " "+headerText)
-			visibleLineCounter += 2
+			// КОСМЕТИКА v8.4.1: пустая строка перед заголовком убрана —
+			// меню целиком помещается в кадр (17 строк из 18 доступных).
+			// Группировка держится цветом, а не воздухом.
+			// Разметка живёт в коде, а не в словаре (доктрина 6.7).
+			visibleRows = append(visibleRows, " ["+strings.TrimSpace(headerText)+"](fg:cyan,mod:bold)")
+			visibleLineCounter++
 			continue
 		}
 		label := item.Label()
@@ -171,7 +202,7 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 
 	// 3. Расширенный нижний бокс консоли (Координаты 23 -> 29, высота ровно 6 символов)
 	statusBox := widgets.NewParagraph()
-	statusBox.SetRect(2, 23, 102, 29)
+	statusBox.SetRect(2, 24, 102, 30)
 	if IsEditMode {
 		statusBox.Title = i18n.T.SettingsUiEditingMode
 		currentItem := SettingsRegistry[ActiveRowIndex]
@@ -213,6 +244,7 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 // HandleSettingsNavigation обрабатывает транзакционные перемещения и клики по кнопкам
 func HandleSettingsNavigation(key string) (bool, string) {
 	InitSettingsRegistry()
+	ensureActiveRowSelectable() // ФИКС v8.4.1: Enter по заголовку больше не обработается
 	currentItem := SettingsRegistry[ActiveRowIndex]
 
 	if IsEditMode {
@@ -290,6 +322,11 @@ func HandleSettingsNavigation(key string) (bool, string) {
 			return true, errStr
 		}
 	case "<Enter>":
+		// ФИКС v8.4.1: заголовок группы не выбираем — игнорируем Enter,
+		// иначе nil ValueGetter уронит панель (инцидент nil pointer dereference).
+		if currentItem.IsHeader {
+			return false, ""
+		}
 		if currentItem.Key == "BACK" {
 			return true, ""
 		}

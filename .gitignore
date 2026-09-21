@@ -26,3 +26,5 @@ config/config.local.yml
 repomix.config.json
 # Repomix output
 repository.txt
+
+dist/

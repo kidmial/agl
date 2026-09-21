@@ -4,7 +4,7 @@ INSTALL_PATH := /opt/amberguard/agl
 # v8.3.0 (5.1): метаданные сборки внедряются на этапе компиляции через -ldflags.
 # VERSION можно переопределить снаружи без правки файла:
 #   make build VERSION=v8.3.1
-VERSION ?= v8.4.1
+VERSION ?= v8.4.2
 # UTC-метка момента сборки (RFC3339); вычисляется при каждом запуске make,
 # поэтому две сборки никогда не совпадут по BuildTime.
 BUILD_TIME := $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')

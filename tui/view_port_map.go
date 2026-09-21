@@ -55,11 +55,11 @@ func DrawPortMapGrid(selectedRow int) ([]ui.Drawable, int, []config.AppInventory
 		// C2 (v8.1.3): приоритет статусов TARPIT > ARMOR > UNPROTECTED
 		// (паттерн view_armor.go). Порт под ямой — не «незащищённый», а «капкан».
 		tarpitMarker := config.TarpitMarkerPath(app.Port)
-		statusStr := "[ UNPROTECTED ](fg:red)"
+		statusStr := "[UNPROTECTED](fg:red)"
 		if _, errT := os.Stat(tarpitMarker); errT == nil {
-			statusStr = "[   TARPIT   ](fg:magenta,mod:bold)"
+			statusStr = "[TARPIT](fg:magenta,mod:bold)"
 		} else if app.IsArmorEnabled {
-			statusStr = "[   ARMORED   ](fg:green,mod:bold)"
+			statusStr = "[ARMORED](fg:green,mod:bold)"
 		}
 
 		// Корпоративный стандарт: Каждое Слово С Заглавной Буквы
