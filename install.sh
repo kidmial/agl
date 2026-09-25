@@ -31,12 +31,7 @@ DST_BIN="$DST_DIR/agl"
 OLD_BIN="$DST_DIR/agl.old"
 HASH_MARKER="/var/lib/amberguard/states/agl_binary.sha256"
 UNITS=(agld_tarpit.service agld_watcher.service)
-
 DIST_VER="$(cat "$DIR/VERSION" 2>/dev/null || echo 'unknown')"
-# после КОНТУРА 5:
-if [[ "$DIST_VER" != "unknown" && "$NEW_VER" != *"$DIST_VER"* ]]; then
-  say "⚠️ Версия дистрибутива ($DIST_VER) не совпадает с версией бинарника ($NEW_VER)."
-fi
 
 say() { printf '%s\n' "$*"; }
 die() { printf '❌ %s\n' "$*" >&2; exit 1; }
@@ -88,6 +83,12 @@ mkdir -p "$(dirname "$HASH_MARKER")"
 ( cd "$DST_DIR" && sha256sum agl > "$HASH_MARKER" )
 say "✓ Установлен: $NEW_VER (было: $OLD_VER)"
 
+# Перекрёстная сверка версии дистрибутива и установленного бинарника:
+# VERSION из тарболла обязан содержаться в строке --version бинарника.
+if [[ "$DIST_VER" != "unknown" && "$NEW_VER" != *"$DIST_VER"* ]]; then
+  say "⚠ Версия дистрибутива ($DIST_VER) не совпадает с версией бинарника ($NEW_VER)."
+fi
+
 # === КОНТУР 6: перезапуск ТОЛЬКО бегущих юнитов (ДНК: жизненным циклом
 # юнитов владеет комплекс; инсталлятор лишь обновляет код в ОЗУ) ===
 for u in "${UNITS[@]}"; do
@@ -100,7 +101,14 @@ for u in "${UNITS[@]}"; do
   else
     say "· Юнит $u не активен — не трогаем (ДНК: комплекс поднимает сам)."
   fi
+
 done
+
+# === КОНТУР 7: Создание глобальной ссылки для вызова комплекса из консоли одной командой ===
+say "→ Обеспечение глобального доступа к бинарнику AGL..."
+# Используем -sf (force), чтобы безопасно перезаписывать линк при обновлениях
+ln -sf /opt/amberguard/agl /usr/local/bin/agl
+say "✓ Симлинк /usr/local/bin/agl создан."
 
 cat <<'NOTE'
 ────────────────────────────────────────────────────────

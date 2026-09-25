@@ -32,19 +32,24 @@ if ! file "$BIN" | grep -q "ELF.*x86-64"; then
 fi
 echo "✓ ELF x86-64 подтверждён."
 
-# === КОНТУР 3: сборка папки-дистрибутива (три файла, не больше) ===
-printf '%s\n' "$VERSION" > "$STAGE/VERSION"
+# === КОНТУР 3: сборка папки-дистрибутива ===
 if [[ ! -f install.sh ]]; then
-  echo "❌ В корне репозитория нет install.sh — упаковывать нечего." >&2
-  exit 1
+	echo "❌ В корне репозитория нет install.sh — упаковывать нечего." >&2
+	exit 1
+fi
+if [[ ! -f restore.sh ]]; then
+	echo "❌ В корне репозитория нет restore.sh — комплект неполон." >&2
+	exit 1
 fi
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
+printf '%s\n' "$VERSION" > "$STAGE/VERSION"
 install -m 0755 "$BIN" "$STAGE/agl"
 install -m 0755 install.sh "$STAGE/install.sh"
+install -m 0755 restore.sh "$STAGE/restore.sh"
 ( cd "$STAGE" && sha256sum agl > checksums.txt )
 rm -f "$BIN"
-echo "✓ Папка $STAGE собрана: agl + install.sh + checksums.txt"
+echo "✓ Папка $STAGE собрана: agl + install.sh + restore.sh + checksums.txt + VERSION"
 
 # === КОНТУР 4: архив и контрольная сумма архива (для релиз-ноты) ===
 tar -czf "dist/agl-install-$VERSION.tar.gz" -C dist "agl-install-$VERSION"

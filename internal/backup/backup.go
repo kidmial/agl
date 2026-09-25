@@ -333,8 +333,16 @@ func packTargetArray(targets []string, archivePath string, startPct, endPct int,
 			if walkErr != nil {
 				return walkErr
 			}
-			// Генерируем внутренний заголовок TAR на основе слепка метаданных
-			header, err := tar.FileInfoHeader(fileInfo, fileInfo.Name())
+			// ФИКС v8.4.3: Для симлинков читаем РЕАЛЬНЫЙ target через os.Readlink.
+			// fileInfo.Name() возвращает только имя файла, что создаёт самоссылающиеся
+			// симлинки (rewrite.load -> rewrite.load) и ломает Apache/Nginx после restore.
+			var linkTarget string
+			if fileInfo.Mode()&os.ModeSymlink != 0 {
+				if t, errLink := os.Readlink(path); errLink == nil {
+					linkTarget = t
+				}
+			}
+			header, err := tar.FileInfoHeader(fileInfo, linkTarget)
 			if err != nil {
 				return err
 			}
