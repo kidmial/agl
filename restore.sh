@@ -177,7 +177,7 @@ if command -v ufw >/dev/null 2>&1; then
 	# на локальной консоли она пуста → охрана пропускает дверь (риска нет).
 	if [ -n "${SSH_CONNECTION:-}" ]; then
 		ADMIN_IP="$(echo "$SSH_CONNECTION" | awk '{print $1}')"
-		SSH_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}')"
+		SSH_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}')" || true
 		SSH_PORT="${SSH_PORT:-22}"
 		ufw allow from "$ADMIN_IP" to any port "$SSH_PORT" proto tcp \
 			comment 'AGL restore anti-lockout door' >/dev/null 2>&1 || true
