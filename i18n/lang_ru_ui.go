@@ -225,7 +225,7 @@ func init() {
 		ForensicsLogEmptyOrUnavailable: "[ИНФО]: Исторический журнал пуст или недоступен.",
 		ForensicsLogEmpty:              "[ИНФО]: Исторический журнал пуст.",
 		ForensicsTotalRecords:          "Всего записей в журнале: %d. Отображено: %d.",
-		ForensicsTrapEmpty:             "[Ловушка пуста. Ожидание первого контакта...]",
+		ForensicsTrapEmpty:             "Ловушка пуста. Ожидание первого контакта...",
 		ForensicsStatusClosed:          "[CLOSED]",
 		ForensicsSecShort:              "с",
 

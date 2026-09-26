@@ -225,7 +225,7 @@ func init() {
 		ForensicsLogEmptyOrUnavailable: "[INFO]: Historical journal is empty or unavailable.",
 		ForensicsLogEmpty:              "[INFO]: Historical journal is empty.",
 		ForensicsTotalRecords:          "Total records in journal: %d. Displayed: %d.",
-		ForensicsTrapEmpty:             "[Trap is empty. Waiting for first contact...]",
+		ForensicsTrapEmpty:             "Trap is empty. Waiting for first contact...",
 		ForensicsStatusClosed:          "[CLOSED]",
 		ForensicsSecShort:              "s",
 
@@ -595,7 +595,7 @@ func init() {
 		// --- tui/view_tarpit.go ---
 		ViewTarpitHeaderTitle:            "Control Panel \"Tar Pit\" (SSH Deception Tar-pit)",
 		ViewTarpitLabelCurrentSshPort:    "Current OpenSSH port:",
-		ViewTarpitLabelCastling:          "Castling:",
+		ViewTarpitLabelCastling:          "       Castling:",
 		ViewTarpitLabelJitterSec:         "Trap jitter sec:",
 		ViewTarpitLabelEngineStatus:      "Pit engine status:",
 		ViewTarpitLabelRetentionRange:    "Retention range:",

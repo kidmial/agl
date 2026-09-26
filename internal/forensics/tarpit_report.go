@@ -264,9 +264,7 @@ func GetTarpitLiveRows() []string {
 		// Если файл не существует или недоступен — возвращаем заглушку.
 		// Это нормальная ситуация для первого старта, когда ловушка
 		// ещё не поймала ни одного бота.
-		rows = append(rows, fmt.Sprintf(
-			" %s"+i18n.T.ForensicsTrapEmpty+"%s",
-			colorYellow, colorReset))
+		rows = append(rows, fmt.Sprintf(" [%s]%s", i18n.T.ForensicsTrapEmpty, colorYellow))
 		return rows
 	}
 	defer file.Close()
@@ -283,9 +281,7 @@ func GetTarpitLiveRows() []string {
 
 	// Если лог пуст — возвращаем заглушку
 	if len(historyLines) == 0 {
-		rows = append(rows, fmt.Sprintf(
-			" %s"+i18n.T.ForensicsTrapEmpty+"%s",
-			colorYellow, colorReset))
+		rows = append(rows, fmt.Sprintf(" [%s]%s", i18n.T.ForensicsTrapEmpty, colorYellow))
 		return rows
 	}
 
@@ -379,9 +375,7 @@ func GetTarpitLiveRows() []string {
 	// — возвращаем заглушку пустого капкана.
 	// ОБНОВЛЕНО В v8.0.1.
 	if len(rows) == 0 {
-		rows = append(rows, fmt.Sprintf(
-			" %s"+i18n.T.ForensicsTrapEmpty+"%s",
-			colorYellow, colorReset))
+		rows = append(rows, fmt.Sprintf(" [%s]%s", i18n.T.ForensicsTrapEmpty, colorYellow))
 	}
 
 	return rows
