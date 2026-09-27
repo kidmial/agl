@@ -24,7 +24,7 @@
 //
 //  2. ReportLogWriter — тяжёлый криминалистический профиль (после освобождения)
 //     Файл: /var/log/amberguard/tarpit_report.log
-//     Формат: 13 колонок через табуляцию (полный профиль сканера)
+//     Формат: 30 колонок через табуляцию (полный профиль сканера)
 //
 // КЛЮЧЕВОЙ ПРИНЦИП:
 //
@@ -46,6 +46,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -182,17 +183,17 @@ type RawLogEntry struct {
 	// ОБНОВЛЕНО В v8.0.1: Передаётся реальный порт, а не 0.
 	SourcePort int
 
-	// MSS — максимальный размер сегмента, принимаемый клиентом.
+	// MSS — максимальный размер сегмента, принимаемый атакующего.
 	// Извлекается из `TCP_INFO` ядра Linux.
 	MSS uint32
 
 	// SndCwnd — размер окна отправки TCP (Send Congestion Window).
-	// Показывает, сколько данных клиент готов принять за один раз.
+	// Показывает, сколько данных атакующий готов принять за один раз.
 	// Извлекается из `TCP_INFO` ядра Linux.
 	SndCwnd uint32
 
 	// RcvSpace — размер TCP-окна буфера приёма (Receive Buffer Space).
-	// Показывает доступную память на стороне клиента.
+	// Показывает доступную память на стороне атакующего.
 	// Извлекается из `TCP_INFO` ядра Linux.
 	RcvSpace uint32
 
@@ -200,6 +201,46 @@ type RawLogEntry struct {
 	// Показывает физическое расстояние до атакующего.
 	// Извлекается из `TCP_INFO` ядра Linux.
 	RTT uint32
+	// === НОВЫЕ ПОЛЯ СПРИНТ 1 (ЗАДАЧА А) ===
+	// TotalRetrans — общие ретрансмиты за сессию.
+	TotalRetrans uint32
+	// State — статус сокета TCP (tcpi_state).
+	State uint8
+	// Retransmits — текущие ретрансмиты (tcpi_retransmits).
+	Retransmits uint8
+	// Probes — keep-alive пробы от атакующего (tcpi_probes).
+	Probes uint8
+	// SndWscale — window scaling отправки (младшие 4 бита tcpi_snd_wscale).
+	SndWscale uint8
+	// RcvWscale — window scaling приёма (старшие 4 бита tcpi_rcv_wscale).
+	RcvWscale uint8
+	// === НОВЫЕ ПОЛЯ СПРИНТ 1 (ЗАДАЧИ B, C, D) ===
+	// CloseReason — причина завершения сессии:
+	//   FIN     — атакующий закрыл соединение корректно (io.EOF);
+	//   RST     — атакующий сбросил соединение (ECONNRESET);
+	//   TIMEOUT — мы закрыли сессию по таймеру удержания;
+	//   OUR_CLOSE — принудительное закрытие с нашей стороны.
+	CloseReason string
+	// IATCount — число успешных чтений (база для статистики IAT).
+	IATCount uint32
+	// IATSumMs — сумма интервалов между чтениями (мс).
+	IATSumMs uint64
+	// IATMinMs — минимальный интервал между чтениями (мс).
+	IATMinMs uint32
+	// IATMaxMs — максимальный интервал между чтениями (мс).
+	IATMaxMs uint32
+	// IATSumSqMs — сумма квадратов интервалов (мс²).
+	// Дисперсия = IATSumSqMs/IATCount − (IATSumMs/IATCount)².
+	IATSumSqMs float64
+	// ReadTiny — число чтений размером 0–64 байта.
+	ReadTiny uint32
+	// ReadSmall — число чтений размером 65–256 байт.
+	ReadSmall uint32
+	// ReadMedium — число чтений размером 257–1024 байта.
+	ReadMedium uint32
+	// ReadLarge — число чтений размером >1024 байта.
+	// При текущем буфере 1024 структурно равен 0 — резерв на будущее.
+	ReadLarge uint32
 }
 
 // ============================================================================
@@ -232,6 +273,59 @@ var (
 )
 
 // ============================================================================
+// СПРИНТ 1 (E): СЧЁТЧИКИ ЗДОРОВЬЯ КОНВЕЙЕРА
+// ============================================================================
+// Ранее потеря события при переполнении канала была полностью молчаливой.
+// Теперь каждый дроп учитывается атомарно, а латентность писателей
+// отслеживается по максимуму с момента старта.
+var (
+	// droppedConnectionEvents — число отброшенных лёгких событий касания.
+	droppedConnectionEvents uint64
+	// droppedReportEntries — число отброшенных тяжёлых профилей.
+	droppedReportEntries uint64
+	// connWriteLatencyMaxMs — максимум латентности писателя касаний (мс).
+	connWriteLatencyMaxMs uint64
+	// reportWriteLatencyMaxMs — максимум латентности писателя отчётов (мс).
+	reportWriteLatencyMaxMs uint64
+)
+
+// GetLogHealth returns pipeline health counters:
+// (dropped connection events, dropped report entries,
+// max connection-writer latency ms, max report-writer latency ms).
+// CONTRACT: read-only atomics; safe to call from TUI/audit goroutines.
+// СПРИНТ 1 (E): видимость для TUI придёт через shm-расширение в спринте 2/3,
+// геттер готов уже сейчас.
+func GetLogHealth() (uint64, uint64, uint64, uint64) {
+	return atomic.LoadUint64(&droppedConnectionEvents),
+		atomic.LoadUint64(&droppedReportEntries),
+		atomic.LoadUint64(&connWriteLatencyMaxMs),
+		atomic.LoadUint64(&reportWriteLatencyMaxMs)
+}
+
+// latencyMsSince возвращает миллисекунды от t до текущего момента.
+// Отрицательные значения (скок часов назад) обрезаются до нуля.
+func latencyMsSince(t time.Time) uint64 {
+	ms := time.Since(t).Milliseconds()
+	if ms < 0 {
+		return 0
+	}
+	return uint64(ms)
+}
+
+// noteLatency lock-free обновляет максимум латентности писателя (CAS-цикл).
+func noteLatency(cur *uint64, ms uint64) {
+	for {
+		old := atomic.LoadUint64(cur)
+		if ms <= old {
+			return
+		}
+		if atomic.CompareAndSwapUint64(cur, old, ms) {
+			return
+		}
+	}
+}
+
+// ============================================================================
 // ПУБЛИЧНЫЕ ШЛЮЗЫ: ОТПРАВКА СОБЫТИЙ ИЗ ИСПОЛНИТЕЛЬНОГО ДВИЖКА
 // ============================================================================
 
@@ -256,7 +350,8 @@ func LogConnectionEvent(ev RawConnectionEvent) {
 	default:
 		// Канал переполнен — событие отброшено.
 		// Это предохранитель от переполнения ОЗУ при массовых атаках.
-		// Аудит: фиксируем потерю события для диагностики.
+		// СПРИНТ 1 (E): дроп больше не молчаливый — учитывается атомарно.
+		atomic.AddUint64(&droppedConnectionEvents, 1)
 	}
 }
 
@@ -280,6 +375,8 @@ func LogReportEntry(en RawLogEntry) {
 	default:
 		// Канал переполнен — событие отброшено.
 		// Предохранитель от переполнения ОЗУ.
+		// СПРИНТ 1 (E): дроп больше не молчаливый — учитывается атомарно.
+		atomic.AddUint64(&droppedReportEntries, 1)
 	}
 }
 
@@ -344,6 +441,8 @@ func ConnectionLogWriter(logFilePath string) {
 			logLine := fmt.Sprintf("%s\t%s\t%s\t%d sec\t%s\n",
 				timeStr, event.TarpitID, event.IP, plannedDelay, event.Country)
 			_, _ = f.WriteString(logLine)
+			// СПРИНТ 1 (E): латентность писателя касаний (от касания до записи).
+			noteLatency(&connWriteLatencyMaxMs, latencyMsSince(event.Timestamp))
 			dirty = true
 			writeCount++
 			if writeCount >= syncBatchSize {
@@ -370,7 +469,7 @@ func ConnectionLogWriter(logFilePath string) {
 //
 // ЗАПУСК: `go tarpit.ReportLogWriter(config.C.TarpitRptLog)`
 //
-// ФОРМАТ СТРОКИ (13 колонок через табуляцию):
+// ФОРМАТ СТРОКИ (30 колонок через табуляцию):
 //
 //	[0]  Дата/Время       — момент начала атаки (якорь SIEM)
 //	[1]  TarpitID         — идентификатор ловушки
@@ -385,10 +484,28 @@ func ConnectionLogWriter(logFilePath string) {
 //	[10] SndCwnd          — окно отправки TCP
 //	[11] RcvSpace         — буфер приёма
 //	[12] RTT              — сетевая задержка (мс)
+//	[13] TotalRetrans     — общие ретрансмиты за сессию
+//	[14] State            — статус сокета TCP (1=ESTABLISHED, 7=CLOSE после RST, 8=CLOSE_WAIT после FIN)
+//	[15] Retransmits      — текущие ретрансмиты
+//	[16] Probes           — keep-alive пробы
+//	[17] SndWscale        — window scaling отправки
+//	[18] RcvWscale        — window scaling приёма
+//	[19] CloseReason      — причина завершения: FIN / RST / TIMEOUT / OUR_CLOSE
+//	[20] IATCount         — число успешных чтений
+//	[21] IATSumMs         — сумма интервалов между чтениями (мс)
+//	[22] IATMinMs         — минимальный интервал (мс)
+//	[23] IATMaxMs         — максимальный интервал (мс)
+//	[24] IATSumSqMs       — сумма квадратов интервалов (мс²), для дисперсии
+//	[25] ReadTiny         — чтений 0–64 байта
+//	[26] ReadSmall        — чтений 65–256 байт
+//	[27] ReadMedium       — чтений 257–1024 байта
+//	[28] ReadLarge        — чтений >1024 байта (0 при буфере 1024, резерв)
+//	[29] WriteLatencyMs   — путь события от касания до диска (мс):
+//	                        удержание + очередь канала + запись
 //
 // ПРИМЕР СТРОКИ:
 //
-//	2026-08-22 14:30:05    TARPIT:22   192.168.1.100   13 sec  11 sec  PASSIVE_SCANNER United States   45678   18CDB7A3F2E1_45678  1460    10  65536   45
+//	2026-08-22 14:30:05    TARPIT:22   192.168.1.100   13 sec  11 sec  PASSIVE_SCANNER United States   45678   18CDB66F82B6C3B7C840_45678  1460     10  65536   45
 //
 // ОБНОВЛЕНО В v8.0.1:
 // - `Timestamp` передаётся как `startTime` (момент касания).
@@ -427,12 +544,20 @@ func ReportLogWriter(logFilePath string) {
 				return
 			}
 			timeStr := entry.Timestamp.Format("2006-01-02 15:04:05")
-			sessionToken := fmt.Sprintf("18CDB%X_%d", entry.Timestamp.Unix(), 40000+entry.RTT)
-			logLine := fmt.Sprintf("%s\t%s\t%s\t%d sec\t%d sec\t%s\t%s\t%d\t%s\t%d\t%d\t%d\t%d\n",
+			sessionToken := fmt.Sprintf("18CDB%X_%d", entry.Timestamp.UnixNano(), entry.SourcePort)
+			// СПРИНТ 1 (E): полный путь события от касания до диска.
+			// Включает удержание и очередь канала; компонент очереди =
+			// [29] − [4]×1000. Всплеск при малом [4] = медленный диск/писатель.
+			latencyMs := latencyMsSince(entry.Timestamp)
+			logLine := fmt.Sprintf("%s\t%s\t%s\t%d sec\t%d sec\t%s\t%s\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%d\t%d\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\n",
 				timeStr, entry.TarpitID, entry.IP, entry.PlannedDelay, entry.DelayStep,
 				entry.Behavior, entry.Country, entry.SourcePort, sessionToken,
-				entry.MSS, entry.SndCwnd, entry.RcvSpace, entry.RTT)
+				entry.MSS, entry.SndCwnd, entry.RcvSpace, entry.RTT,
+				entry.TotalRetrans, entry.State, entry.Retransmits, entry.Probes, entry.SndWscale, entry.RcvWscale,
+				entry.CloseReason, entry.IATCount, entry.IATSumMs, entry.IATMinMs, entry.IATMaxMs, entry.IATSumSqMs,
+				entry.ReadTiny, entry.ReadSmall, entry.ReadMedium, entry.ReadLarge, latencyMs)
 			_, _ = f.WriteString(logLine)
+			noteLatency(&reportWriteLatencyMaxMs, latencyMs)
 			dirty = true
 			writeCount++
 			if writeCount >= syncBatchSize {

@@ -37,14 +37,16 @@ package tarpit
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"net"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
-	"syscall" // для обеспечения работы syscall.Conn
+	"syscall" // для обеспечения работы syscall.Conn и ECONNRESET
 	"time"
 	"unsafe"
 
@@ -137,24 +139,40 @@ func getCountryFromGeoTool(clientIP, geoTool string) string {
 	return "Unknown"
 }
 
+// TcpInfoMetrics — криминалистический слепок TCP_INFO ядра Linux.
+// Содержит как базовые метрики (MSS, RTT), так и расширенные (статус, ретрансмиты, wscale).
+// НОВОЕ В v8.4.x (Спринт 1, задача А): добавлены бесплатные поля из struct tcp_info.
+type TcpInfoMetrics struct {
+	MSS          uint32
+	SndCwnd      uint32
+	RcvSpace     uint32
+	RTT          uint32
+	TotalRetrans uint32
+	State        uint8
+	Retransmits  uint8
+	Probes       uint8
+	SndWscale    uint8
+	RcvWscale    uint8
+}
+
 // extractTcpInfo извлекает криминалистическую метрику TCP_INFO из ядра Linux.
-// Возвращает: MSS, SndCwnd, RcvSpace, RTT (в миллисекундах).
 // v8.2.0: прямой getsockopt через stdlib syscall — без зависимости от
 // символов golang.org/x/sys/unix. ABI struct tcp_info (linux/tcp.h) —
 // стабильный UAPI, смещения полей гарантированы ядром.
-func extractTcpInfo(conn net.Conn) (uint32, uint32, uint32, uint32) {
-	var mss, sndCwnd, rcvSpace, rtt uint32
+// ОБНОВЛЕНО В v8.4.x: возвращает структуру с расширенными полями (Спринт 1).
+func extractTcpInfo(conn net.Conn) TcpInfoMetrics {
+	var m TcpInfoMetrics
 	sysConn, ok := conn.(syscall.Conn)
 	if !ok {
-		return 0, 0, 0, 0
+		return m
 	}
 	rawConn, err := sysConn.SyscallConn()
 	if err != nil {
-		return 0, 0, 0, 0
+		return m
 	}
 	_ = rawConn.Control(func(fd uintptr) {
 		// Читаем первые 104 байта struct tcp_info — этого достаточно
-		// для всех четырёх нужных полей.
+		// для всех нужных полей (включая total_retrans на offset 100).
 		buf := make([]byte, 104)
 		socklen := uint32(len(buf))
 		_, _, errno := syscall.Syscall6(
@@ -166,16 +184,31 @@ func extractTcpInfo(conn net.Conn) (uint32, uint32, uint32, uint32) {
 			uintptr(unsafe.Pointer(&socklen)),
 			0,
 		)
-		if errno != 0 || socklen < 100 {
+		// Требуем минимум 104 байта, так как total_retrans лежит на offset 100.
+		if errno != 0 || socklen < 104 {
 			return
 		}
 		u32 := func(off int) uint32 { return binary.LittleEndian.Uint32(buf[off : off+4]) }
-		mss = u32(20)        // tcpi_rcv_mss
-		rtt = u32(68) / 1000 // tcpi_rtt (микросекунды → миллисекунды)
-		sndCwnd = u32(80)    // tcpi_snd_cwnd
-		rcvSpace = u32(96)   // tcpi_rcv_space
+
+		// Базовые метрики
+		m.MSS = u32(20)        // tcpi_rcv_mss
+		m.RTT = u32(68) / 1000 // tcpi_rtt (микросекунды → миллисекунды)
+		m.SndCwnd = u32(80)    // tcpi_snd_cwnd
+		m.RcvSpace = u32(96)   // tcpi_rcv_space
+
+		// Новые бесплатные поля (Спринт 1, задача А)
+		m.State = buf[0]       // tcpi_state
+		m.Retransmits = buf[2] // tcpi_retransmits
+		m.Probes = buf[3]      // tcpi_probes
+
+		// tcpi_snd_wscale (младшие 4 бита) и tcpi_rcv_wscale (старшие 4 бита)
+		wscale := buf[6]
+		m.SndWscale = wscale & 0x0F
+		m.RcvWscale = (wscale >> 4) & 0x0F
+
+		m.TotalRetrans = u32(100) // tcpi_total_retrans
 	})
-	return mss, sndCwnd, rcvSpace, rtt
+	return m
 }
 
 // ============================================================================
@@ -297,13 +330,58 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 	// --- ЦИКЛ УДЕРЖАНИЯ БОТА ---
 	// Каждый тик = 1 секунда. Бот держится до истечения `tarpitDelay`.
 	// Если бот рвёт соединение досрочно (FIN/RST) — помечаем как `AGGRESSIVE`.
+	// СПРИНТ 1 (B): фиксируем причину завершения сессии.
+	// СПРИНТ 1 (C, D): running-статистика IAT и бакеты размеров чтений —
+	// без массивов, O(1) памяти на сессию.
 	currentTick := 0
 	behaviorTag := "PASSIVE_SCANNER"
+	closeReason := "TIMEOUT" // дефолт: сессию закрыли мы по таймеру
 	buffer := make([]byte, 1024)
-
+	// === Running-статистика IAT (интервалы между успешными чтениями) ===
+	// time.Now() здесь — vDSO clock_gettime, НЕ syscall: в горячем пути допустимо.
+	var lastRead time.Time
+	var iatCount uint32
+	var iatSumMs uint64
+	var iatMinMs, iatMaxMs uint32
+	var iatSumSqMs float64
+	// === Бакеты размеров чтений (running-счётчики) ===
+	var readTiny, readSmall, readMedium, readLarge uint32
 	for currentTick < tarpitDelay {
 		_ = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
-		_, err := conn.Read(buffer)
+		n, err := conn.Read(buffer)
+		// === СПРИНТ 1 (C, D): учёт успешных чтений ===
+		if n > 0 {
+			// Бакет размера чтения.
+			switch {
+			case n <= 64:
+				readTiny++
+			case n <= 256:
+				readSmall++
+			case n <= 1024:
+				readMedium++
+			default:
+				readLarge++
+			}
+			// IAT: интервал от предыдущего успешного чтения.
+			nowRead := time.Now()
+			if !lastRead.IsZero() {
+				dMs := nowRead.Sub(lastRead).Milliseconds()
+				if dMs < 0 {
+					dMs = 0
+				}
+				uMs := uint64(dMs)
+				if iatCount == 0 || uMs < uint64(iatMinMs) {
+					iatMinMs = uint32(uMs)
+				}
+				if uMs > uint64(iatMaxMs) {
+					iatMaxMs = uint32(uMs)
+				}
+				iatCount++
+				iatSumMs += uMs
+				iatSumSqMs += float64(uMs) * float64(uMs)
+			}
+			lastRead = nowRead
+		}
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 				// Бот пассивно ждёт — инкрементируем тик
@@ -312,6 +390,15 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 			}
 			// Бот агрессивно разорвал соединение (FIN/RST/Ctrl+C)
 			behaviorTag = "AGGRESSIVE_SCANNER"
+			// СПРИНТ 1 (B): классификация причины завершения на стороне атакующего.
+			switch {
+			case errors.Is(err, io.EOF):
+				closeReason = "FIN" // атакующий закрыл соединение корректно
+			case errors.Is(err, syscall.ECONNRESET):
+				closeReason = "RST" // атакующий сбросил соединение
+			default:
+				closeReason = "OUR_CLOSE" // сокет закрыт с нашей стороны или иная ошибка
+			}
 			break
 		}
 		currentTick++
@@ -344,12 +431,13 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 	// !!! Это даёт криминалистический слепок сетевого состояния бота.       !!!
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// ОБНОВЛЕНО В v8.0.3.
-	mss, sndCwnd, rcvSpace, rtt := extractTcpInfo(conn)
+	// ОБНОВЛЕНО В v8.4.x (Спринт 1): парсинг в единую структуру.
+	tcpMetrics := extractTcpInfo(conn)
 
 	// Публикуем в шину логгера очищенные, синхронизированные данные.
 	//
 	// Формат строки в файле:
-	// Дата \t TarpitID \t IP \t План \t Факт \t Поведение \t Страна \t Порт \t Токен \t MSS \t SndCwnd \t RcvSpace \t RTT
+	// Дата \t TarpitID \t IP \t План \t Факт \t Поведение \t Страна \t Порт \t Токен \t MSS \t SndCwnd \t RcvSpace \t RTT \t TotalRetrans \t State \t Retransmits \t Probes \t SndWscale \t RcvWscale \t CloseReason \t IATCount \t IATSumMs \t IATMinMs \t IATMaxMs \t IATSumSqMs \t ReadTiny \t ReadSmall \t ReadMedium \t ReadLarge \t WriteLatencyMs
 	//
 	// ОБНОВЛЕНО В v8.1.1: Все поля заполнены корректно.
 	// `DelayStep` = фактическое удержание, `PlannedDelay` = запланированный джиттер.
@@ -375,12 +463,50 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 		// SourcePort: Исходный порт, который использовал атакующий.
 		SourcePort: sourcePort,
 		// MSS: Maximum Segment Size (Max Packet Size). Метрика TCP для анализа размера пакетов.
-		MSS: mss,
+		MSS: tcpMetrics.MSS,
 		// SndCwnd: Sender Congestion Window. Окно отправки TCP.
-		SndCwnd: sndCwnd,
-		// RcvSpace: Receiver Window. Размер буфера приема TCP.
-		RcvSpace: rcvSpace,
+		SndCwnd: tcpMetrics.SndCwnd,
+		// RcvSpace: Размер TCP-окна буфера приёма (Receive Buffer Space).
+		// Показывает доступную память на стороне атакующего.
+		// Извлекается из `TCP_INFO` ядра Linux.
+		RcvSpace: tcpMetrics.RcvSpace,
 		// RTT: Round Trip Time. Сетевая задержка.
-		RTT: rtt,
+		// Показывает физическое расстояние до атакующего.
+		// Извлекается из `TCP_INFO` ядра Linux.
+		RTT: tcpMetrics.RTT,
+		// === НОВЫЕ ПОЛЯ СПРИНТ 1 (ЗАДАЧА А) ===
+		// TotalRetrans: Общие ретрансмиты за сессию.
+		TotalRetrans: tcpMetrics.TotalRetrans,
+		// State: Статус сокета TCP (ESTABLISHED, CLOSE_WAIT и т.д.).
+		State: tcpMetrics.State,
+		// Retransmits: Текущие ретрансмиты (неподтверждённые).
+		Retransmits: tcpMetrics.Retransmits,
+		// Probes: Keep-alive пробы от атакующего.
+		Probes: tcpMetrics.Probes,
+		// SndWscale: Window scaling отправки.
+		SndWscale: tcpMetrics.SndWscale,
+		// RcvWscale: Window scaling приёма.
+		RcvWscale: tcpMetrics.RcvWscale,
+		// === НОВЫЕ ПОЛЯ СПРИНТ 1 (ЗАДАЧИ B, C, D) ===
+		// CloseReason: Причина завершения сессии (FIN / RST / TIMEOUT / OUR_CLOSE).
+		CloseReason: closeReason,
+		// IATCount: Число успешных чтений (база для статистики IAT).
+		IATCount: iatCount,
+		// IATSumMs: Сумма интервалов между чтениями (мс).
+		IATSumMs: iatSumMs,
+		// IATMinMs: Минимальный интервал между чтениями (мс).
+		IATMinMs: iatMinMs,
+		// IATMaxMs: Максимальный интервал между чтениями (мс).
+		IATMaxMs: iatMaxMs,
+		// IATSumSqMs: Сумма квадратов интервалов (мс²) для дисперсии.
+		IATSumSqMs: iatSumSqMs,
+		// ReadTiny: Чтений размером 0–64 байта.
+		ReadTiny: readTiny,
+		// ReadSmall: Чтений размером 65–256 байт.
+		ReadSmall: readSmall,
+		// ReadMedium: Чтений размером 257–1024 байта.
+		ReadMedium: readMedium,
+		// ReadLarge: Чтений размером >1024 байта (резерв: буфер 1024).
+		ReadLarge: readLarge,
 	})
 }
