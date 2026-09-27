@@ -98,8 +98,11 @@ func getCountryFromGeoTool(clientIP, geoTool string) string {
 		geoTool = defaultGeoTool
 	}
 
-	// Выполняем гео-запрос с таймаутом 5 секунд через единый интерфейс.
-	geoRes := sys.RunTimeout(5*time.Second, geoTool, clientIP)
+	// Выполняем гео-запрос через единый интерфейс.
+	// v8.4.4: гео ушло во второй эшелон после баннера.
+	// Таймаут снижен: локальная база не требует 5 секунд,
+	// а зависший гео-процесс не должен держать воркер.
+	geoRes := sys.RunTimeout(700*time.Millisecond, geoTool, clientIP)
 
 	// Сбой внешней команды: утилита отсутствует, таймаут или nonzero exit.
 	if geoRes.Err != nil {
@@ -256,21 +259,26 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 
 	}
 
-	// Гео-идентификация источника атаки
+	// Вычисляем имя для вывода в TUI в зависимости от порта ловушки
+	tarpitLogName := fmt.Sprintf("TARPIT:%d", port)
+
+	// Имитируем ответ кастомной SSH-версии воркера (баннер).
+	// v8.4.4: баннер — первый эшелон.
+	// Гео больше не задерживает ответ ловушки.
+	sshBanner := fmt.Sprintf("%s\r\n", cfg.SSHVersion)
+	if cfg.SSHVersion == "" {
+		sshBanner = "SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13\r\n"
+	}
+	_, _ = conn.Write([]byte(sshBanner))
+
+	// Гео-идентификация источника атаки — второй эшелон.
+	// Выполняется ПОСЛЕ отправки баннера.
 	countryName := "Unknown"
 	if ipRegex.MatchString(clientIP) {
 		countryName = getCountryFromGeoTool(clientIP, config.C.GeoTool)
 	}
 
-	// Вычисляем имя для вывода в TUI в зависимости от порта ловушки
-	tarpitLogName := fmt.Sprintf("TARPIT:%d", port)
-
 	// Асинхронная публикация события старта в глобальную шину логгера.
-	//
-	// ОБНОВЛЕНО В v8.0.1: Добавлено поле `PlannedDelay` для устранения
-	// хардкода «13» в `ConnectionLogWriter`. Теперь логгер использует
-	// реальный джиттер ловушки вместо магического числа.
-	// ОБНОВЛЕНО В v8.0.1.
 	LogConnectionEvent(RawConnectionEvent{
 		Timestamp:    startTime,     // [SIEM YANKOR] Точный момент касания сокета (начало атаки)
 		TarpitID:     tarpitLogName, // Уникальный идентификатор ловушки/воркера
@@ -279,12 +287,8 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 		PlannedDelay: tarpitDelay,   // [JITTER PLAN] Запланированный джиттер данного воркера (для сравнения с фактом)
 	})
 
-	// Имитируем ответ кастомной SSH-версии воркера (баннер)
-	sshBanner := fmt.Sprintf("%s\r\n", cfg.SSHVersion)
-	if cfg.SSHVersion == "" {
-		sshBanner = "SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13\r\n"
-	}
-	_, _ = conn.Write([]byte(sshBanner))
+	// Пауза перед циклом удержания (поведение пока не меняем).
+	// Позже решим: убрать или сделать настраиваемым джиттером.
 	time.Sleep(50 * time.Millisecond)
 
 	// v8.0.3 (Аудит №5): первичный слепок удалён — метрики снимаются ОДИН раз,
