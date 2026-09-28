@@ -254,6 +254,7 @@ func writePendingRebootMarker() {
 const autoUpdateServiceUnit = `[Unit]
 Description=Amber Guard Laboratory — Server AutoUpdate (oneshot)
 Documentation=https://github.com/amberguard
+
 After=network-online.target
 Wants=network-online.target
 
@@ -264,7 +265,6 @@ IOSchedulingClass=idle
 ExecStart=/opt/amberguard/agl --autoupdate
 StandardOutput=journal
 StandardError=journal
-
 # ИБ-барьеры: oneshot не должен держать систему в заложниках
 TimeoutStartSec=2400
 `
