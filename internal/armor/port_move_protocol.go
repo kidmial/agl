@@ -6,6 +6,7 @@ import (
 	"agl/i18n"
 	"agl/internal/sys"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -15,10 +16,11 @@ import (
 )
 
 const (
-	defaultPort  = "22"
-	markerFile   = config.MarkerSshMoved
-	sleepTime    = 300 * time.Millisecond
-	restartSleep = 200 * time.Millisecond
+	defaultPort    = "22"
+	defaultPortInt = 22 // Для передачи в функции, принимающие int (SetCustomRateLimit, waitForSshListener)
+	markerFile     = config.MarkerSshMoved
+	sleepTime      = 300 * time.Millisecond
+	restartSleep   = 200 * time.Millisecond
 )
 
 // ============================================================================
@@ -223,9 +225,9 @@ func prepareCastlingON(customPort string) (backupPath string, limiterWasActive b
 
 	// Проверяем активность лимитера на стандартном 22 порту до начала рокировки
 	limiterWasActive = false
-	if err := SetCustomRateLimit(22, "open_ssh", "Open SSH", "CHECK"); err == nil {
+	if err := SetCustomRateLimit(defaultPortInt, "open_ssh", "Open SSH", "CHECK"); err == nil {
 		limiterWasActive = true
-		_ = SetCustomRateLimit(22, "open_ssh", "Open SSH", "OFF")
+		_ = SetCustomRateLimit(defaultPortInt, "open_ssh", "Open SSH", "OFF")
 		sys.LogAction("PORT_CASTLING", "LIMITER_SUSPEND", "SUCCESS", i18n.TrEvent("port_castling.limiter_suspend"))
 	}
 
@@ -410,20 +412,52 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 	}
 	sys.LogAction("PORT_CASTLING", "SSH_SERVICE_RESTART", "SUCCESS", i18n.TrEventf("port_castling.ssh_service_restart", customPort))
 
-	if limiterWasActive {
-		time.Sleep(restartSleep)
-		_ = SetCustomRateLimit(config.C.RealSshPort, "open_ssh", "Open SSH", "ON")
-		sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "SUCCESS", i18n.TrEventf("port_castling.limiter_restore", config.C.RealSshPort))
+	// ─────────────────────────────────────────────────────────────
+	// R-8 (симметрично фазе OFF): контрольная верификация кастомного порта.
+	// systemctl может вернуть 0, но sshd не забиндится (порт занят, права и т.д.).
+	// Если баннер не получен — рокировка не удалась, возвращаем ошибку наружу,
+	// чтобы SetMovePortProtocol принудительно вызвал rollbackCastlingON.
+	// ─────────────────────────────────────────────────────────────
+	if err := waitForSshListener(config.C.RealSshPort, 5, 400*time.Millisecond); err != nil {
+		sys.LogAction("PORT_CASTLING", "SSH_SERVICE_RESTART", "ALERT",
+			i18n.TrEventf("port_castling.ssh_listener_verify_failed", config.C.RealSshPort, err))
+		return fmt.Errorf(i18n.T.PortMoveSshListenerVerifyFailed, config.C.RealSshPort, err)
 	}
 
-	// ВАРИАНТ А (v8.1.3): асинхронный перескан периметра после рокировки.
+	if limiterWasActive {
+		time.Sleep(restartSleep)
+		if err := SetCustomRateLimit(config.C.RealSshPort, "open_ssh", "Open SSH", "ON"); err != nil {
+			sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "WARNING",
+				i18n.TrEventf("port_castling.limiter_restore_failed", config.C.RealSshPort, err))
+		} else {
+			sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "SUCCESS",
+				i18n.TrEventf("port_castling.limiter_restore", config.C.RealSshPort))
+		}
+	}
+
+	// ВАРИАНТ А (v8.4.6): СИНХРОННЫЙ перескан периметра после рокировки.
 	// Геометрия портов изменилась — инвентарь обязан самоактуализироваться,
 	// иначе предохранитель ямы (C8) смотрит в устаревшие данные
 	// («порт 22 занят легитимным процессом SSHD»).
-	go func() {
-		_ = config.RunPerimeterInventoryScan() // ← точное имя из обработчика SCAN_PERIMETER
-		sys.LogAction("PORT_CASTLING", "PERIMETRE_RESCAN", "SUCCESS",
-			i18n.TrEvent("port_castling.perimetre_rescan"))
+	//
+	// УБРАНО `go func()`: если SetMovePortProtocol вызван из CLI, процесс завершится
+	// (os.Exit) до того, как горутина успеет обновить инвентарь в базе данных.
+	// Делаем синхронно, но в анонимной обёртке с defer recover() — чтобы паника
+	// внутри RunPerimeterInventoryScan не уронила весь CLI-процесс.
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				sys.LogAction("PORT_CASTLING", "PERIMETRE_RESCAN", "ALERT",
+					i18n.TrEventf("port_castling.perimetre_rescan_panic", r))
+			}
+		}()
+		if err := config.RunPerimeterInventoryScan(); err != nil {
+			sys.LogAction("PORT_CASTLING", "PERIMETRE_RESCAN", "WARNING",
+				i18n.TrEventf("port_castling.perimetre_rescan_failed", err))
+		} else {
+			sys.LogAction("PORT_CASTLING", "PERIMETRE_RESCAN", "SUCCESS",
+				i18n.TrEvent("port_castling.perimetre_rescan"))
+		}
 	}()
 
 	return nil
@@ -453,6 +487,26 @@ func rollbackCastlingON(backupPath, customPort string) {
 
 	// Удаляем маркер геометрии
 	_ = os.Remove(markerFile)
+
+	// R-8: откат обязан реально делать то, что обещает журнал:
+	// восстановить sshd_config из бэкапа и вернуть sshd на порт 22.
+	restoreRes := sys.RunTimeout(5*time.Second, "cp", backupPath, "/etc/ssh/sshd_config")
+	if restoreRes.Err != nil {
+		sys.LogAction("PORT_CASTLING", "SSHD_ROLLBACK_FAIL", "ALERT",
+			i18n.TrEventf("sshd.rollback_failed",
+				restoreRes.Err, strings.TrimSpace(restoreRes.Stderr), backupPath))
+	} else {
+		// Возвращаем периметр порта 22: правила UFW были зачищены в apply-фазе
+		restorePort22Perimeter()
+		if testRes := sys.RunTimeout(10*time.Second, "sshd", "-t"); testRes.Err != nil {
+			sys.LogAction("PORT_CASTLING", "SSHD_ROLLBACK_FAIL", "ALERT",
+				i18n.TrEventf("sshd.rollback_failed",
+					testRes.Err, strings.TrimSpace(testRes.Stderr), backupPath))
+		} else {
+			restartRes := sys.RunTimeout(20*time.Second, "systemctl", "restart", "ssh.service")
+			restartRes.LogWarnIfErr("PORT_CASTLING", "ROLLBACK_SSH_RESTART", "event=systemd.rollback_restart_failed")
+		}
+	}
 
 	// Останавливаем юнит наблюдателя
 	disableWatcherRes := sys.RunTimeout(10*time.Second, "systemctl", "disable", "agld_watcher.service")
@@ -597,24 +651,30 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 		}
 	}
 
-	// Возвращаем строгое комментирование UFW по корпоративному стандарту v6.0.0
-	// БЛОК 3.1: возврат периметра порта 22 больше не слепой.
-	if errTarpit := SetTarpitProtocol("CHECK"); errTarpit == nil {
-		allow22Res := sys.RunTimeout(10*time.Second, "ufw", "allow", "22/tcp", "comment", "Amber Guard Lab. Active Tarpit Station")
-		allow22Res.LogWarnIfErr("PORT_CASTLING", "PERIMETER_RESTORE", "event=ufw.tarpit_allow_failed")
-	} else {
-		allow22Res := sys.RunTimeout(10*time.Second, "ufw", "allow", "22/tcp", "comment", "Amber Guard Lab. SSH Standard")
-		allow22Res.LogWarnIfErr("PORT_CASTLING", "PERIMETER_RESTORE", "event=ufw.standard_allow_failed")
+	// ═══════════════════════════════════════════════════════════════════════════════
+	// STATEFUL-МИГРАЦИЯ ЛИМИТОВ (v8.2.4): взводим броню ДО переключения юнитов.
+	// UFW-лимитер не зависит от sshd, поэтому порт 22 защищён с момента открытия.
+	// ═══════════════════════════════════════════════════════════════════════════════
+	if limiterWasActive {
+		if err := SetCustomRateLimit(defaultPortInt, "open_ssh", "Open SSH", "ON"); err != nil {
+			sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "WARNING",
+				i18n.TrEventf("port_castling.limiter_restore_failed", 22, err))
+		} else {
+			sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "SUCCESS",
+				i18n.TrEvent("port_castling.limiter_restore_22"))
+		}
 	}
 
-	reloadOffRes := sys.RunTimeout(10*time.Second, "ufw", "reload")
-	reloadOffRes.LogWarnIfErr("PORT_CASTLING", "PERIMETER_RESTORE", "event=ufw.reload_failed")
+	// Возвращаем строгое комментирование UFW по корпоративному стандарту v6.0.0
+	// (DRY: общий helper с откатом рокировки ON, см. restorePort22Perimeter)
+	restorePort22Perimeter()
 
 	time.Sleep(sleepTime)
 
-	// РЕАНИМАЦИЯ СЛУЖБ БЕЗ ПАНИКИ СОКЕТА OpenSSH.
-	// БЛОК 3.1: каждый шаг проверяем; финальный SUCCESS только
-	// после подтверждённого рестарта sshd.
+	// ═══════════════════════════════════════════════════════════════════════════════
+	// РЕАНИМАЦИЯ СЛУЖБ UBUNTU 24.04 (v8.2.4): исключаем Race Condition
+	// между ssh.service и ssh.socket за порт 22.
+	// ═══════════════════════════════════════════════════════════════════════════════
 	unmaskRes := sys.RunTimeout(10*time.Second, "systemctl", "unmask", "ssh.socket")
 	unmaskRes.LogWarnIfErr("PORT_CASTLING", "SOCKET_UNMASK", "event=systemd.socket_unmask_failed")
 
@@ -628,36 +688,77 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 	reloadOffSysd := sys.RunTimeout(10*time.Second, "systemctl", "daemon-reload")
 	reloadOffSysd.LogWarnIfErr("PORT_CASTLING", "SOCKET_UNMASK", "event=systemd.daemon_reload_failed")
 
-	// ВАЖНО: Сначала останавливаем сокет, чтобы дать ssh.service занять порт 22 монопольно
-	stopSocketOffRes := sys.RunTimeout(10*time.Second, "systemctl", "stop", "ssh.socket")
-	stopSocketOffRes.LogWarnIfErr("PORT_CASTLING", "SOCKET_UNMASK", "event=systemd.socket_stop_failed")
-
-	// Критичная команда: без рестарта SSH не вернётся на порт 22.
-	// Ошибкой наружу OFF не рвём (процесс уже прошёл точку невозврата),
-	// но сбой обязан быть видимым: WARNING вместо ложного SUCCESS.
-	restartOffRes := sys.RunTimeout(20*time.Second, "systemctl", "restart", "ssh.service")
-	if restartOffRes.Err != nil {
-		restartOffRes.LogWarnIfErr("PORT_CASTLING", "SSH_SERVICE_RESTORE", "event=systemd.ssh_restart_failed")
+	// Освобождаем порт 22: останавливаем классическую службу ДО передачи порта сокету.
+	stopSshServiceRes := sys.RunTimeout(20*time.Second, "systemctl", "stop", "ssh.service")
+	if stopSshServiceRes.Err != nil {
+		stopSshServiceRes.LogWarnIfErr("PORT_CASTLING", "SSH_SERVICE_STOP", "event=systemd.ssh_stop_failed")
 	} else {
-		sys.LogAction("PORT_CASTLING", "SSH_SERVICE_RESTORE", "SUCCESS", i18n.TrEvent("port_castling.ssh_service_restore"))
+		sys.LogAction("PORT_CASTLING", "SSH_SERVICE_STOP", "SUCCESS",
+			i18n.TrEvent("port_castling.ssh_service_stop"))
 	}
 
-	// И только потом мягко дозапускаем сокет-активатор хоста
+	// Передаём управление портом сокет-активатору: он делает bind() на чистый порт 22.
+	// Критичная команда: сбой сокета = порт 22 без слушателя = SSH недоступен.
+	// Поэтому: ALERT в файл ОБЯЗАТЕЛЬНО, затем ошибка наружу (точка невозврата пройдена,
+	// но оператор обязан увидеть сбой и поднять ssh.service вручную).
 	startSocketOffRes := sys.RunTimeout(10*time.Second, "systemctl", "start", "ssh.socket")
-	startSocketOffRes.LogWarnIfErr("PORT_CASTLING", "SOCKET_UNMASK", "event=systemd.socket_start_failed")
-
-	if limiterWasActive {
-		time.Sleep(restartSleep)
-		_ = SetCustomRateLimit(22, "open_ssh", "Open SSH", "ON")
-		sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "SUCCESS", i18n.TrEvent("port_castling.limiter_restore_22"))
+	if startSocketOffRes.Err != nil {
+		stderr := strings.TrimSpace(startSocketOffRes.Stderr)
+		// Классическая схема: в системе нет юнита сокета (not found) —
+		// падаем в прямой старт ssh.service, иначе хост останется без SSH.
+		if strings.Contains(stderr, "not found") || strings.Contains(startSocketOffRes.Err.Error(), "not found") {
+			sys.LogAction("PORT_CASTLING", "SSH_SERVICE_FALLBACK", "WARNING",
+				i18n.TrEvent("port_castling.ssh_service_fallback"))
+			fallbackRes := sys.RunTimeout(20*time.Second, "systemctl", "start", "ssh.service")
+			if fallbackRes.Err != nil {
+				sys.LogAction("PORT_CASTLING", "SSH_SOCKET_RESTORE", "ALERT",
+					i18n.TrEventf("port_castling.ssh_socket_restore_failed",
+						fallbackRes.Err, strings.TrimSpace(fallbackRes.Stderr)))
+				return fmt.Errorf(i18n.T.PortMoveSshSocketRestoreFailed,
+					fallbackRes.Err, strings.TrimSpace(fallbackRes.Stderr))
+			}
+		} else {
+			sys.LogAction("PORT_CASTLING", "SSH_SOCKET_RESTORE", "ALERT",
+				i18n.TrEventf("port_castling.ssh_socket_restore_failed", startSocketOffRes.Err, stderr))
+			return fmt.Errorf(i18n.T.PortMoveSshSocketRestoreFailed, startSocketOffRes.Err, stderr)
+		}
+	} else {
+		sys.LogAction("PORT_CASTLING", "SSH_SOCKET_RESTORE", "SUCCESS",
+			i18n.TrEvent("port_castling.ssh_socket_restore"))
 	}
 
-	// ВАРИАНТ А (v8.1.3): перескан и после обратной рокировки —
+	time.Sleep(restartSleep) // Фиксация стабилизации системы
+
+	// ─────────────────────────────────────────────────────────────
+	// R-8: журнал не умеет молчать о результате обратной рокировки.
+	// Финальная запись SUCCESS ставится ТОЛЬКО после того, как контрольное
+	// соединение убедилось: на порту 22 действительно есть слушатель.
+	// ─────────────────────────────────────────────────────────────
+	if err := waitForSshListener(defaultPortInt, 5, 400*time.Millisecond); err != nil {
+		sys.LogAction("PORT_CASTLING", "SSH_SERVICE_RESTORE", "ALERT",
+			i18n.TrEventf("port_castling.ssh_listener_verify_failed", 22, err))
+		return fmt.Errorf(i18n.T.PortMoveSshListenerVerifyFailed, 22, err)
+	}
+	sys.LogAction("PORT_CASTLING", "SSH_SERVICE_RESTORE", "SUCCESS",
+		i18n.TrEvent("port_castling.ssh_service_restore"))
+
+	// ВАРИАНТ А (v8.4.6): СИНХРОННЫЙ перескан после обратной рокировки —
 	// инвентарь обязан увидеть sshd, вернувшийся на 22.
-	go func() {
-		_ = config.RunPerimeterInventoryScan()
-		sys.LogAction("PORT_CASTLING", "PERIMETRE_RESCAN", "SUCCESS",
-			i18n.TrEvent("port_castling.perimetre_rescan_off"))
+	// (Аналогично фазе ON: убираем `go func()` для корректной работы из CLI).
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				sys.LogAction("PORT_CASTLING", "PERIMETRE_RESCAN", "ALERT",
+					i18n.TrEventf("port_castling.perimetre_rescan_panic", r))
+			}
+		}()
+		if err := config.RunPerimeterInventoryScan(); err != nil {
+			sys.LogAction("PORT_CASTLING", "PERIMETRE_RESCAN", "WARNING",
+				i18n.TrEventf("port_castling.perimetre_rescan_failed", err))
+		} else {
+			sys.LogAction("PORT_CASTLING", "PERIMETRE_RESCAN", "SUCCESS",
+				i18n.TrEvent("port_castling.perimetre_rescan_off"))
+		}
 	}()
 
 	return nil
@@ -676,15 +777,25 @@ func modifySshConfig(port string) error {
 		return fmt.Errorf(i18n.T.PortMoveSshdConfigReadFailed, err)
 	}
 	lines := strings.Split(string(input), "\n")
+
 	found := false
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "Port ") || strings.HasPrefix(trimmed, "#Port ") {
-			lines[i] = "Port " + port
-			found = true
-			break
+		// Ловим все варианты написания: "Port ", "#Port ", "# Port "
+		if strings.HasPrefix(trimmed, "Port ") || strings.HasPrefix(trimmed, "#Port ") || strings.HasPrefix(trimmed, "# Port ") {
+			if !found {
+				// Первая найденная директива становится активной
+				lines[i] = "Port " + port
+				found = true
+			} else {
+				// Все последующие принудительно комментируем (защита от дубликатов в .d)
+				if strings.HasPrefix(trimmed, "Port ") {
+					lines[i] = "# " + trimmed
+				}
+			}
 		}
 	}
+
 	if !found {
 		lines = append(lines, "Port "+port)
 	}
@@ -692,6 +803,49 @@ func modifySshConfig(port string) error {
 		return fmt.Errorf(i18n.T.PortMoveSshdConfigWriteFailed, err)
 	}
 	return nil
+}
+
+// waitForSshListener — контрольная проверка наличия слушателя на порту (БЛОК 3.1: SUCCESS не вслепую).
+// Делаем несколько попыток с паузой: systemd-сокет-активатор может занять порт
+// не мгновенно, а спустя доли секунды после start.
+// Успех TCP-подключения = порт действительно удерживается слушателем.
+// Контрольное соединение закрывается сразу, без обмена аутентификации.
+func waitForSshListener(port, attempts int, pause time.Duration) error {
+	var lastErr error
+	for i := 0; i < attempts; i++ {
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 2*time.Second)
+		if err == nil {
+			// Connect принял backlog systemd — это ещё не доказательство жизни sshd.
+			// Доказательство — приветственный баннер: живой sshd шлёт его сразу.
+			_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+			buf := make([]byte, len("SSH-2.0-"))
+			_, readErr := io.ReadFull(conn, buf)
+			_ = conn.Close()
+			if readErr == nil && (string(buf) == "SSH-2.0-" || string(buf) == "SSH-1.99-") {
+				return nil // сервер OpenSSH действительно отвечает
+			}
+			lastErr = fmt.Errorf("баннер OpenSSH не получен: read=%q err=%v", string(buf), readErr)
+		} else {
+			lastErr = err
+		}
+		time.Sleep(pause)
+	}
+	return lastErr
+}
+
+// restorePort22Perimeter — возврат правил UFW порта 22 по корпоративному стандарту v6.0.0.
+// Вызывается из двух мест: обратная рокировка OFF и откат рокировки ON (R-8).
+// БЛОК 3.1: возврат периметра порта 22 больше не слепой.
+func restorePort22Perimeter() {
+	if errTarpit := SetTarpitProtocol("CHECK"); errTarpit == nil {
+		allow22Res := sys.RunTimeout(10*time.Second, "ufw", "allow", "22/tcp", "comment", "Amber Guard Lab. Active Tarpit Station")
+		allow22Res.LogWarnIfErr("PORT_CASTLING", "PERIMETER_RESTORE", "event=ufw.tarpit_allow_failed")
+	} else {
+		allow22Res := sys.RunTimeout(10*time.Second, "ufw", "allow", "22/tcp", "comment", "Amber Guard Lab. SSH Standard")
+		allow22Res.LogWarnIfErr("PORT_CASTLING", "PERIMETER_RESTORE", "event=ufw.standard_allow_failed")
+	}
+	reloadRes := sys.RunTimeout(10*time.Second, "ufw", "reload")
+	reloadRes.LogWarnIfErr("PORT_CASTLING", "PERIMETER_RESTORE", "event=ufw.reload_failed")
 }
 
 // ensureWatcherUnit генерирует и устанавливает юнит `agld_watcher.service`,

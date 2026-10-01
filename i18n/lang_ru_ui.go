@@ -143,6 +143,9 @@ func init() {
 		PortMoveSshdConfigReadFailed:     "ошибка доступа к sshd_config: %w",
 		PortMoveSshdConfigWriteFailed:    "ошибка записи sshd_config: %w",
 		PortMoveWatcherUnitWriteFailed:   "сбой записи юнита на диск: %w",
+		PortMoveSshSocketRestoreFailed:   "ошибка запуска ssh.socket при обратной рокировке: %w; stderr=%s",
+		PortMoveSshListenerVerifyFailed:  "контрольная проверка порта %d провалилась: после обратной рокировки никто не слушает: %v",
+		PortMovePerimetreRescanFailed:    "ошибка обновления инвентаря периметра: %v",
 
 		// --- internal/armor/ssh_limit_protocol.go ---
 		SshLimitCollisionLockError: "блокировка: на порту 22 активирована дегтярная ловушка киберразведки",

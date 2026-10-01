@@ -147,6 +147,9 @@ type UITranslation struct {
 	PortMoveSshdConfigReadFailed     string
 	PortMoveSshdConfigWriteFailed    string
 	PortMoveWatcherUnitWriteFailed   string
+	PortMoveSshSocketRestoreFailed   string
+	PortMoveSshListenerVerifyFailed  string
+	PortMovePerimetreRescanFailed    string
 
 	// --- internal/armor/ssh_limit_protocol.go ---
 	SshLimitCollisionLockError string

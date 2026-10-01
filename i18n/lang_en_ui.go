@@ -143,6 +143,9 @@ func init() {
 		PortMoveSshdConfigReadFailed:     "failed to access sshd_config: %w",
 		PortMoveSshdConfigWriteFailed:    "failed to write sshd_config: %w",
 		PortMoveWatcherUnitWriteFailed:   "failed to write unit to disk: %w",
+		PortMoveSshSocketRestoreFailed:   "failed to start ssh.socket during reverse castling: %w; stderr=%s",
+		PortMoveSshListenerVerifyFailed:  "control verify of port %d failed: no listener after reverse castling: %v",
+		PortMovePerimetreRescanFailed:    "perimeter inventory scan failed: %v",
 
 		// --- internal/armor/ssh_limit_protocol.go ---
 		SshLimitCollisionLockError: "blocked: a cyber-recon tarpit is active on port 22",
