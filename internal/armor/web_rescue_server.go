@@ -15,9 +15,11 @@ package armor
 import (
 	"crypto/tls"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -128,6 +130,7 @@ func startWebRescueServer(port int) *http.Server {
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       30 * time.Second,
 		MaxHeaderBytes:    1 << 16,
+		ErrorLog:          log.New(httpErrorLogAdapter{}, "", 0),
 	}
 	go func() {
 		if err := srv.ListenAndServeTLS(rescueCertPath, rescueKeyPath); err != nil && err != http.ErrServerClosed {
@@ -579,4 +582,42 @@ func handle404Stub(w http.ResponseWriter, r *http.Request) {
         </body>
         </html>
     `)
+}
+
+// httpErrorLogAdapter — адаптер ErrorLog стандартного HTTP-сервера.
+// PURPOSE: стандартная библиотека пишет TLS/HTTP-сбои своим форматом и по-английски,
+//
+//	минуя sys.LogAction и i18n (доктрина 6.7). Перенаправляем в журнал AGL.
+//
+// CONTRACT: реализует io.Writer для log.New; разбирает известные паттерны stdlib,
+//
+//	нерасобранные строки идут в журнал как служебные сообщения (видимость не теряем).
+//
+// SIDE-EFFECTS: пишет в журнал через sys.LogAction; иного I/O нет.
+type httpErrorLogAdapter struct{}
+
+// Write разбирает одну строку служебных сообщений HTTP-сервера.
+func (httpErrorLogAdapter) Write(p []byte) (int, error) {
+	line := strings.TrimSpace(string(p))
+	if line == "" {
+		return len(p), nil
+	}
+	// ПАТТЕРН: "http: TLS handshake error from 1.2.3.4:5678: remote error: tls: unknown certificate".
+	if strings.Contains(line, "TLS handshake error from") {
+		client := line
+		if idx := strings.Index(client, "TLS handshake error from"); idx >= 0 {
+			client = client[idx+len("TLS handshake error from"):]
+		}
+		client = strings.TrimSpace(client)
+		if idx := strings.Index(client, ": remote error"); idx >= 0 {
+			client = client[:idx]
+		}
+		sys.LogAction("WEB_RESCUE", "TLS_HANDSHAKE_REJECTED", "WARNING",
+			i18n.TrEventf("web_rescue.tls_handshake_rejected", client))
+		return len(p), nil
+	}
+	// Нерасобранная строка: сохраняем видимость в структурированном виде.
+	sys.LogAction("WEB_RESCUE", "SERVER_ERRORLOG", "WARNING",
+		i18n.TrEventf("web_rescue.server_errorlog", line))
+	return len(p), nil
 }

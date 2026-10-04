@@ -31,14 +31,16 @@ func init() {
 			"web_rescue.tls_cert_generated": "Сгенерирован самоподписанный TLS-сертификат (ECDSA P-256, 10 лет). SHA-256 отпечаток для пиннинга: %s",
 
 			// --- internal/armor/web_rescue_server.go ---
-			"web_rescue.ufw_gate_open":      "Открыт UFW-гейт канала веб-стука: порт %d",
-			"web_rescue.tls_fail_closed":    "TLS-сертификат недоступен: %v. Сервер веб-стука НЕ запущен (fail closed). Ретрай на следующем тике.",
-			"web_rescue.server_fail":        "Сбой HTTPS-сервера веб-стука: %v",
-			"web_rescue.server_start":       "Автономный HTTPS-сервер веб-стука запущен на порту %d (TLS 1.2+)",
-			"web_rescue.ufw_gate_closed":    "Гейт UFW веб-стука снят: порт %d",
-			"web_rescue.signal_write_fail":  "Не удалось записать файл сигнала: %v",
-			"web_rescue.signal_written":     "Файл сигнала записан (0600). IP: %s. Воркер подхватит на следующем тике.",
-			"web_rescue.bruteforce_lockout": "Пять неудачных попыток пароля подряд — канал веб-стука заблокирован на 60 секунд.",
+			"web_rescue.ufw_gate_open":          "Открыт UFW-гейт канала веб-стука: порт %d",
+			"web_rescue.tls_fail_closed":        "TLS-сертификат недоступен: %v. Сервер веб-стука НЕ запущен (fail closed). Ретрай на следующем тике.",
+			"web_rescue.server_fail":            "Сбой HTTPS-сервера веб-стука: %v",
+			"web_rescue.server_start":           "Автономный HTTPS-сервер веб-стука запущен на порту %d (TLS 1.2+)",
+			"web_rescue.ufw_gate_closed":        "Гейт UFW веб-стука снят: порт %d",
+			"web_rescue.signal_write_fail":      "Не удалось записать файл сигнала: %v",
+			"web_rescue.signal_written":         "Файл сигнала записан (0600). IP: %s. Воркер подхватит на следующем тике.",
+			"web_rescue.bruteforce_lockout":     "Пять неудачных попыток пароля подряд — канал веб-стука заблокирован на 60 секунд.",
+			"web_rescue.tls_handshake_rejected": "Клиент %s отклонил самоподписанный сертификат сервера (tls: unknown certificate). Норма при первом входе: добавьте исключение в браузере или сверьте SHA-256 отпечаток из --info.",
+			"web_rescue.server_errorlog":        "Служебное сообщение HTTPS-сервера веб-стука: %s",
 
 			// --- internal/armor/watcher_protocol.go ---
 			"watcher.start":                  "Наблюдатель простоя администратора запущен. Период тикера: 60 сек.",

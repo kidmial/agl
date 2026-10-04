@@ -31,14 +31,16 @@ func init() {
 			"web_rescue.tls_cert_generated": "Generated self-signed TLS certificate (ECDSA P-256, 10 years). SHA-256 fingerprint for pinning: %s",
 
 			// --- internal/armor/web_rescue_server.go ---
-			"web_rescue.ufw_gate_open":      "Web rescue UFW gate opened: port %d",
-			"web_rescue.tls_fail_closed":    "TLS certificate unavailable: %v. Web rescue server NOT started (fail closed). Retry on next tick.",
-			"web_rescue.server_fail":        "Web rescue HTTPS server failure: %v",
-			"web_rescue.server_start":       "Autonomous web rescue HTTPS server started on port %d (TLS 1.2+)",
-			"web_rescue.ufw_gate_closed":    "Web rescue UFW gate removed: port %d",
-			"web_rescue.signal_write_fail":  "Failed to write signal file: %v",
-			"web_rescue.signal_written":     "Signal file written (0600). IP: %s. Worker will pick up on next tick.",
-			"web_rescue.bruteforce_lockout": "Five consecutive failed password attempts — web rescue channel locked for 60 seconds.",
+			"web_rescue.ufw_gate_open":          "Web rescue UFW gate opened: port %d",
+			"web_rescue.tls_fail_closed":        "TLS certificate unavailable: %v. Web rescue server NOT started (fail closed). Retry on next tick.",
+			"web_rescue.server_fail":            "Web rescue HTTPS server failure: %v",
+			"web_rescue.server_start":           "Autonomous web rescue HTTPS server started on port %d (TLS 1.2+)",
+			"web_rescue.ufw_gate_closed":        "Web rescue UFW gate removed: port %d",
+			"web_rescue.signal_write_fail":      "Failed to write signal file: %v",
+			"web_rescue.signal_written":         "Signal file written (0600). IP: %s. Worker will pick up on next tick.",
+			"web_rescue.bruteforce_lockout":     "Five consecutive failed password attempts — web rescue channel locked for 60 seconds.",
+			"web_rescue.tls_handshake_rejected": "Client %s rejected the self-signed server certificate (tls: unknown certificate). Expected on first visit: add a browser exception or verify the SHA-256 fingerprint from --info.",
+			"web_rescue.server_errorlog":        "HTTPS web-knock server service message: %s",
 
 			// --- internal/armor/watcher_protocol.go ---
 			"watcher.start":                  "Admin idle watcher started. Ticker period: 60 sec.",
