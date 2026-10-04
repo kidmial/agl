@@ -544,25 +544,27 @@ type UITranslation struct {
 	SettingsLabelWebRescueEnabled            string
 	SettingsLabelWebRescuePort               string
 	SettingsLabelWebRescuePassword           string
-	SettingsLabelBack                        string
-	SettingsUiTitleBox                       string
-	SettingsUiHeaderDesc                     string
-	SettingsUiFormTitle                      string
-	SettingsUiEditingMode                    string
-	SettingsUiEnterNew                       string
-	SettingsUiInputPrompt                    string
-	SettingsUiHintNav1                       string
-	SettingsUiHintNav2                       string
-	SettingsUiHintEsc                        string
-	SettingsUiStatusConsoleTitle             string
-	SettingsUiEmptyVal                       string
-	SettingsUiOutOfBounds                    string
-	SettingsUiLangSupport                    string
-	SettingsGroupLang                        string
-	SettingsGroupTarpit                      string
-	SettingsGroupLimits                      string
-	SettingsGroupSystem                      string
-	SettingsGroupDefault                     string
+	// --- v8.4.7: Веб-сервер спасения (физический слушатель) ---
+	SettingsLabelWebServerEnabled string // Тумблер физического HTTP-слушателя
+	SettingsLabelBack             string
+	SettingsUiTitleBox            string
+	SettingsUiHeaderDesc          string
+	SettingsUiFormTitle           string
+	SettingsUiEditingMode         string
+	SettingsUiEnterNew            string
+	SettingsUiInputPrompt         string
+	SettingsUiHintNav1            string
+	SettingsUiHintNav2            string
+	SettingsUiHintEsc             string
+	SettingsUiStatusConsoleTitle  string
+	SettingsUiEmptyVal            string
+	SettingsUiOutOfBounds         string
+	SettingsUiLangSupport         string
+	SettingsGroupLang             string
+	SettingsGroupTarpit           string
+	SettingsGroupLimits           string
+	SettingsGroupSystem           string
+	SettingsGroupDefault          string
 
 	// --- M5 (v8.4.0): Автообновления сервера ---
 	SettingsLabelAutoUpdateEnabled string // Тумблер автообновлений (0=выкл / 1=вкл)
@@ -783,6 +785,9 @@ func InitLanguage(currentLang string) {
 	}
 	if T.SettingsLabelAutoUpdateReboot == "" {
 		T.SettingsLabelAutoUpdateReboot = "Auto-reboot after kernel updates (0=off / 1=on)"
+	}
+	if T.SettingsLabelWebServerEnabled == "" {
+		T.SettingsLabelWebServerEnabled = "HTTPS Web Server (0=off / 1=on)"
 	}
 
 	if val, ok := LogLanguages[currentLang]; ok {

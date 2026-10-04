@@ -34,6 +34,20 @@ const (
 	MarkerSshMoved       = DirLib + "/agl_ssh_moved"          // Маркер рокировки (кастлинга) SSH
 	FileAdminIdleCounter = DirLib + "/agl_admin_idle_counter" // Счётчик простоя администратора (Watcher)
 
+	// === МАРКЕРЫ КАНАЛА СПАСЕНИЯ (RESCUE CHANNEL MARKERS) ===
+
+	// PURPOSE: Маркер активного канала спасения.
+	// CONTRACT: Третий фактор трёхфакторного статуса (факт на диске).
+	//           Подтверждает, что канал спасения физически активен.
+	// SIDE-EFFECTS: Создаётся демоном при активации (совпадение 3 условий),
+	//               удаляется при деактивации или обратной рокировке.
+	MarkerRescueActive = DirLib + "/agl_rescue_active"
+
+	// PURPOSE: Маркер ожидания детекции IP-адреса.
+	// CONTRACT: Создаётся, если при активации канала переменная SSH_CONNECTION пуста (VNC-доступ).
+	// SIDE-EFFECTS: При первом веб-стуке processWebKnock() удалит этот маркер и создаст SIG_HIDDEN.
+	MarkerRescueIpPending = DirLib + "/agl_rescue_ip_pending"
+
 	// Журналы подсистем
 	FileTarpitConnLog = DirLog + "/tarpit_connection.log" // Журнал подключений дегтярной ямы
 	FileTarpitRptLog  = DirLog + "/tarpit_report.log"     // Отчётный журнал дегтярной ямы

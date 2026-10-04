@@ -547,6 +547,7 @@ func init() {
 		SettingsLabelWebRescueEnabled:            "Канал спасения: веб-стук (0=выкл / 1=вкл)",
 		SettingsLabelWebRescuePort:               "Порт автономного сервера веб-стука",
 		SettingsLabelWebRescuePassword:           "Пароль веб-стука (псевдо-2FA)",
+		SettingsLabelWebServerEnabled:            "HTTPS Веб-сервер (0=выкл / 1=вкл)",
 		SettingsLabelBack:                        "Назад в главное меню",
 		SettingsUiTitleBox:                       " Amber Guard Laboratory ",
 		SettingsUiHeaderDesc:                     "Глобальная Конфигурация Периметра (SETTINGS) ",

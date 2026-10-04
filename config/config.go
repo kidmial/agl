@@ -85,6 +85,13 @@ type Config struct {
 	// Дефолт: 55111. Настраивается через SETTINGS.
 	WebRescuePort int `json:"web_rescue_port"`
 
+	// --- Веб-сервер спасения (физический слушатель) ---
+	// PURPOSE: Управляет физическим жизненным циклом HTTP-сервера на WebRescuePort.
+	// CONTRACT: Независим от рокировки: сервер может жить для будущей TUI-панели.
+	//           Если false — сокет закрыт, вотчер не стартует вообще.
+	// SIDE-EFFECTS: Мутация этого поля триггерит syncWebRescueServer() в вотчере.
+	WebServerEnabled bool `json:"web_server_enabled"`
+
 	// Пароль псевдо-2FA для веб-стука.
 	// ВАЖНО: каждый админ должен сменить пароль на уникальный!
 	WebRescuePassword string `json:"web_rescue_password,omitempty"`
@@ -166,6 +173,7 @@ func LoadConfig(filePath string) error {
 	local.TarpitBacklog = 1024
 	local.AdminIdleTimeout = 10     // M2: дефолт 10 минут
 	local.WebRescueEnabled = true   // M3: канал спасения включён по умолчанию
+	local.WebServerEnabled = true   // v8.4.7: физический HTTP-слушатель включён по умолчанию
 	local.WebRescuePort = 55111     // M3b: порт автономного HTTP-сервера веб-стука
 	local.AutoUpdateEnabled = false // M5: дефолт — автообновления ВЫКЛЮЧЕНЫ
 	local.AutoUpdateReboot = false  // M5: дефолт — ребут только руками
@@ -228,10 +236,12 @@ func LoadConfig(filePath string) error {
 		}
 	}
 
-	// v8.2.0 (1.1): дефолтного пароля НЕТ. Свежий конфиг = канал выключен,
+	// v8.4.7 (Fail-Closed): дефолтного пароля НЕТ. Свежий конфиг = канал выключен,
 	// пока админ осознанно не задаст собственный пароль через SETTINGS.
+	// Без пароля оба тумблера принудительно гасятся: сокет не открывается, вотчер не стартует.
 	if local.WebRescuePasswordHash == "" && local.WebRescuePassword == "" {
 		local.WebRescueEnabled = false
+		local.WebServerEnabled = false
 	}
 	// v8.2.0 (1.2): есть хэш — plaintext в ОЗУ обязан быть пустым.
 	if local.WebRescuePasswordHash != "" {

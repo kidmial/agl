@@ -32,6 +32,27 @@ const (
 // это состояние «до первого прикосновения AGL к SSH».
 const sshOriginalPath = "/etc/ssh/sshd_config.agl_original"
 
+// sshPrivSepDir — директория privilege separation, обязательная для sshd -t и старта sshd.
+// PURPOSE: /run — tmpfs: директория исчезает после ребута или ручной чистки.
+// CONTRACT: sshd -t без неё возвращает exit 255 «Missing privilege separation
+// directory» даже при идеальном sshd_config. Восстанавливаем ДО каждой валидации.
+// SIDE-EFFECTS: создаёт /run/sshd 0755 при отсутствии; молчит, если директория на месте.
+const sshPrivSepDir = "/run/sshd"
+
+// ensureSshPrivSepDir восстанавливает служебную директорию OpenSSH в ОЗУ.
+func ensureSshPrivSepDir() {
+	if _, err := os.Stat(sshPrivSepDir); err == nil {
+		return // директория на месте — тишина
+	}
+	if err := os.MkdirAll(sshPrivSepDir, 0755); err != nil {
+		sys.LogAction("PORT_CASTLING", "PRIVSEP_DIR_FAIL", "WARNING",
+			i18n.TrEventf("port_castling.privsep_dir_fail", sshPrivSepDir, err))
+		return
+	}
+	sys.LogAction("PORT_CASTLING", "PRIVSEP_DIR_RESTORED", "SUCCESS",
+		i18n.TrEventf("port_castling.privsep_dir_restored", sshPrivSepDir))
+}
+
 // sshBackupPrefix — префикс штампованных (rolling) бэкапов кастлинга.
 // Ротация трогает ТОЛЬКО файлы с этим префиксом:
 // якорь agl_original и системный ucf-dist остаются вне юрисдикции.
@@ -237,31 +258,11 @@ func prepareCastlingON(customPort string) (backupPath string, limiterWasActive b
 		return "", false, fmt.Errorf(i18n.T.PortMoveGeometryWriteFailed, err)
 	}
 
-	// ─────────────────────────────────────────────────────────────
-	// M2 (v8.1.2): Старт юнита наблюдателя простоя администратора.
-	// Юнит стартует при создании маркера `agl_ssh_moved`.
-	// ─────────────────────────────────────────────────────────────
-	if err := ensureWatcherUnit(); err != nil {
-		sys.LogAction("PORT_CASTLING", "WATCHER_UNIT_FAIL", "WARNING",
-			i18n.TrEventf("port_castling.watcher_unit_fail", err))
-	}
-
-	// БЛОК 3.1: старт вотчера больше не слепой.
-	daemonReloadRes := sys.RunTimeout(10*time.Second, "systemctl", "daemon-reload")
-	daemonReloadRes.LogWarnIfErr("PORT_CASTLING", "WATCHER_START", "event=systemd.daemon_reload_failed")
-
-	enableWatcherRes := sys.RunTimeout(10*time.Second, "systemctl", "enable", "agld_watcher.service")
-	enableWatcherRes.LogWarnIfErr("PORT_CASTLING", "WATCHER_START", "event=systemd.watcher_enable_failed")
-
-	startWatcherRes := sys.RunTimeout(10*time.Second, "systemctl", "start", "agld_watcher.service")
-	if startWatcherRes.Err != nil {
-		// Вотчер не стартовал — канал M2 деградировал, но рокировка важнее:
-		// миграция SSH продолжается, админ увидит WARNING в журнале.
-		startWatcherRes.LogWarnIfErr("PORT_CASTLING", "WATCHER_START", "event=systemd.watcher_start_failed")
-	} else {
-		sys.LogAction("PORT_CASTLING", "WATCHER_START", "SUCCESS",
-			i18n.TrEvent("port_castling.watcher_start"))
-	}
+	// === v8.4.7: ВОТЧЕР НЕ СТАРТУЕТ ПРИ ПЕРЕЕЗДЕ ===
+	// PURPOSE: Жизненный цикл вотчера независим от рокировки.
+	// CONTRACT: Вотчер стартует только когда WebServerEnabled = true (через main.go).
+	//           При рокировке вотчер может дремать или активировать канал спасения.
+	// SIDE-EFFECTS: Нет — юнит не создаётся и не стартует в этой фазе.
 
 	return backupPath, limiterWasActive, nil
 }
@@ -300,6 +301,8 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 
 	// v8.2.0 (1.8.2): валидация конфигурации перед рестартом sshd
 	// БЛОК 3.1: валидация через единый интерфейс, stderr в ошибке.
+	// v8.4.7: privsep-директория ДО валидации — /run есть tmpfs, директория могла исчезнуть после ребута.
+	ensureSshPrivSepDir()
 	sshTestRes := sys.RunTimeout(10*time.Second, "sshd", "-t")
 	if sshTestRes.Err != nil {
 		// Валидация провалилась — откатываем бэкап и прерываем рокировку.
@@ -327,7 +330,6 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 	// ─────────────────────────────────────────────────────────────
 	// БЛОК 3.1 (lint S1039): строка без форматных глаголов — Sprintf не нужен.
 	sigLocale := "Amber Guard Lab. Master Admin Anti-Lockout"
-	sigHidden := fmt.Sprintf("Amber Guard Lab. Private SSH Invisible Port %s", customPort)
 
 	// Правило 1: локальная петля (не испепеляется никогда).
 	// БЛОК 3.1: сбой не игнорируем — локальный доступ тоже канал спасения.
@@ -340,31 +342,44 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 			i18n.TrEventf("port_castling.anti_lockout_locale_created", customPort))
 	}
 
-	// Правило 2: точечный whitelist IP админа
-	adminIP := ""
-	sshConn := os.Getenv("SSH_CONNECTION")
-	if sshConn != "" {
-		parts := strings.Split(sshConn, " ")
-		if len(parts) > 0 {
-			adminIP = parts[0]
-		}
-	}
-	if adminIP != "" {
-		// Правило 2: точечный whitelist IP админа.
-		// БЛОК 3.1: сбой вставки = потенциальный локаут после рестарта sshd.
-		// Рокировку не рвём (локальная петля жива), но WARNING обязателен.
-		adminRes := sys.RunTimeout(10*time.Second, "ufw", "allow", "from", adminIP,
-			"to", "any", "port", customPort, "proto", "tcp", "comment", sigHidden)
-		if adminRes.Err != nil {
-			adminRes.LogWarnIfErr("PORT_CASTLING", "ANTI_LOCKOUT_ADMIN", "event=ufw.admin_allow_failed")
+	// === v8.4.7: SIG_HIDDEN НЕ СОЗДАЁТСЯ ПРИ ПЕРЕЕЗДЕ ===
+	// PURPOSE: Детект SSH_CONNECTION и создание SIG_HIDDEN — задача канала спасения.
+	// CONTRACT: SIG_HIDDEN создаётся только в двух точках:
+	//           (1) activateRescueChannel() — при активации канала
+	//           (2) processWebKnock() — при веб-стуке админа
+	// SIDE-EFFECTS: Нет — переезд создаёт только SIG_LOCALE и зеркальное правило.
+
+	// === v8.4.7: ЗЕРКАЛЬНОЕ ПРАВИЛО ДЛЯ CUSTOMPORT ===
+	// PURPOSE: При рокировке тип правила копируется с порта 22 на customPort.
+	// CONTRACT: Было: ufw limit 22/tcp → Стало: ufw limit customPort/tcp
+	//           Было: ufw allow 22/tcp → Стало: ufw allow customPort/tcp
+	//           Было: ufw reject 22/tcp → Стало: ufw reject customPort/tcp
+	// SIDE-EFFECTS: Модифицирует UFW (создаёт правило для customPort).
+
+	// Определяем тип правила на порту 22 через парсинг ufw status numbered
+	mirrorRuleType := detectRuleTypeForPort(defaultPort)
+	if mirrorRuleType != "" {
+		// Создаём зеркальное правило для customPort
+		mirrorRes := sys.RunTimeout(10*time.Second, "ufw", mirrorRuleType, customPort+"/tcp",
+			"comment", fmt.Sprintf("Amber Guard Lab. SSH Moved Port %s", customPort))
+		if mirrorRes.Err != nil {
+			mirrorRes.LogWarnIfErr("PORT_CASTLING", "MIRROR_RULE_CREATE", "event=ufw.mirror_rule_create_failed")
 		} else {
-			sys.LogAction("PORT_CASTLING", "ANTI_LOCKOUT_ADMIN", "SUCCESS",
-				i18n.TrEventf("port_castling.anti_lockout_admin", adminIP, customPort))
+			sys.LogAction("PORT_CASTLING", "MIRROR_RULE_CREATED", "SUCCESS",
+				i18n.TrEventf("port_castling.mirror_rule_created", customPort, mirrorRuleType))
 		}
 	} else {
-		// Сбой детекции: НЕ открывать подсеть. Только локальная петля + ALERT.
-		sys.LogAction("PORT_CASTLING", "ANTI_LOCKOUT_ALERT", "ALERT",
-			i18n.TrEvent("port_castling.anti_lockout_alert"))
+		sys.LogAction("PORT_CASTLING", "MIRROR_RULE_SKIP", "WARNING",
+			i18n.TrEvent("port_castling.mirror_rule_skip"))
+	}
+
+	// === v8.4.7: АКТИВАЦИЯ КАНАЛА СПАСЕНИЯ (ЕСЛИ 3 УСЛОВИЯ СОВПАЛИ) ===
+	// PURPOSE: Если канал спасения включён в конфиге И веб-сервер включён — активируем.
+	// CONTRACT: Вызывается activateRescueChannel() только если оба тумблера true.
+	//           При пустом SSH_CONNECTION создаётся маркер agl_rescue_ip_pending.
+	// SIDE-EFFECTS: Может создать SIG_HIDDEN, маркеры, стартовать юнит вотчера.
+	if config.C.WebRescueEnabled && config.C.WebServerEnabled {
+		activateRescueChannel()
 	}
 
 	// Жестко зачищаем старый периметр порта 22 от старых правил UFW.
@@ -498,6 +513,8 @@ func rollbackCastlingON(backupPath, customPort string) {
 	} else {
 		// Возвращаем периметр порта 22: правила UFW были зачищены в apply-фазе
 		restorePort22Perimeter()
+		// v8.4.7: privsep-директория ДО валидации — иначе откат спотыкается о ту же дыру.
+		ensureSshPrivSepDir()
 		if testRes := sys.RunTimeout(10*time.Second, "sshd", "-t"); testRes.Err != nil {
 			sys.LogAction("PORT_CASTLING", "SSHD_ROLLBACK_FAIL", "ALERT",
 				i18n.TrEventf("sshd.rollback_failed",
@@ -506,17 +523,16 @@ func rollbackCastlingON(backupPath, customPort string) {
 			restartRes := sys.RunTimeout(20*time.Second, "systemctl", "restart", "ssh.service")
 			restartRes.LogWarnIfErr("PORT_CASTLING", "ROLLBACK_SSH_RESTART", "event=systemd.rollback_restart_failed")
 		}
+		// v8.4.7: откат не оставляет артефактов рокировки на мёртвом порту.
+		// Зачистка ТОЛЬКО в успешной ветке: если sshd_config не восстановился, sshd всё ещё
+		// живёт на customPort — удаление его правил заперло бы админа от живого слушателя.
+		purgeCastlingRules(customPort)
 	}
 
-	// Останавливаем юнит наблюдателя
-	disableWatcherRes := sys.RunTimeout(10*time.Second, "systemctl", "disable", "agld_watcher.service")
-	disableWatcherRes.LogWarnIfErr("PORT_CASTLING", "ROLLBACK_WATCHER", "event=systemd.watcher_disable_failed")
-
-	stopWatcherRes := sys.RunTimeout(10*time.Second, "systemctl", "stop", "agld_watcher.service")
-	stopWatcherRes.LogWarnIfErr("PORT_CASTLING", "ROLLBACK_WATCHER", "event=systemd.watcher_stop_failed")
-
-	reloadRes := sys.RunTimeout(10*time.Second, "systemctl", "daemon-reload")
-	reloadRes.LogWarnIfErr("PORT_CASTLING", "ROLLBACK_WATCHER", "event=systemd.daemon_reload_failed")
+	// === v8.4.7: ВОТЧЕР НЕ ОСТАНАВЛИВАЕТСЯ ПРИ ОТКАТЕ ===
+	// PURPOSE: Жизненный цикл вотчера независим от рокировки.
+	// CONTRACT: При откате рокировки вотчер дремлет (если WebServerEnabled = true).
+	// SIDE-EFFECTS: Нет — юнит не останавливается в этой фазе.
 
 	sys.LogAction("PORT_CASTLING", "ROLLBACK_COMPLETE", "WARNING",
 		i18n.TrEvent("port_castling.rollback_complete"))
@@ -552,24 +568,18 @@ func prepareCastlingOFF(customPort string) (limiterWasActive bool) {
 	// Удаляем персистентный маркер геометрии v6.0.0
 	_ = os.Remove(markerFile)
 
-	// ─────────────────────────────────────────────────────────────
-	// M2 (v8.1.2): Стоп юнита наблюдателя простоя администратора.
-	// Юнит останавливается при удалении маркера `agl_ssh_moved`.
-	// ─────────────────────────────────────────────────────────────
-	// БЛОК 3.1: стоп вотчера больше не слепой.
-	disableWatcherRes := sys.RunTimeout(10*time.Second, "systemctl", "disable", "agld_watcher.service")
-	disableWatcherRes.LogWarnIfErr("PORT_CASTLING", "WATCHER_STOP", "event=systemd.watcher_disable_failed")
+	// === v8.4.7: ВОТЧЕР НЕ ОСТАНАВЛИВАЕТСЯ ПРИ ОБРАТНОЙ РОКИРОВКЕ ===
+	// PURPOSE: Жизненный цикл вотчера независим от рокировки.
+	// CONTRACT: Вотчер дремлет до следующего тика (если WebServerEnabled = true).
+	//           Останавливается только когда оба тумблера false (через main.go).
+	// SIDE-EFFECTS: Нет — юнит не останавливается в этой фазе.
 
-	stopWatcherRes := sys.RunTimeout(10*time.Second, "systemctl", "stop", "agld_watcher.service")
-	if stopWatcherRes.Err != nil {
-		stopWatcherRes.LogWarnIfErr("PORT_CASTLING", "WATCHER_STOP", "event=systemd.watcher_stop_failed")
-	} else {
-		sys.LogAction("PORT_CASTLING", "WATCHER_STOP", "SUCCESS",
-			i18n.TrEvent("port_castling.watcher_stop"))
-	}
-
-	reloadAfterWatcher := sys.RunTimeout(10*time.Second, "systemctl", "daemon-reload")
-	reloadAfterWatcher.LogWarnIfErr("PORT_CASTLING", "WATCHER_STOP", "event=systemd.daemon_reload_failed")
+	// === v8.4.7: УДАЛЕНИЕ МАРКЕРОВ КАНАЛА СПАСЕНИЯ ===
+	// PURPOSE: При обратной рокировке канал спасения деактивируется.
+	// CONTRACT: Удаляются маркеры agl_rescue_active и agl_rescue_ip_pending.
+	//           Существующие правила UFW НЕ удаляются (админ может быть в сессии).
+	// SIDE-EFFECTS: Удаляет маркеры в /var/lib/amberguard/states/.
+	deactivateRescueChannel()
 
 	return limiterWasActive
 }
@@ -609,6 +619,8 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 
 	// v8.2.0 (1.8.2): валидация конфигурации перед рестартом sshd
 	// БЛОК 3.1: валидация отката через единый интерфейс, stderr в ошибке.
+	// v8.4.7: privsep-директория ДО валидации отката.
+	ensureSshPrivSepDir()
 	sshTestOffRes := sys.RunTimeout(10*time.Second, "sshd", "-t")
 	if sshTestOffRes.Err != nil {
 		return fmt.Errorf(i18n.T.PortMoveValidationFailedOff,
@@ -616,40 +628,10 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 	}
 	sys.LogAction("PORT_CASTLING", "SSHD_CONFIG_RESTORE", "SUCCESS", i18n.TrEvent("port_castling.sshd_config_restore"))
 
-	// ─────────────────────────────────────────────────────────────
-	// M1 (v8.1.2): OFF — полная очистка правил анти-локаута.
-	// При возврате на порт 22, все правила для customPort (и SIG_HIDDEN,
-	// и SIG_LOCALE) должны быть безжалостно удалены как мусор.
-	// ─────────────────────────────────────────────────────────────
-	sigHidden := fmt.Sprintf("Amber Guard Lab. Private SSH Invisible Port %s", customPort)
-	sigLocale := "Amber Guard Lab. Master Admin Anti-Lockout"
-
-	// Парсим вывод ufw и удаляем ЛЮБЫЕ правила AGL для кастомного порта.
-	statusOffRes := sys.RunTimeout(5*time.Second, "ufw", "status", "numbered")
-	if statusOffRes.Err != nil {
-		statusOffRes.LogWarnIfErr("PORT_CASTLING", "ANTI_LOCKOUT_REMOVE", "event=ufw.status_failed")
-	} else {
-		lines := strings.Split(statusOffRes.Stdout, "\n")
-		// Итерируем в обратном порядке, чтобы номера правил не съезжали при удалении
-		for i := len(lines) - 1; i >= 0; i-- {
-			line := lines[i]
-			// Удаляем правило, если оно относится к кастомному порту И содержит нашу сигнатуру (внешнюю или локальную)
-			if strings.Contains(line, customPort) && (strings.Contains(line, sigHidden) || strings.Contains(line, sigLocale)) {
-				// Извлекаем номер правила через общую функцию (DRY)
-				numStr := extractRuleNumber(line)
-				if numStr != "" {
-					// БЛОК 3.1: удаление больше не слепое.
-					delRes := sys.RunTimeout(10*time.Second, "ufw", "--force", "delete", numStr)
-					if delRes.Err != nil {
-						delRes.LogWarnIfErr("PORT_CASTLING", "ANTI_LOCKOUT_REMOVE", "event=ufw.castling_rule_delete_failed")
-					} else {
-						sys.LogAction("PORT_CASTLING", "ANTI_LOCKOUT_REMOVE", "SUCCESS",
-							i18n.TrEventf("port_castling.anti_lockout_remove", customPort, numStr))
-					}
-				}
-			}
-		}
-	}
+	// v8.4.7: OFF — единая точка зачистки ВСЕХ артефактов рокировки: дверь админа,
+	// локальная петля, зеркало перенесённого порта и переходная строчная метка ранних сборок.
+	// Граничный матч customPort+"/tcp" устраняет коллизию префиксов портов (22 vs 2244).
+	purgeCastlingRules(customPort)
 
 	// ═══════════════════════════════════════════════════════════════════════════════
 	// STATEFUL-МИГРАЦИЯ ЛИМИТОВ (v8.2.4): взводим броню ДО переключения юнитов.
@@ -848,20 +830,60 @@ func restorePort22Perimeter() {
 	reloadRes.LogWarnIfErr("PORT_CASTLING", "PERIMETER_RESTORE", "event=ufw.reload_failed")
 }
 
-// ensureWatcherUnit генерирует и устанавливает юнит `agld_watcher.service`,
-// если он ещё не существует. Вызывается при кастлинге ON.
-// Паттерн: аналогично `agld_tarpit.service` в `tarpitctl`.
-func ensureWatcherUnit() error {
-	const servicePath = "/etc/systemd/system/agld_watcher.service"
-
-	// Если юнит уже существует — ничего не делаем
-	if _, err := os.Stat(servicePath); err == nil {
-		return nil
+// purgeCastlingRules удаляет ВСЕ правила AGL кастомного порта при обратной рокировке и откате.
+// PURPOSE: единая точка зачистки артефактов рокировки: дверь админа, локальная петля,
+// правило перенесённого порта (зеркало) и переходная строчная метка ранних сборок.
+// CONTRACT: порт матчится гранично (customPort+"/tcp"): префиксы портов коллизируют.
+// Отсутствие правил НЕ ошибка: зачистка best-effort, фаза не ломается.
+// SIDE-EFFECTS: модифицирует UFW; логирует каждое удаление.
+func purgeCastlingRules(customPort string) {
+	sigHidden := fmt.Sprintf("Amber Guard Lab. Private SSH Invisible Port %s", customPort)
+	sigLocale := "Amber Guard Lab. Master Admin Anti-Lockout"
+	sigMoved := fmt.Sprintf("Amber Guard Lab. SSH Moved Port %s", customPort)
+	// ПЕРЕХОДНАЯ метка строчным стилем ранних сборок v8.4.7 — до полной миграции хостов.
+	sigMovedLegacy := fmt.Sprintf("Amber Guard Lab. Mirror rule for port %s", customPort)
+	statusRes := sys.RunTimeout(5*time.Second, "ufw", "status", "numbered")
+	if statusRes.Err != nil {
+		statusRes.LogWarnIfErr("PORT_CASTLING", "ANTI_LOCKOUT_REMOVE", "event=ufw.status_failed")
+		return
 	}
+	lines := strings.Split(statusRes.Stdout, "\n")
+	// Обратный обход: номера правил съезжают при удалении.
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
+		if !strings.Contains(line, customPort+"/tcp") {
+			continue
+		}
+		if strings.Contains(line, sigHidden) || strings.Contains(line, sigLocale) ||
+			strings.Contains(line, sigMoved) || strings.Contains(line, sigMovedLegacy) {
+			numStr := extractRuleNumber(line)
+			if numStr == "" {
+				continue
+			}
+			delRes := sys.RunTimeout(10*time.Second, "ufw", "--force", "delete", numStr)
+			if delRes.Err != nil {
+				delRes.LogWarnIfErr("PORT_CASTLING", "ANTI_LOCKOUT_REMOVE", "event=ufw.castling_rule_delete_failed")
+			} else {
+				sys.LogAction("PORT_CASTLING", "ANTI_LOCKOUT_REMOVE", "SUCCESS",
+					i18n.TrEventf("port_castling.anti_lockout_remove", customPort, numStr))
+			}
+		}
+	}
+}
 
-	// Определяем путь к бинарнику
-	binaryPath := config.FileBinary
-	serviceContent := fmt.Sprintf(`[Unit]
+// watcherUnitPath — абсолютный путь к systemd-юниту наблюдателя.
+// PURPOSE: единая константа пути; SyncWatcherUnit читает тот же файл.
+const watcherUnitPath = "/etc/systemd/system/agld_watcher.service"
+
+// watcherUnitContent собирает текст юнита agld_watcher.service.
+// PURPOSE: единственная точка истины для шаблона юнита.
+// CONTRACT: Restart=on-failure (v8.4.7): чистый выход (код 0) НЕ рестартует
+//
+//	(петля устранена), крах (panic, non-zero) рестартует (fail-closed).
+//
+// SIDE-EFFECTS: нет (чистая генерация строки).
+func watcherUnitContent() string {
+	return fmt.Sprintf(`[Unit]
 Description=Amber Guard Lab. - Admin Idle Watcher (Anti-Lockout Incineration)
 After=network-online.target
 Wants=network-online.target
@@ -870,16 +892,79 @@ Wants=network-online.target
 Type=exec
 User=root
 ExecStart=%s --watcher
-Restart=always
+Restart=on-failure
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-`, binaryPath)
+`, config.FileBinary)
+}
 
-	// Записываем юнит на диск
-	if err := os.WriteFile(servicePath, []byte(serviceContent), 0644); err != nil {
+// writeWatcherUnit — общая запись юнита на диск без проверки существования.
+// PURPOSE: тело записи вынесено один раз; обе стратегии зовут его (DRY).
+// SIDE-EFFECTS: пишет watcherUnitPath с правами 0644.
+func writeWatcherUnit() error {
+	if err := os.WriteFile(watcherUnitPath, []byte(watcherUnitContent()), 0644); err != nil {
 		return fmt.Errorf(i18n.T.PortMoveWatcherUnitWriteFailed, err)
 	}
 	return nil
+}
+
+// ensureWatcherUnit генерирует и устанавливает юнит, если он ещё не существует.
+// CONTRACT: существующий файл НЕ трогает (legacy-поведение, вызывалось кастлингом).
+// SIDE-EFFECTS: создаёт unit-файл только при отсутствии.
+func ensureWatcherUnit() error {
+	if _, err := os.Stat(watcherUnitPath); err == nil {
+		return nil
+	}
+	return writeWatcherUnit()
+}
+
+// ensureWatcherUnitForce принудительно перезаписывает юнит актуальным шаблоном.
+// PURPOSE: миграция старых хостов: Restart=always → Restart=on-failure.
+// CONTRACT: вызывается ТОЛЬКО из SyncWatcherUnit() при устаревшем шаблоне.
+// SIDE-EFFECTS: перезаписывает unit-файл; daemon-reload делает вызывающий.
+func ensureWatcherUnitForce() error {
+	return writeWatcherUnit()
+}
+
+// === v8.4.7: ВСПОМОГАТЕЛЬНЫЕ ХЕЛПЕРЫ ЗЕРКАЛЬНОГО ПРАВИЛА ===
+// ГЛОССАРИЙ: «зеркало» (внутренний термин команды) = правило доступности
+// перенесённого порта: наследует тип доступа порта 22 (allow/limit/reject)
+// и несёт UFW-метку «Amber Guard Lab. SSH Moved Port НОМЕР».
+// В пользовательских строках (журнал, TUI) термин «зеркало» НЕ используется.
+
+// detectRuleTypeForPort определяет тип правила (allow/limit/reject) для порта.
+// PURPOSE: При рокировке нужно скопировать тип правила с порта 22 на customPort.
+// CONTRACT: Парсит вывод `ufw status numbered` и возвращает тип правила.
+//
+//	Возвращает пустую строку, если правило не найдено.
+//
+// SIDE-EFFECTS: Нет (только чтение статуса UFW).
+func detectRuleTypeForPort(port string) string {
+	statusRes := sys.RunTimeout(5*time.Second, "ufw", "status", "numbered")
+	if statusRes.Err != nil {
+		statusRes.LogWarnIfErr("PORT_CASTLING", "MIRROR_RULE_DETECT", "event=ufw.status_failed")
+		return ""
+	}
+
+	lines := strings.Split(statusRes.Stdout, "\n")
+	for _, line := range lines {
+		// Ищем правило для порта 22 (например, "[ 1] 22/tcp LIMIT IN Anywhere")
+		if strings.Contains(line, port+"/tcp") {
+			if strings.Contains(line, "LIMIT") {
+				return "limit"
+			}
+			if strings.Contains(line, "ALLOW") {
+				return "allow"
+			}
+			if strings.Contains(line, "REJECT") {
+				return "reject"
+			}
+			if strings.Contains(line, "DENY") {
+				return "deny"
+			}
+		}
+	}
+	return ""
 }

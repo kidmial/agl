@@ -106,6 +106,7 @@ func ensureDefaultConfig(configPath string) {
 		AdminIdleTimeout: 10,                       // M2: дефолт 10 минут
 		WebRescueEnabled: true,                     // M3: канал спасения включён по умолчанию
 		WebRescuePort:    55111,                    // M3b: порт автономного HTTP-сервера веб-стука
+		WebServerEnabled: true,                     // v8.4.7: физический HTTP-слушатель включён по умолчанию
 		TarpitConnLog:    config.FileTarpitConnLog, // БЛОК 4.4: Константа пути
 		TarpitRptLog:     config.FileTarpitRptLog,  // БЛОК 4.4: Константа пути
 		AglLogarchiveDir: config.DirLog,            // БЛОК 4.4: Константа пути
@@ -465,6 +466,17 @@ func main() {
 			watcherLang = "en"
 		}
 		i18n.InitLanguage(watcherLang)
+		// === v8.4.7: КОНТРАКТ ЖИЗНЕННОГО ЦИКЛА ВОТЧЕРА ===
+		// PURPOSE: Вотчер стартует только если веб-сервер нужен.
+		// CONTRACT: Если оба тумблера (WebServerEnabled и WebRescueEnabled) выключены —
+		//           процесс не имеет смысла. Юнит должен быть остановлен.
+		// SIDE-EFFECTS: Нет — процесс завершается без побочных эффектов.
+		if !config.C.WebServerEnabled && !config.C.WebRescueEnabled {
+			sys.LogAction("WATCHER", "DISABLED_BY_CONFIG", "INFO",
+				i18n.TrEvent("watcher.disabled_by_config"))
+			return
+		}
+
 		// ИБ-АУДИТ: Фиксируем старт наблюдателя
 		sys.LogAction("WATCHER", "PROCESS_START", "SUCCESS",
 			i18n.TrEvent("main.watcher_process_start"))
@@ -692,6 +704,36 @@ func ReconcileSystemStates() {
 			}
 		}
 	}
+
+	// -------------------------------------------------------------
+	// КОНТУР 1.7: АУДИТ КАНАЛА СПАСЕНИЯ (v8.4.7)
+	// Проверяем трёхфакторный статус:
+	//   Декларация: config.C.WebRescueEnabled && config.C.WebServerEnabled
+	//   Факт: маркер agl_rescue_active
+	//   Рокировка: маркер agl_ssh_moved
+	//
+	// Если декларация есть, рокировка есть, но маркера нет → активировать.
+	// Если декларации нет, но маркер есть → удалить маркер.
+	// Если рокировки нет, но маркер есть → удалить маркер.
+	// -------------------------------------------------------------
+	castlingActive := armor.MarkerExists(config.MarkerSshMoved)
+	rescueDeclared := config.C.WebRescueEnabled && config.C.WebServerEnabled
+	rescueMarkerExists := armor.MarkerExists(config.MarkerRescueActive)
+
+	if castlingActive && rescueDeclared && !rescueMarkerExists {
+		// Декларация есть, рокировка есть, но маркера нет → активировать канал
+		sys.LogAction("RECONCILE", "RESCUE_CHANNEL_ACTIVATE", "PENDING",
+			i18n.TrEvent("reconcile.rescue_channel_activate"))
+		armor.ActivateRescueChannel()
+	} else if (!rescueDeclared || !castlingActive) && rescueMarkerExists {
+		// Декларации нет или рокировки нет, но маркер есть → удалить маркер
+		sys.LogAction("RECONCILE", "RESCUE_CHANNEL_DEACTIVATE", "PENDING",
+			i18n.TrEvent("reconcile.rescue_channel_deactivate"))
+		armor.DeactivateRescueChannel()
+	}
+	// v8.4.7: юнит вотчера следует за декларацией тумблеров.
+	// Закрывает дремлющие строки таблицы (3/4): сервер включён без рокировки → юнит жив.
+	armor.SyncWatcherUnit()
 
 	// -------------------------------------------------------------
 	// КОНТУР 2: АУДИТ СТАТУСА ДЕМОНА

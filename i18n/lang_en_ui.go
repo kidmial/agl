@@ -547,6 +547,7 @@ func init() {
 		SettingsLabelWebRescueEnabled:            "Rescue channel: web-knock (0=off / 1=on)",
 		SettingsLabelWebRescuePort:               "Autonomous web-knock server port",
 		SettingsLabelWebRescuePassword:           "Web-knock password (pseudo-2FA)",
+		SettingsLabelWebServerEnabled:            "HTTPS Web Server (0=off / 1=on)",
 		SettingsLabelBack:                        "Back to main menu",
 		SettingsUiTitleBox:                       " Amber Guard Laboratory ",
 		SettingsUiHeaderDesc:                     "Global Perimeter Configuration (SETTINGS) ",

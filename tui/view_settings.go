@@ -64,6 +64,12 @@ func InitSettingsRegistry() {
 			}
 			return "0"
 		}},
+		{Key: "web_server_enabled", Label: func() string { return i18n.T.SettingsLabelWebServerEnabled }, Group: "LIMITS", ValueGetter: func() string {
+			if config.C.WebServerEnabled {
+				return "1"
+			}
+			return "0"
+		}},
 		{Key: "web_rescue_port", Label: func() string { return i18n.T.SettingsLabelWebRescuePort }, Group: "LIMITS", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.WebRescuePort) }},
 		{Key: "web_rescue_password", Label: func() string { return i18n.T.SettingsLabelWebRescuePassword }, Group: "LIMITS", ValueGetter: func() string {
 			if config.C.WebRescuePasswordHash != "" {
@@ -178,8 +184,9 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 			finalRowStr = fmt.Sprintf("%-5s%s", cursor, label)
 		} else {
 			currentVal := item.ValueGetter()
-			// M5 (v8.4.0): бинарные тумблеры подсвечиваются жёлтыми скобками, как язык
-			if item.Key == "lang" || item.Key == "auto_update_enabled" || item.Key == "auto_update_reboot" {
+			// M5 (v8.4.0) + v8.4.7: бинарные тумблеры подсвечиваются жёлтыми скобками, как язык
+			if item.Key == "lang" || item.Key == "auto_update_enabled" || item.Key == "auto_update_reboot" ||
+				item.Key == "web_rescue_enabled" || item.Key == "web_server_enabled" {
 				finalRowStr = fmt.Sprintf("%-5s%-55s:  [[ %s ]](fg:yellow,mod:bold)", cursor, label, currentVal)
 			} else {
 				finalRowStr = fmt.Sprintf("%-5s%-55s:  %s", cursor, label, currentVal)
@@ -312,8 +319,9 @@ func HandleSettingsNavigation(key string) (bool, string) {
 			errStr := SaveSettingValueToDisk("lang", newLang)
 			return true, errStr
 		}
-		// M5 (v8.4.0): бинарные тумблеры — инверсия 0/1 стрелками без входа в режим ввода
-		if currentItem.Key == "auto_update_enabled" || currentItem.Key == "auto_update_reboot" {
+		// M5 (v8.4.0) + v8.4.7: бинарные тумблеры — инверсия 0/1 стрелками без входа в режим ввода
+		if currentItem.Key == "auto_update_enabled" || currentItem.Key == "auto_update_reboot" ||
+			currentItem.Key == "web_rescue_enabled" || currentItem.Key == "web_server_enabled" {
 			newVal := "1"
 			if currentItem.ValueGetter() == "1" {
 				newVal = "0"
@@ -389,7 +397,7 @@ func SaveSettingValueToDisk(key, value string) string {
 		// общую границу 1..65535 (ноль — легальное значение тумблера).
 		// ПОПУТНЫЙ ФИКС: web_rescue_enabled раньше НЕ мог принять "0" через
 		// эту границу (valInt <= 0) — канал спасения нельзя было выключить вводом.
-		isBinaryKey := key == "auto_update_enabled" || key == "auto_update_reboot" || key == "web_rescue_enabled"
+		isBinaryKey := key == "auto_update_enabled" || key == "auto_update_reboot" || key == "web_rescue_enabled" || key == "web_server_enabled"
 		if isBinaryKey {
 			if valInt != 0 && valInt != 1 {
 				return i18n.T.SettingsUiOutOfBounds
@@ -429,8 +437,13 @@ func SaveSettingValueToDisk(key, value string) string {
 			case "admin_idle_timeout":
 				c.AdminIdleTimeout = valInt
 			case "web_rescue_enabled":
-				// M3 (v8.1.2): Канал спасения веб-стук. 0 = выкл, 1 = вкл.
+				// v8.4.7: Канал спасения веб-стук. 0 = выкл, 1 = вкл.
+				// CONTRACT: Независимый тумблер от WebServerEnabled.
 				c.WebRescueEnabled = (valInt == 1)
+			case "web_server_enabled":
+				// v8.4.7: физический HTTP-слушатель. 0 = выкл, 1 = вкл.
+				// CONTRACT: Сервер может жить для будущей панели даже при выключенном спасении.
+				c.WebServerEnabled = (valInt == 1)
 			case "web_rescue_port":
 				// M3b (v8.1.2): Порт автономного HTTP-сервера веб-стука.
 				c.WebRescuePort = valInt
@@ -468,6 +481,13 @@ func SaveSettingValueToDisk(key, value string) string {
 	if key == "auto_update_enabled" {
 		if errUnits := service.SyncAutoUpdateUnits(config.C.AutoUpdateEnabled); errUnits != nil {
 			return i18n.T.ViewSettingsErrSavePrefix + errUnits.Error()
+		}
+	}
+
+	// v8.4.7: тумблеры канала спасения декларативны; факт приводим через сервисный мост.
+	if key == "web_rescue_enabled" || key == "web_server_enabled" {
+		if errSync := service.SyncRescueChannelState(); errSync != nil {
+			return i18n.T.ViewSettingsErrSavePrefix + errSync.Error()
 		}
 	}
 

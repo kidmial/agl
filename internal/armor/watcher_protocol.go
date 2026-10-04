@@ -39,6 +39,9 @@ var (
 	lastActive    bool         // M3c: последнее состояние сессии (для переходов)
 	webServer     *http.Server // M3c: управляемый инстанс веб-сервера
 	webServerPort int          // M3c: порт, на котором живёт текущий инстанс
+	// v8.4.7: факт открытого UFW-гейта 55111. Держим отдельно от сервера:
+	// сервер следует за WebServerEnabled, гейт — за каналом спасения (3 переменные).
+	rescueGateOpen bool
 	// M2-fix (v8.1.3): терминальное дремлющее состояние после испепеления.
 	// Вотчер ЖИВ (шлюз слушает, стуки принимаются), но НЕМ:
 	// без счёта, без церемоний, без логов — до возвращения админа или стука.
@@ -91,6 +94,25 @@ func watcherTick() {
 		sys.LogAction("WATCHER", "CONFIG_RELOAD_FAIL", "WARNING",
 			i18n.TrEventf("config.reload_failed", err))
 	}
+
+	// === v8.4.7: КОНТРАКТ ТРЁХ ПЕРЕМЕННЫХ КАНАЛА СПАСЕНИЯ ===
+	// PURPOSE: Канал спасения активен только при совпадении 3 условий:
+	//          (1) Рокировка активна (маркер agl_ssh_moved существует)
+	//          (2) WebServerEnabled = true (физический HTTP-слушатель)
+	//          (3) WebRescueEnabled = true (логика спасения)
+	// CONTRACT: Если хотя бы одно условие не совпало — вотчер дремлет.
+	//           Веб-сервер может жить для будущей панели, но спасение не работает.
+	// SIDE-EFFECTS: При дремоте пропускаются все фазы: стук, сессии, инкремент, инсинерация.
+	castlingActive := markerExists(config.MarkerSshMoved)
+	rescueActive := castlingActive && config.C.WebRescueEnabled && config.C.WebServerEnabled
+
+	if !rescueActive {
+		// Дремота: веб-сервер может жить для будущей панели,
+		// но спасение не работает.
+		syncWebRescueServer()
+		return
+	}
+
 	// [здесь остаётся твой блок M3g PasswordJustMigrated, если он внедрён]
 	// M3c: контроллер жизненного цикла веб-сервера (fail closed + ретрай)
 	syncWebRescueServer()
@@ -603,16 +625,26 @@ func processWebKnock() {
 }
 
 // syncWebRescueServer — M3c контроллер жизненного цикла веб-сервера.
-// SETTINGS горячие: смена порта → рестарт + смена гейта; тумблер 0 → стоп + снятие гейта.
+// v8.4.7 CONTRACT: сервер следует за WebServerEnabled; гейт следует за каналом
+// спасения (рокировка ∧ WebRescueEnabled ∧ WebServerEnabled). SETTINGS горячие:
+// смена порта → рестарт; тумблер 0 → стоп сервера и закрытие гейта.
+// SIDE-EFFECTS: биндит/закрывает слушатель 55111; модифицирует UFW-гейт только на переходах.
 func syncWebRescueServer() {
 	wantPort := config.C.WebRescuePort
 	if wantPort <= 0 {
 		wantPort = 55111
 	}
-	if !config.C.WebRescueEnabled {
+	// v8.4.7: гейт открыт только при совпадении всех трёх переменных канала.
+	rescueActive := markerExists(config.MarkerSshMoved) &&
+		config.C.WebRescueEnabled && config.C.WebServerEnabled
+
+	if !config.C.WebServerEnabled {
 		if webServer != nil {
 			_ = webServer.Close()
-			removeWebRescueGate(webServerPort)
+			if rescueGateOpen {
+				removeWebRescueGate(webServerPort)
+				rescueGateOpen = false
+			}
 			webServer = nil
 			webServerPort = 0
 			sys.LogAction("WEB_RESCUE", "SERVER_DISABLED", "SUCCESS",
@@ -621,22 +653,30 @@ func syncWebRescueServer() {
 		return
 	}
 	if webServer == nil {
-		ensureWebRescueGate(wantPort)
-		// M3f: fail closed — при сбое TLS сервер вернёт nil, ретрай на следующем тике
+		// v8.4.7: сервер стартует БЕЗ гейта — гейт взводит переходный блок ниже.
 		if srv := startWebRescueServer(wantPort); srv != nil {
 			webServer = srv
 			webServerPort = wantPort
 		}
-		return
-	}
-	if webServerPort != wantPort {
+	} else if webServerPort != wantPort {
 		_ = webServer.Close()
-		removeWebRescueGate(webServerPort)
-		ensureWebRescueGate(wantPort)
+		if rescueGateOpen {
+			removeWebRescueGate(webServerPort)
+			rescueGateOpen = false
+		}
 		webServer = startWebRescueServer(wantPort)
 		webServerPort = wantPort
 		sys.LogAction("WEB_RESCUE", "SERVER_RESTART", "SUCCESS",
 			i18n.TrEventf("web_rescue.server_restart", wantPort))
+	}
+	// v8.4.7: ГЕЙТ СЛЕДУЕТ ЗА КАНАЛОМ, А НЕ ЗА СЕРВЕРОМ.
+	// Только на переходах состояния: без церемоний каждый тик.
+	if rescueActive && !rescueGateOpen {
+		ensureWebRescueGate(wantPort)
+		rescueGateOpen = true
+	} else if !rescueActive && rescueGateOpen {
+		removeWebRescueGate(wantPort)
+		rescueGateOpen = false
 	}
 }
 
@@ -651,4 +691,261 @@ func extractRuleNumber(line string) string {
 		return ""
 	}
 	return strings.TrimSpace(line[idx+1 : idx+end])
+}
+
+// === v8.4.7: ВСПОМОГАТЕЛЬНЫЕ ХЕЛПЕРЫ КАНАЛА СПАСЕНИЯ ===
+
+// markerExists проверяет существование маркера на диске.
+// PURPOSE: Унифицированная проверка персистентных маркеров без дублирования os.Stat.
+// CONTRACT: Возвращает true только если файл существует и доступен для stat.
+// SIDE-EFFECTS: Нет (чистая функция, только чтение метаданных).
+func markerExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// === v8.4.7: АКТИВАЦИЯ И ДЕАКТИВАЦИЯ КАНАЛА СПАСЕНИЯ ===
+
+// activateRescueChannel активирует канал спасения при совпадении 3 переменных.
+// PURPOSE: Создаёт SIG_HIDDEN (если есть SSH_CONNECTION) и маркер agl_rescue_active.
+// CONTRACT:
+//   - Вызывается из: (1) prepareCastlingON если канал уже включён,
+//     (2) TUI-хендлер включения канала.
+//   - Создаёт SIG_HIDDEN если SSH_CONNECTION содержит валидный IP.
+//   - Создаёт маркер agl_rescue_active.
+//   - При пустом SSH_CONNECTION: лог WARNING + маркер agl_rescue_ip_pending.
+//
+// SIDE-EFFECTS:
+//   - Модифицирует UFW (создаёт правило SIG_HIDDEN).
+//   - Создаёт маркеры в /var/lib/amberguard/states/.
+func activateRescueChannel() {
+	// v8.4.7: контракт «стартует юнит, если не жив»: юнит следует за декларацией.
+	SyncWatcherUnit()
+	sys.LogAction("RESCUE", "CHANNEL_ACTIVATING", "PENDING",
+		i18n.TrEvent("rescue.activating"))
+
+	// Читаем SSH_CONNECTION для детекции IP админа
+	sshConn := os.Getenv("SSH_CONNECTION")
+	parts := strings.Fields(sshConn)
+
+	if len(parts) >= 1 {
+		adminIP := parts[0]
+		// Валидация IPv4
+		if isValidKnockIPv4(adminIP) {
+			// Создаём SIG_HIDDEN через processWebKnock-подобную логику
+			targetPort := fmt.Sprintf("%d", config.C.RealSshPort)
+			sigHidden := fmt.Sprintf("Amber Guard Lab. Private SSH Invisible Port %s", targetPort)
+
+			// Мгновенный iptables на позицию 1
+			iptablesRes := sys.RunTimeout(5*time.Second, "iptables",
+				"-I", "ufw-user-input", "1",
+				"-s", adminIP,
+				"-p", "tcp",
+				"--dport", targetPort,
+				"-j", "ACCEPT",
+				"-m", "comment",
+				"--comment", sigHidden,
+			)
+			iptablesRes.LogWarnIfErr("RESCUE", "SIG_HIDDEN_IPTABLES", "event=iptables.rescue_insert_failed")
+
+			// Синхронный ufw insert 1 (персистентность)
+			ufwRes := sys.RunTimeout(10*time.Second, "ufw",
+				"insert", "1", "allow",
+				"from", adminIP,
+				"to", "any",
+				"port", targetPort,
+				"proto", "tcp",
+				"comment", sigHidden,
+			)
+
+			if ufwRes.Err != nil {
+				ufwRes.LogWarnIfErr("RESCUE", "SIG_HIDDEN_UFW", "event=ufw.rescue_insert_failed")
+				sys.LogAction("RESCUE", "SIG_HIDDEN_PERSIST_FAIL", "ALERT",
+					i18n.TrEventf("rescue.sig_hidden_persist_failed", adminIP, targetPort))
+				return // Не создаём маркер, если правило не персистентно
+			}
+
+			sys.LogAction("RESCUE", "SIG_HIDDEN_CREATED", "SUCCESS",
+				i18n.TrEventf("rescue.activated_with_ip", adminIP, targetPort))
+		} else {
+			sys.LogAction("RESCUE", "INVALID_SSH_IP", "WARNING",
+				i18n.TrEventf("rescue.invalid_ssh_ip", adminIP))
+		}
+	} else {
+		// SSH_CONNECTION пуст (VNC-доступ)
+		sys.LogAction("RESCUE", "NO_SSH_CONNECTION", "WARNING",
+			i18n.TrEvent("rescue.no_ssh_connection"))
+
+		// Создаём маркер ожидания детекции IP
+		if err := os.WriteFile(config.MarkerRescueIpPending, []byte("pending"), 0644); err != nil {
+			sys.LogAction("RESCUE", "IP_PENDING_WRITE_FAIL", "ERROR",
+				i18n.TrEventf("rescue.ip_pending_write_fail", err))
+		}
+	}
+
+	// Создаём маркер активного канала
+	if err := os.WriteFile(config.MarkerRescueActive, []byte("active"), 0644); err != nil {
+		sys.LogAction("RESCUE", "MARKER_WRITE_FAIL", "ERROR",
+			i18n.TrEventf("rescue.marker_write_fail", err))
+		return
+	}
+
+	sys.LogAction("RESCUE", "CHANNEL_ACTIVATED", "SUCCESS",
+		i18n.TrEvent("rescue.activated"))
+}
+
+// deactivateRescueChannel деактивирует канал спасения.
+// PURPOSE: удаляет маркеры канала и хирургически зачищает двери SIG_HIDDEN.
+// CONTRACT:
+//   - Вызывается из: (1) TUI-хендлер выключения канала,
+//     (2) prepareCastlingOFF, (3) контур сверки main.go.
+//   - Удаляет маркеры agl_rescue_active и agl_rescue_ip_pending.
+//   - Удаляет ТОЛЬКО двери SIG_HIDDEN; правило доступности перенесённого порта,
+//     аварийный люк локальной петли, лимит и правила порта 22 неприкосновенны.
+//   - НЕ вызывает incinerateHiddenRules()/sealMoat(): кирпичной стены нет.
+//   - НЕ останавливает вотчер (дремлет до следующего тика).
+//
+// SIDE-EFFECTS: удаляет маркеры в /var/lib/amberguard/states/; модифицирует UFW.
+func deactivateRescueChannel() {
+	// v8.4.7-гигиена: наличие маркеров фиксируем ДО удаления — это признак живого канала.
+	hadMarkers := markerExists(config.MarkerRescueActive) || markerExists(config.MarkerRescueIpPending)
+	// Пург дверей идёт первым: факт зачистки важнее церемонии.
+	purgedCount := purgeSigHiddenRules()
+	if !hadMarkers && purgedCount == 0 {
+		return // Канал уже мёртв: ни маркеров, ни дверей. Тишина без церемоний.
+	}
+	sys.LogAction("RESCUE", "CHANNEL_DEACTIVATING", "PENDING",
+		i18n.TrEvent("rescue.deactivating"))
+
+	// Удаляем маркер активного канала
+	if err := os.Remove(config.MarkerRescueActive); err != nil && !os.IsNotExist(err) {
+		sys.LogAction("RESCUE", "MARKER_REMOVE_FAIL", "WARNING",
+			i18n.TrEventf("rescue.marker_remove_fail", err))
+	}
+
+	// Удаляем маркер ожидания IP
+	if err := os.Remove(config.MarkerRescueIpPending); err != nil && !os.IsNotExist(err) {
+		sys.LogAction("RESCUE", "IP_PENDING_REMOVE_FAIL", "WARNING",
+			i18n.TrEventf("rescue.ip_pending_remove_fail", err))
+	}
+
+	if purgedCount > 0 {
+		sys.LogAction("RESCUE", "RULES_PURGED", "SUCCESS",
+			i18n.TrEventf("rescue.rules_purged", purgedCount))
+	}
+
+	sys.LogAction("RESCUE", "CHANNEL_DEACTIVATED", "SUCCESS",
+		i18n.TrEvent("rescue.deactivated"))
+}
+
+// purgeSigHiddenRules удаляет все правила SIG_HIDDEN скрытого порта.
+// PURPOSE: единственная точка зачистки анти-локаут дверей при деактивации канала.
+// CONTRACT: обход ufw status numbered в обратном порядке (номера съезжают при удалении);
+//
+//	барьер 127.0.0.1/::1 неприкосновенен; LIMIT и бессточниковые не трогаем.
+//
+// SIDE-EFFECTS: модифицирует UFW; возвращает количество удалённых правил.
+func purgeSigHiddenRules() int {
+	port := readPortFromMarker()
+	if port == "" {
+		port = fmt.Sprintf("%d", config.C.RealSshPort)
+	}
+	statusRes := sys.RunTimeout(5*time.Second, "ufw", "status", "numbered")
+	if statusRes.Err != nil {
+		statusRes.LogWarnIfErr("RESCUE", "RULES_PURGE", "event=ufw.status_failed")
+		return 0
+	}
+	count := 0
+	lines := strings.Split(statusRes.Stdout, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
+		// БАРЬЕР: аварийный люк локальной петли неприкосновенен даже здесь.
+		if strings.Contains(line, "127.0.0.1") || strings.Contains(line, "::1") {
+			continue
+		}
+		// ФИЛЬТР: только наша сигнатура и только скрытый порт (гранично).
+		if !strings.Contains(line, sigHiddenPrefix) || !strings.Contains(line, port+"/tcp") {
+			continue
+		}
+		numStr := extractRuleNumber(line)
+		if numStr == "" {
+			continue
+		}
+		delRes := sys.RunTimeout(10*time.Second, "ufw", "--force", "delete", numStr)
+		if delRes.Err != nil {
+			delRes.LogWarnIfErr("RESCUE", "RULES_PURGE", "event=ufw.sig_hidden_delete_failed")
+			continue
+		}
+		count++
+	}
+	return count
+}
+
+// SyncWatcherUnit приводит жизненный цикл юнита вотчера к декларации тумблеров.
+// PURPOSE: Единственная точка старта/стопа юнита вне systemd-boot.
+// CONTRACT: Оба тумблера false → stop (чистый выход не рестартует, on-failure).
+//
+//	Любой тумблер true → юнит существует, свежий, активен.
+//	Миграция: старый шаблон Restart=always перезаписывается принудительно.
+//
+// SIDE-EFFECTS: пишет unit-файл, daemon-reload, systemctl start/stop.
+func SyncWatcherUnit() {
+	alive := config.C.WebServerEnabled || config.C.WebRescueEnabled
+	if !alive {
+		stopRes := sys.RunTimeout(10*time.Second, "systemctl", "stop", "agld_watcher.service")
+		stopRes.LogWarnIfErr("WATCHER", "UNIT_STOP", "event=systemd.watcher_stop_failed")
+		sys.LogAction("WATCHER", "UNIT_STOPPED_BY_CONFIG", "INFO",
+			i18n.TrEvent("watcher.unit_stopped_by_config"))
+		return
+	}
+	// Юнит отсутствует → создать; присутствует → проверить свежесть шаблона.
+	// v8.4.7: путь берём из константы пакета (единая точка истины с port_move_protocol.go).
+	_ = ensureWatcherUnit()
+	if data, errRead := os.ReadFile(watcherUnitPath); errRead == nil {
+		if !strings.Contains(string(data), "Restart=on-failure") {
+			// R-4a: слепых игноров не держим — сбой миграции виден в журнале.
+			if errForce := ensureWatcherUnitForce(); errForce != nil {
+				sys.LogAction("WATCHER", "UNIT_MIGRATE_FAIL", "WARNING",
+					fmt.Sprintf("event=systemd.watcher_unit_migrate_fail err=%v", errForce))
+			} else {
+				reloadRes := sys.RunTimeout(10*time.Second, "systemctl", "daemon-reload")
+				reloadRes.LogWarnIfErr("WATCHER", "UNIT_MIGRATE", "event=systemd.daemon_reload_failed")
+				sys.LogAction("WATCHER", "UNIT_STALE_REWRITTEN", "SUCCESS",
+					i18n.TrEvent("watcher.unit_stale_rewritten"))
+			}
+		}
+	}
+	activeRes := sys.RunTimeout(5*time.Second, "systemctl", "is-active", "agld_watcher.service")
+	if strings.TrimSpace(activeRes.Stdout) != "active" {
+		startRes := sys.RunTimeout(10*time.Second, "systemctl", "start", "agld_watcher.service")
+		startRes.LogWarnIfErr("WATCHER", "UNIT_START", "event=systemd.watcher_start_failed")
+		sys.LogAction("WATCHER", "UNIT_ENSURED", "SUCCESS",
+			i18n.TrEvent("watcher.unit_ensured"))
+	}
+}
+
+// === v8.4.7: ЭКСПОРТИРОВАННЫЕ ОБЁРТКИ ДЛЯ main.go ===
+
+// MarkerExists — экспортированный хелпер для проверки маркеров извне пакета.
+// PURPOSE: main.go нуждается в проверке маркеров без доступа к внутренним функциям.
+// CONTRACT: Возвращает true, если файл существует и доступен для stat.
+// SIDE-EFFECTS: Нет (чистая функция, только чтение метаданных).
+func MarkerExists(path string) bool {
+	return markerExists(path)
+}
+
+// ActivateRescueChannel — экспортированная обёртка для main.go.
+// PURPOSE: main.go вызывает активацию канала из контура сверки.
+// CONTRACT: Вызывает внутреннюю функцию activateRescueChannel().
+// SIDE-EFFECTS: Модифицирует UFW, создаёт маркеры.
+func ActivateRescueChannel() {
+	activateRescueChannel()
+}
+
+// DeactivateRescueChannel — экспортированная обёртка для main.go.
+// PURPOSE: main.go вызывает деактивацию канала из контура сверки.
+// CONTRACT: Вызывает внутреннюю функцию deactivateRescueChannel().
+// SIDE-EFFECTS: Удаляет маркеры.
+func DeactivateRescueChannel() {
+	deactivateRescueChannel()
 }
