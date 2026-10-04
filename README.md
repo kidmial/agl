@@ -8,8 +8,8 @@ Autonomous defense complex for a Linux host. Detects, deceives, exhausts, protec
 
 - **Tarpit** — SSH trap with variable delays; base trap + declarative multi-trap pool.
 - **Perimeter Armor** — auto-discovery of services and UFW rate-limit boundaries with corporate signatures; self-healing after reboot.
-- **Port Castling** — moving SSH to a hidden port with auto-backup, rollback and admin anti-lockout.
-- **Web Rescue** — autonomous HTTPS web-knock server (TLS 1.2+, bcrypt): access even with a sealed perimeter.
+- **Port Castling** — moving SSH to a hidden port with auto-backup, rollback, local loopback emergency hatch and an access rule for the moved port (inherits port 22's access type); the rescue channel provides personal admin anti-lockout.
+- **Web Rescue** — autonomous HTTPS web-knock server (web gateway) (TLS 1.2+, bcrypt): access even with a sealed perimeter. Active only when three conditions coincide: castling ∧ HTTPS server enabled ∧ rescue toggle enabled; when the channel is disabled, its gates are removed, the server may continue running.
 - **Idle Watcher** — session detection and "incineration" of hidden rules on admin idle.
 - **Forensics** — SIEM chronicle of touches and exhaustion: countries, behavior, TCP fingerprints of scanners.
 - **Server Auto-Update (v8.4.0)** — autonomous daily OS update cycle (apt-get dist-upgrade in noninteractive mode), reboot-need detection and deferred reboot; scheduled by a systemd timer, declaratively enabled from SETTINGS.
@@ -59,7 +59,10 @@ sudo ./agl --tarpit-daemon
 
 ### Idle watcher (systemd unit `agld_watcher.service`)
 
-Started automatically on port castling. Manual launch:
+Managed declaratively: alive while at least one SETTINGS toggle is enabled
+(`web_server_enabled` / `web_rescue_enabled`); when both are disabled, the process
+terminates itself. Port castling does not affect the watcher's lifecycle.
+Manual launch:
 
 ```bash
 sudo ./agl --watcher
@@ -111,6 +114,10 @@ sudo ./agl --plain        # Plain text output for --info (no pseudo-graphics)
 | `/dev/shm/amberguard.counter`                        | IPC bot counter in the trap                   |
 | `/dev/shm/agl_proto_web_rescue/`                     | Web-knock directory (tmpfs)                   |
 | `/etc/systemd/system/agld_autoupdate.timer`          | Auto-update schedule (created declaratively)  |
+| `/var/lib/amberguard/states/agl_rescue_active`       | Active rescue channel marker                  |
+| `/var/lib/amberguard/states/agl_rescue_ip_pending`   | Admin IP detection pending marker             |
+| `/etc/systemd/system/agld_watcher.service`           | Watcher unit (Restart=on-failure)             |
+| `/etc/systemd/system/agld_tarpit.service`            | Trap daemon unit                              |
 
 ## Server auto-update (v8.4.0)
 
