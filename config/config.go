@@ -116,10 +116,37 @@ type Config struct {
 	// Дефолт: false. Настраивается через SETTINGS.
 	// Юниты agld_autoupdate.service/timer декларативно создаются/удаляются этим тумблером.
 	AutoUpdateEnabled bool `json:"auto_update_enabled"`
+
 	// Тумблер автоматической перезагрузки после обновлений ядра.
 	// Активен ТОЛЬКО если AutoUpdateEnabled=true И /var/run/reboot-required существует.
 	// Дефолт: false (админ ребутает руками). Настраивается через SETTINGS.
 	AutoUpdateReboot bool `json:"auto_update_reboot"`
+
+	// --- v8.5.0: Уровни защиты SSH-доступа и веб-панель ---
+	// PURPOSE: Три независимых тумблера для гибкого управления доступом.
+	// CONTRACT:
+	//   - SshAllowInFromIp (опция A): whitelist IP админа для скрытого порта SSH.
+	//   - SshIpWebKnock (опция B): веб-стук с испепелением временных дверей. Требует A.
+	//   - WebHttpsPanelActive (опция C): доступность веб-панели на порту 55111.
+	// SIDE-EFFECTS: Мутация триггерит синхронизацию через service.SyncRescueChannelState().
+
+	// --- v8.5.0: Уровни защиты SSH-доступа (защита в глубину) ---
+	// Уровень 2A: постоянный whitelist IP админа на скрытом порту.
+	// Сигнатура двери: Master Admin Anti-Lockout; испепелением по таймауту не трогается.
+	// Дефолт: false (fail-closed). Настраивается через SETTINGS.
+	SshAllowInFromIp bool `json:"ssh_allow_in_from_ip"`
+
+	// Уровень 2B: временный whitelist через веб-стук с испепелением по таймауту.
+	// Сигнатура двери: Private SSH Invisible Port НОМЕР (цель испепеления).
+	// CONTRACT: требует SshAllowInFromIp=true и WebServerEnabled=true (иерархия D2).
+	// Дефолт: false (fail-closed). Настраивается через SETTINGS.
+	SshIpWebKnock bool `json:"ssh_ip_web_knock"`
+
+	// --- v8.5.0: Веб-панель (уровень 3) ---
+	// Активирует доступность маршрута /panel на порту веб-сервера.
+	// CONTRACT: требует WebServerEnabled; на SSH-доступ не влияет.
+	// Дефолт: false (fail-closed). Настраивается через SETTINGS.
+	WebHttpsPanelActive bool `json:"web_https_panel_active"`
 }
 
 // C — глобальный синглтон настроек, доступный из любой точки программы.
@@ -171,12 +198,18 @@ func LoadConfig(filePath string) error {
 	local.DelayVariance = 8
 	local.TarpitMaxConn = 100
 	local.TarpitBacklog = 1024
-	local.AdminIdleTimeout = 10     // M2: дефолт 10 минут
-	local.WebRescueEnabled = true   // M3: канал спасения включён по умолчанию
-	local.WebServerEnabled = true   // v8.4.7: физический HTTP-слушатель включён по умолчанию
-	local.WebRescuePort = 55111     // M3b: порт автономного HTTP-сервера веб-стука
-	local.AutoUpdateEnabled = false // M5: дефолт — автообновления ВЫКЛЮЧЕНЫ
-	local.AutoUpdateReboot = false  // M5: дефолт — ребут только руками
+	local.AdminIdleTimeout = 10       // M2: дефолт 10 минут
+	local.WebRescueEnabled = true     // M3: канал спасения включён по умолчанию
+	local.WebServerEnabled = true     // v8.4.7: физический HTTP-слушатель включён по умолчанию
+	local.WebRescuePort = 55111       // M3b: порт автономного HTTP-сервера веб-стука
+	local.SshAllowInFromIp = false    // v8.5.0: fail-closed — защита только по явной декларации
+	local.SshIpWebKnock = false       // v8.5.0: fail-closed
+	local.WebHttpsPanelActive = false // v8.5.0: fail-closed
+	local.AutoUpdateEnabled = false   // M5: дефолт — автообновления ВЫКЛЮЧЕНЫ
+	local.AutoUpdateReboot = false    // M5: дефолт — ребут только руками
+	local.SshAllowInFromIp = true     // v8.5.0: опция A включена по умолчанию (whitelist IP админа)
+	local.SshIpWebKnock = true        // v8.5.0: опция B включена по умолчанию (веб-стук с испепелением)
+	local.WebHttpsPanelActive = false // v8.5.0: опция C выключена по умолчанию (панель недоступна)
 	local.GeoTool = "geoiplookup"
 	local.AglLogarchiveDir = DirLog // БЛОК 4.4: Используем константу из paths.go
 	local.BackupRootDir = "/backup"
@@ -242,6 +275,16 @@ func LoadConfig(filePath string) error {
 	if local.WebRescuePasswordHash == "" && local.WebRescuePassword == "" {
 		local.WebRescueEnabled = false
 		local.WebServerEnabled = false
+	}
+	// v8.5.0 (D2): иерархия защиты в глубину. Стук (B) не работает без постоянной
+	// двери (A); B и панель не работают без физического слушателя.
+	// Выключение A каскадом гасит B — опция A полноправно управляет опцией B.
+	if !local.SshAllowInFromIp {
+		local.SshIpWebKnock = false
+	}
+	if !local.WebServerEnabled {
+		local.SshIpWebKnock = false
+		local.WebHttpsPanelActive = false
 	}
 	// v8.2.0 (1.2): есть хэш — plaintext в ОЗУ обязан быть пустым.
 	if local.WebRescuePasswordHash != "" {

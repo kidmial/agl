@@ -117,13 +117,13 @@ func init() {
 		ArmorRouterCheckServiceDesync:    "desynchronization: service disabled in OS",
 
 		// --- internal/armor/custom_limit_protocol.go ---
-		ArmorLimitTarpitReject:  "reject: tarpit is active on port %d — limits are forbidden by C1 contract",
+		ArmorLimitTarpitReject:  "rejection: tarpit active on port %d — setting limits is forbidden",
 		ArmorLimitActivateErr:   "critical error activating limit on port %d: %w; stderr=%s",
 		ArmorLimitDeactivateErr: "error returning port %d to normal mode: %w; stderr=%s",
 		ArmorLimitCheckDisabled: "perimeter defense disabled",
 		ArmorLimitUnknownAction: "unknown firewall action requested: %s",
 		ArmorLimitUfwRestored:   "event=ufw.status_restored UFW status is available again.",
-		ArmorLimitPurgeSuccess:  "Obsolete limit on port %d purged without tombstone (C1 contract).",
+		ArmorLimitPurgeSuccess:  "Armor on port %d fully removed.",
 
 		// --- internal/armor/multitarpit_service_protocol.go ---
 		ArmorMultiTarpitOpenErr:       "error opening port %d in UFW: %w; stderr=%s",
@@ -132,6 +132,7 @@ func init() {
 		ArmorMultiTarpitUnknownAction: "unknown action: %s",
 
 		// --- internal/armor/port_move_protocol.go ---
+		PortMoveCastlingArmorLock:        "Castling rejected: armor is armed on port 22. Disarm the standard port first (ANTIDDOS), then perform castling.",
 		PortMoveCastlingInactive:         "castling is inactive",
 		PortMoveUnknownAction:            "unknown castling action requested: %s",
 		PortMovePortBusy:                 "port %d is busy, castling impossible: %w",
@@ -243,6 +244,10 @@ func init() {
 		InventoryScanFail:      "perimeter scan failure: %w",
 		InventoryLoadPortsFail: "port inventory load failure: %w",
 		InventoryLoadAppsFail:  "detected apps load failure: %w",
+
+		// --- internal/service/rescue_service.go ---
+		RescueMovedRuleRestoreSkip: "Moved-port rule restore skipped: invalid rule type: %s",
+		RescueMovedRuleRestored:    "Moved-port rule restored: port %s, type %s",
 
 		// --- internal/service/ssh_service.go ---
 		SshCastlingFail: "SSH castling failure: %w",
@@ -535,8 +540,10 @@ func init() {
 		ViewSettingsErrPortsChangeTarpitActive:   "Port changes forbidden while Tarpit is active! Stop the trap first.",
 		ViewSettingsErrPortsChangeCastlingActive: "Port changes forbidden while Castling is active! Perform reverse castling.",
 		ViewSettingsErrSavePrefix:                "Configuration save failure: ",
+		ViewSettingsErrKnockRequiresAllow:        "Write rejected: web-knock requires the 'SSH access by admin IP' option enabled!",
 		ViewSettingsPasswordSet:                  "Password set",
 		ViewSettingsPasswordNotSet:               "Not set",
+		ViewSettingsErrRequiresServer:            "Write rejected: option requires the physical HTTP server enabled!",
 		SettingsLabelLang:                        "Panel interface language (lang)",
 		SettingsLabelStandardSshPort:             "Standard SSH Port (Deception input)",
 		SettingsLabelRealSshPort:                 "Private SSH Port (Castling target)",
@@ -548,6 +555,9 @@ func init() {
 		SettingsLabelWebRescuePort:               "Autonomous web-knock server port",
 		SettingsLabelWebRescuePassword:           "Web-knock password (pseudo-2FA)",
 		SettingsLabelWebServerEnabled:            "HTTPS Web Server (0=off / 1=on)",
+		SettingsLabelSshAllowInFromIp:            "SSH access: admin IP only (0=off / 1=on)",
+		SettingsLabelSshIpWebKnock:               "SSH access: web-knock with incineration (0=off / 1=on)",
+		SettingsLabelWebHttpsPanelActive:         "Web panel: availability (0=off / 1=on)",
 		SettingsLabelBack:                        "Back to main menu",
 		SettingsUiTitleBox:                       " Amber Guard Laboratory ",
 		SettingsUiHeaderDesc:                     "Global Perimeter Configuration (SETTINGS) ",
@@ -589,6 +599,7 @@ func init() {
 		ViewTarpitCtlStopDismantle:          "\n[SYSTEM]: Dismounting Tar Pit from the system...",
 		ViewTarpitCtlStopSuccess:            "[SUCCESS]: Tar Pit deactivated. Port 22 perimeter restored.",
 		ViewTarpitCtlProtocolHeader:         "\n=== AMBER GUARD LAB - DECEPTION TARPIT PROTOCOL ===",
+		ViewTarpitCtlCastlingArmorLock:      "\n[LOCKOUT]: Castling rejected — armor is armed on port 22.\nDisarm the standard port first (ANTIDDOS), then perform castling.",
 		ViewTarpitCtlProtocolPressEnter:     " Press ENTER to return...",
 
 		// --- tui/view_tarpit_live_box.go ---

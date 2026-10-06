@@ -58,12 +58,26 @@ func InitSettingsRegistry() {
 		// --- ГРУППА 3: СИСТЕМНЫЕ ЛИМИТЫ И АНТИДОС-ОБОРОНА ---
 		{IsHeader: true, Group: "LIMITS"},
 		{Key: "admin_idle_timeout", Label: func() string { return i18n.T.SettingsLabelAdminIdleTimeout }, Group: "LIMITS", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.AdminIdleTimeout) }},
-		{Key: "web_rescue_enabled", Label: func() string { return i18n.T.SettingsLabelWebRescueEnabled }, Group: "LIMITS", ValueGetter: func() string {
-			if config.C.WebRescueEnabled {
+		// --- v8.5.0: Уровни защиты SSH-доступа (опции A, B, C) ---
+		{Key: "ssh_allow_in_from_ip", Label: func() string { return i18n.T.SettingsLabelSshAllowInFromIp }, Group: "LIMITS", ValueGetter: func() string {
+			if config.C.SshAllowInFromIp {
 				return "1"
 			}
 			return "0"
 		}},
+		{Key: "ssh_ip_web_knock", Label: func() string { return i18n.T.SettingsLabelSshIpWebKnock }, Group: "LIMITS", ValueGetter: func() string {
+			if config.C.SshIpWebKnock {
+				return "1"
+			}
+			return "0"
+		}},
+		{Key: "web_https_panel_active", Label: func() string { return i18n.T.SettingsLabelWebHttpsPanelActive }, Group: "LIMITS", ValueGetter: func() string {
+			if config.C.WebHttpsPanelActive {
+				return "1"
+			}
+			return "0"
+		}},
+		// v8.4.7 (G1): уровень 1 — физический слушатель. Строка возвращена: изъят был только web_rescue_enabled.
 		{Key: "web_server_enabled", Label: func() string { return i18n.T.SettingsLabelWebServerEnabled }, Group: "LIMITS", ValueGetter: func() string {
 			if config.C.WebServerEnabled {
 				return "1"
@@ -186,7 +200,8 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 			currentVal := item.ValueGetter()
 			// M5 (v8.4.0) + v8.4.7: бинарные тумблеры подсвечиваются жёлтыми скобками, как язык
 			if item.Key == "lang" || item.Key == "auto_update_enabled" || item.Key == "auto_update_reboot" ||
-				item.Key == "web_rescue_enabled" || item.Key == "web_server_enabled" {
+				item.Key == "web_server_enabled" ||
+				item.Key == "ssh_allow_in_from_ip" || item.Key == "ssh_ip_web_knock" || item.Key == "web_https_panel_active" {
 				finalRowStr = fmt.Sprintf("%-5s%-55s:  [[ %s ]](fg:yellow,mod:bold)", cursor, label, currentVal)
 			} else {
 				finalRowStr = fmt.Sprintf("%-5s%-55s:  %s", cursor, label, currentVal)
@@ -321,7 +336,8 @@ func HandleSettingsNavigation(key string) (bool, string) {
 		}
 		// M5 (v8.4.0) + v8.4.7: бинарные тумблеры — инверсия 0/1 стрелками без входа в режим ввода
 		if currentItem.Key == "auto_update_enabled" || currentItem.Key == "auto_update_reboot" ||
-			currentItem.Key == "web_rescue_enabled" || currentItem.Key == "web_server_enabled" {
+			currentItem.Key == "web_server_enabled" ||
+			currentItem.Key == "ssh_allow_in_from_ip" || currentItem.Key == "ssh_ip_web_knock" || currentItem.Key == "web_https_panel_active" {
 			newVal := "1"
 			if currentItem.ValueGetter() == "1" {
 				newVal = "0"
@@ -397,7 +413,9 @@ func SaveSettingValueToDisk(key, value string) string {
 		// общую границу 1..65535 (ноль — легальное значение тумблера).
 		// ПОПУТНЫЙ ФИКС: web_rescue_enabled раньше НЕ мог принять "0" через
 		// эту границу (valInt <= 0) — канал спасения нельзя было выключить вводом.
-		isBinaryKey := key == "auto_update_enabled" || key == "auto_update_reboot" || key == "web_rescue_enabled" || key == "web_server_enabled"
+		// v8.5.0: web_rescue_enabled изъят (G1); три новых тумблера — бинарные.
+		isBinaryKey := key == "auto_update_enabled" || key == "auto_update_reboot" || key == "web_server_enabled" ||
+			key == "ssh_allow_in_from_ip" || key == "ssh_ip_web_knock" || key == "web_https_panel_active"
 		if isBinaryKey {
 			if valInt != 0 && valInt != 1 {
 				return i18n.T.SettingsUiOutOfBounds
@@ -422,6 +440,18 @@ func SaveSettingValueToDisk(key, value string) string {
 				return i18n.T.ViewSettingsErrPortsChangeCastlingActive
 			}
 		}
+		// v8.5.0: валидация иерархии защитных опций (B требует A).
+		// PURPOSE: опция B (веб-стук с испепелением) требует опцию A (whitelist IP админа).
+		// CONTRACT: если админ пытается включить B при выключенном A → отказ записи.
+		if key == "ssh_ip_web_knock" && valInt == 1 && !config.C.SshAllowInFromIp {
+			return i18n.T.ViewSettingsErrKnockRequiresAllow
+		}
+		// v8.5.0: валидация «B требует сервер» и «панель требует сервер».
+		// PURPOSE: опции B и C требуют физического HTTP-слушателя (WebServerEnabled).
+		// CONTRACT: если админ пытается включить B или панель при выключенном сервере → отказ записи.
+		if (key == "ssh_ip_web_knock" || key == "web_https_panel_active") && valInt == 1 && !config.C.WebServerEnabled {
+			return i18n.T.ViewSettingsErrRequiresServer
+		}
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
 			switch key {
 			case "standard_ssh_port":
@@ -436,14 +466,24 @@ func SaveSettingValueToDisk(key, value string) string {
 				c.TarpitMaxConn = valInt
 			case "admin_idle_timeout":
 				c.AdminIdleTimeout = valInt
-			case "web_rescue_enabled":
-				// v8.4.7: Канал спасения веб-стук. 0 = выкл, 1 = вкл.
-				// CONTRACT: Независимый тумблер от WebServerEnabled.
-				c.WebRescueEnabled = (valInt == 1)
 			case "web_server_enabled":
-				// v8.4.7: физический HTTP-слушатель. 0 = выкл, 1 = вкл.
-				// CONTRACT: Сервер может жить для будущей панели даже при выключенном спасении.
+				// v8.4.7 (уровень 1): физический HTTP-слушатель. 0 = выкл, 1 = вкл.
 				c.WebServerEnabled = (valInt == 1)
+				// v8.5.0: каскад при выключении сервера — B и панель гасятся в той же транзакции.
+				// Иначе декларация на диске врет до следующей транзакции.
+				if valInt == 0 {
+					c.SshIpWebKnock = false
+					c.WebHttpsPanelActive = false
+				}
+			case "ssh_allow_in_from_ip":
+				// v8.5.0 (опция A): whitelist IP админа для скрытого порта SSH.
+				c.SshAllowInFromIp = (valInt == 1)
+			case "ssh_ip_web_knock":
+				// v8.5.0 (опция B): веб-стук с испепелением временных дверей.
+				c.SshIpWebKnock = (valInt == 1)
+			case "web_https_panel_active":
+				// v8.5.0 (опция C): доступность веб-панели на порту 55111.
+				c.WebHttpsPanelActive = (valInt == 1)
 			case "web_rescue_port":
 				// M3b (v8.1.2): Порт автономного HTTP-сервера веб-стука.
 				c.WebRescuePort = valInt
@@ -484,8 +524,8 @@ func SaveSettingValueToDisk(key, value string) string {
 		}
 	}
 
-	// v8.4.7: тумблеры канала спасения декларативны; факт приводим через сервисный мост.
-	if key == "web_rescue_enabled" || key == "web_server_enabled" {
+	// v8.5.0: новые тумблеры защиты декларативны; факт приводим через сервисный мост.
+	if key == "web_server_enabled" || key == "ssh_allow_in_from_ip" || key == "ssh_ip_web_knock" || key == "web_https_panel_active" {
 		if errSync := service.SyncRescueChannelState(); errSync != nil {
 			return i18n.T.ViewSettingsErrSavePrefix + errSync.Error()
 		}

@@ -121,13 +121,15 @@ type UITranslation struct {
 	ArmorRouterCheckServiceDesync    string
 
 	// --- internal/armor/custom_limit_protocol.go ---
-	ArmorLimitTarpitReject  string
-	ArmorLimitActivateErr   string
-	ArmorLimitDeactivateErr string
-	ArmorLimitCheckDisabled string
-	ArmorLimitUnknownAction string
-	ArmorLimitUfwRestored   string
-	ArmorLimitPurgeSuccess  string
+	ArmorLimitTarpitReject        string
+	ArmorLimitActivateErr         string
+	ArmorLimitDeactivateErr       string
+	ArmorLimitCheckDisabled       string
+	ArmorLimitUnknownAction       string
+	ArmorLimitUfwRestored         string
+	ArmorLimitPurgeSuccess        string
+	ArmorLimitPurgedWithTombstone string
+	ArmorTombstonePurged          string
 
 	// --- internal/armor/multitarpit_service_protocol.go ---
 	ArmorMultiTarpitOpenErr       string
@@ -136,6 +138,7 @@ type UITranslation struct {
 	ArmorMultiTarpitUnknownAction string
 
 	// --- internal/armor/port_move_protocol.go ---
+	PortMoveCastlingArmorLock        string
 	PortMoveCastlingInactive         string
 	PortMoveUnknownAction            string
 	PortMovePortBusy                 string
@@ -243,6 +246,10 @@ type UITranslation struct {
 	InventoryScanFail      string
 	InventoryLoadPortsFail string
 	InventoryLoadAppsFail  string
+
+	// --- internal/service/rescue_service.go ---
+	RescueMovedRuleRestoreSkip string
+	RescueMovedRuleRestored    string
 
 	// --- internal/service/ssh_service.go ---
 	SshCastlingFail string
@@ -532,8 +539,10 @@ type UITranslation struct {
 	ViewSettingsErrPortsChangeTarpitActive   string
 	ViewSettingsErrPortsChangeCastlingActive string
 	ViewSettingsErrSavePrefix                string
+	ViewSettingsErrKnockRequiresAllow        string
 	ViewSettingsPasswordSet                  string
 	ViewSettingsPasswordNotSet               string
+	ViewSettingsErrRequiresServer            string
 	SettingsLabelLang                        string
 	SettingsLabelStandardSshPort             string
 	SettingsLabelRealSshPort                 string
@@ -546,25 +555,29 @@ type UITranslation struct {
 	SettingsLabelWebRescuePassword           string
 	// --- v8.4.7: Веб-сервер спасения (физический слушатель) ---
 	SettingsLabelWebServerEnabled string // Тумблер физического HTTP-слушателя
-	SettingsLabelBack             string
-	SettingsUiTitleBox            string
-	SettingsUiHeaderDesc          string
-	SettingsUiFormTitle           string
-	SettingsUiEditingMode         string
-	SettingsUiEnterNew            string
-	SettingsUiInputPrompt         string
-	SettingsUiHintNav1            string
-	SettingsUiHintNav2            string
-	SettingsUiHintEsc             string
-	SettingsUiStatusConsoleTitle  string
-	SettingsUiEmptyVal            string
-	SettingsUiOutOfBounds         string
-	SettingsUiLangSupport         string
-	SettingsGroupLang             string
-	SettingsGroupTarpit           string
-	SettingsGroupLimits           string
-	SettingsGroupSystem           string
-	SettingsGroupDefault          string
+	// --- v8.5.0: Уровни защиты SSH-доступа и веб-панель ---
+	SettingsLabelSshAllowInFromIp    string // Тумблер постоянного whitelist IP админа
+	SettingsLabelSshIpWebKnock       string // Тумблер временного whitelist через веб-стук
+	SettingsLabelWebHttpsPanelActive string // Тумблер доступности веб-панели
+	SettingsLabelBack                string
+	SettingsUiTitleBox               string
+	SettingsUiHeaderDesc             string
+	SettingsUiFormTitle              string
+	SettingsUiEditingMode            string
+	SettingsUiEnterNew               string
+	SettingsUiInputPrompt            string
+	SettingsUiHintNav1               string
+	SettingsUiHintNav2               string
+	SettingsUiHintEsc                string
+	SettingsUiStatusConsoleTitle     string
+	SettingsUiEmptyVal               string
+	SettingsUiOutOfBounds            string
+	SettingsUiLangSupport            string
+	SettingsGroupLang                string
+	SettingsGroupTarpit              string
+	SettingsGroupLimits              string
+	SettingsGroupSystem              string
+	SettingsGroupDefault             string
 
 	// --- M5 (v8.4.0): Автообновления сервера ---
 	SettingsLabelAutoUpdateEnabled string // Тумблер автообновлений (0=выкл / 1=вкл)
@@ -593,6 +606,7 @@ type UITranslation struct {
 	ViewTarpitCtlStopDismantle          string
 	ViewTarpitCtlStopSuccess            string
 	ViewTarpitCtlProtocolHeader         string
+	ViewTarpitCtlCastlingArmorLock      string
 	ViewTarpitCtlProtocolPressEnter     string
 
 	// --- tui/view_tarpit_live_box.go ---
@@ -788,6 +802,18 @@ func InitLanguage(currentLang string) {
 	}
 	if T.SettingsLabelWebServerEnabled == "" {
 		T.SettingsLabelWebServerEnabled = "HTTPS Web Server (0=off / 1=on)"
+	}
+	if T.SettingsLabelSshAllowInFromIp == "" {
+		T.SettingsLabelSshAllowInFromIp = "SSH access: admin IP only (0=off / 1=on)"
+	}
+	if T.SettingsLabelSshIpWebKnock == "" {
+		T.SettingsLabelSshIpWebKnock = "SSH access: web-knock with incineration (0=off / 1=on)"
+	}
+	if T.SettingsLabelWebHttpsPanelActive == "" {
+		T.SettingsLabelWebHttpsPanelActive = "Web panel: availability (0=off / 1=on)"
+	}
+	if T.ViewSettingsErrKnockRequiresAllow == "" {
+		T.ViewSettingsErrKnockRequiresAllow = "Write rejected: web-knock requires the admin-IP whitelist option enabled!"
 	}
 
 	if val, ok := LogLanguages[currentLang]; ok {

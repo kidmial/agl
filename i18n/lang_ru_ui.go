@@ -117,13 +117,13 @@ func init() {
 		ArmorRouterCheckServiceDesync:    "рассинхронизация: служба выключена в ОС",
 
 		// --- internal/armor/custom_limit_protocol.go ---
-		ArmorLimitTarpitReject:  "отказ: на порту %d активна дегтярная яма — лимиты запрещены контрактом C1",
+		ArmorLimitTarpitReject:  "отказ: на порту %d активна дегтярная яма — установка лимитов запрещена",
 		ArmorLimitActivateErr:   "критическая ошибка активации лимита на порту %d: %w; stderr=%s",
 		ArmorLimitDeactivateErr: "ошибка возврата порта %d в штатный режим: %w; stderr=%s",
 		ArmorLimitCheckDisabled: "рубеж защиты отключен",
 		ArmorLimitUnknownAction: "запрошено неизвестное действие брандмауэра: %s",
 		ArmorLimitUfwRestored:   "event=ufw.status_restored Статус UFW снова доступен.",
-		ArmorLimitPurgeSuccess:  "Устаревший лимит на порту %d зачищен без надгробия (контракт C1).",
+		ArmorLimitPurgeSuccess:  "Броня на порту %d полностью снята.",
 
 		// --- internal/armor/multitarpit_service_protocol.go ---
 		ArmorMultiTarpitOpenErr:       "ошибка открытия порта %d в UFW: %w; stderr=%s",
@@ -132,6 +132,7 @@ func init() {
 		ArmorMultiTarpitUnknownAction: "неизвестное действие: %s",
 
 		// --- internal/armor/port_move_protocol.go ---
+		PortMoveCastlingArmorLock:        "Отказ рокировки: на порту 22 взведена броня. Сначала снимите броню штатного порта (ANTIDDOS), затем выполняйте переезд.",
 		PortMoveCastlingInactive:         "рокировка неактивна",
 		PortMoveUnknownAction:            "запрошено неизвестное действие рокировки: %s",
 		PortMovePortBusy:                 "порт %d занят, рокировка невозможна: %w",
@@ -243,6 +244,10 @@ func init() {
 		InventoryScanFail:      "сбой сканирования периметра: %w",
 		InventoryLoadPortsFail: "сбой загрузки инвентаря портов: %w",
 		InventoryLoadAppsFail:  "сбой загрузки обнаруженных приложений: %w",
+
+		// --- internal/service/rescue_service.go ---
+		RescueMovedRuleRestoreSkip: "Восстановление правила перенесённого порта пропущено: невалидный тип правила: %s",
+		RescueMovedRuleRestored:    "Правило перенесённого порта восстановлено: порт %s, тип %s",
 
 		// --- internal/service/ssh_service.go ---
 		SshCastlingFail: "сбой рокировки SSH: %w",
@@ -535,8 +540,10 @@ func init() {
 		ViewSettingsErrPortsChangeTarpitActive:   "Запрещено менять порты при активной Дегтярной яме! Сначала остановите капкан.",
 		ViewSettingsErrPortsChangeCastlingActive: "Запрещено менять порты при активном Кастлинге! Выполните обратную рокировку.",
 		ViewSettingsErrSavePrefix:                "Ошибка сохранения конфигурации: ",
+		ViewSettingsErrKnockRequiresAllow:        "Отказ записи: веб-стук требует включённой опции «SSH-доступ по IP админа»!",
 		ViewSettingsPasswordSet:                  "Пароль установлен",
 		ViewSettingsPasswordNotSet:               "Не задан",
+		ViewSettingsErrRequiresServer:            "Отказ записи: опция требует включённого физического HTTP-сервера!",
 		SettingsLabelLang:                        "Язык интерфейса панели (lang)",
 		SettingsLabelStandardSshPort:             "Стандартный порт SSH (Вводной капкан)",
 		SettingsLabelRealSshPort:                 "Скрытый порт SSH (Точка рокировки)",
@@ -548,6 +555,9 @@ func init() {
 		SettingsLabelWebRescuePort:               "Порт автономного сервера веб-стука",
 		SettingsLabelWebRescuePassword:           "Пароль веб-стука (псевдо-2FA)",
 		SettingsLabelWebServerEnabled:            "HTTPS Веб-сервер (0=выкл / 1=вкл)",
+		SettingsLabelSshAllowInFromIp:            "SSH-доступ: только по IP админа (0=выкл / 1=вкл)",
+		SettingsLabelSshIpWebKnock:               "SSH-доступ: веб-стук с испепелением (0=выкл / 1=вкл)",
+		SettingsLabelWebHttpsPanelActive:         "Веб-панель: доступность (0=выкл / 1=вкл)",
 		SettingsLabelBack:                        "Назад в главное меню",
 		SettingsUiTitleBox:                       " Amber Guard Laboratory ",
 		SettingsUiHeaderDesc:                     "Глобальная Конфигурация Периметра (SETTINGS) ",
@@ -589,6 +599,7 @@ func init() {
 		ViewTarpitCtlStopDismantle:          "\n[СИСТЕМА]: Демонтаж Дегтярной Ямы из системы...",
 		ViewTarpitCtlStopSuccess:            "[УСПЕХ]: Дегтярная Яма деактивирована. Периметр порта 22 восстановлен.",
 		ViewTarpitCtlProtocolHeader:         "\n=== AMBER GUARD LAB - DECEPTION TARPIT PROTOCOL ===",
+		ViewTarpitCtlCastlingArmorLock:      "\n[БЛОКИРОВКА]: Отказ рокировки — на порту 22 взведена броня.\nСначала снимите броню штатного порта (ANTIDDOS), затем выполняйте переезд.",
 		ViewTarpitCtlProtocolPressEnter:     " Нажмите ENTER для возврата...",
 
 		// --- tui/view_tarpit_live_box.go ---

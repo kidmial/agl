@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -18,11 +19,16 @@ import (
 
 const (
 	// Период тикера: 60 секунд
-	watcherTickInterval = 60 * time.Second
+	watcherTickInterval = 30 * time.Second
 	// Путь к счётчику простоя администратора
 	adminIdleCounterPath = config.FileAdminIdleCounter
 	// Сигнатура для испепеления (только SIG_HIDDEN, по контракту v2)
 	sigHiddenPrefix = "Amber Guard Lab. Private SSH Invisible Port"
+	// v8.5.0: сигнатура постоянной двери админа (опция ssh_allow_in_from_ip).
+	// Вне юрисдикции испепеления (K3): таймаут жжёт только временные двери.
+	sigAdminDoor = "Amber Guard Lab. Master Admin Anti-Lockout"
+	// v8.5.0: сигнатура локальной петли по регламенту UFW (переименована).
+	sigLocaleLoop = "Amber Guard Lab. Localhost Core Loopback"
 	// ─────────────────────────────────────────────────────────────
 	// M3 (v8.1.2): Канал спасения «веб-стук».
 	// Путь к файлу сигнала: /dev/shm/agl_proto_web_rescue/agl_proto_web_knock.ip
@@ -104,7 +110,9 @@ func watcherTick() {
 	//           Веб-сервер может жить для будущей панели, но спасение не работает.
 	// SIDE-EFFECTS: При дремоте пропускаются все фазы: стук, сессии, инкремент, инсинерация.
 	castlingActive := markerExists(config.MarkerSshMoved)
-	rescueActive := castlingActive && config.C.WebRescueEnabled && config.C.WebServerEnabled
+	// v8.5.0 (D3): полный цикл (стук + испепеление временных дверей) только при
+	// рокировка ∧ сервер ∧ опция B. Опция A управляется сверкой и кастлингом, не вотчером.
+	rescueActive := castlingActive && config.C.SshIpWebKnock && config.C.WebServerEnabled
 
 	if !rescueActive {
 		// Дремота: веб-сервер может жить для будущей панели,
@@ -144,7 +152,8 @@ func watcherTick() {
 // M2-fix: стук будит дремлющий вотчер.
 // ИЗВЛЕЧЕНО ИЗ watcherTick (v8.2.2, п. 4.6): поведение идентично оригиналу.
 func handleKnockPhase() {
-	if config.C.WebRescueEnabled {
+	// v8.5.0 (K2): стук обрабатывается только при опции B; маршрут /rescue без B отдаёт 404.
+	if config.C.SshIpWebKnock {
 		processWebKnock()
 	}
 	// M2-fix: стук будит дремлющий вотчер
@@ -361,6 +370,16 @@ func incinerateHiddenRules() {
 		// и заодно убьёт квитанции (M4-гигиена).
 		if strings.Contains(line, "LIMIT") {
 			sawLimit = true
+			continue
+		}
+		// v8.5.0 (K3′): при активной опции B испепеление сжигает ОБЕ двери:
+		// временную дверь стука (SIG_HIDDEN) и постоянную дверь админа (SIG_ADMIN).
+		// Админ манифестировал knock-парадигму: вышел → таймаут → все двери сожжены →
+		// возврат только через веб-стук. Иначе стук бессмысленен при живой двери.
+		// Испепеление крутится ТОЛЬКО при активном B (rescueActive), поэтому при B=выкл
+		// постоянная дверь остаётся постоянной: вотчер дремлет, цели не трогаются.
+		// Локальная петля (Localhost Core Loopback) неприкосновенна всегда.
+		if !strings.Contains(line, sigHiddenPrefix) && !strings.Contains(line, sigAdminDoor) {
 			continue
 		}
 
@@ -634,9 +653,14 @@ func syncWebRescueServer() {
 	if wantPort <= 0 {
 		wantPort = 55111
 	}
-	// v8.4.7: гейт открыт только при совпадении всех трёх переменных канала.
-	rescueActive := markerExists(config.MarkerSshMoved) &&
-		config.C.WebRescueEnabled && config.C.WebServerEnabled
+	// v8.5.1 (D1′): гейт следует за сервером, а не за каналом спасения.
+	// Сервер включён → порт открыт снаружи; маршруты регулирует приложение:
+	// /hash/rescue отдаёт форму стука только при активной опции B (иначе 404),
+	// /hash/panel отдаёт 501, остальное — 404-заглушки.
+	// Префиксы криптографические (12 hex-символов), перебором не берутся:
+	// безопасность не страдает от открытого порта без функциональных маршрутов.
+	// Админ видит 404 снаружи и понимает: сервер работает (диагностика).
+	rescueActive := config.C.WebServerEnabled
 
 	if !config.C.WebServerEnabled {
 		if webServer != nil {
@@ -704,6 +728,18 @@ func markerExists(path string) bool {
 	return err == nil
 }
 
+// isPublicAdminIPv4 валидирует IP для постоянной двери (опция A).
+// PURPOSE: внешняя инфраструктура не защищается приватными IP (контракт, п. 3).
+// CONTRACT: отклоняет 10/8, 172.16/12, 192.168/16, loopback, link-local, unspecified.
+// SIDE-EFFECTS: нет (чистая функция).
+func isPublicAdminIPv4(ip string) bool {
+	parsed := net.ParseIP(ip)
+	if parsed == nil || parsed.To4() == nil {
+		return false
+	}
+	return !parsed.IsLoopback() && !parsed.IsPrivate() && !parsed.IsLinkLocalUnicast() && !parsed.IsUnspecified()
+}
+
 // === v8.4.7: АКТИВАЦИЯ И ДЕАКТИВАЦИЯ КАНАЛА СПАСЕНИЯ ===
 
 // activateRescueChannel активирует канал спасения при совпадении 3 переменных.
@@ -718,65 +754,135 @@ func markerExists(path string) bool {
 // SIDE-EFFECTS:
 //   - Модифицирует UFW (создаёт правило SIG_HIDDEN).
 //   - Создаёт маркеры в /var/lib/amberguard/states/.
+//
+// createAdminDoor создаёт постоянную дверь админа (опция A: SshAllowInFromIp).
+// PURPOSE: whitelist IP админа для доступа к скрытому порту SSH.
+// CONTRACT:
+//   - Валидирует IP через isPublicAdminIPv4 (приватные диапазоны отклоняются).
+//   - Создаёт UFW-правило с сигнатурой sigAdminDoor.
+//   - Логирует события создания/отказа.
+//
+// SIDE-EFFECTS: модифицирует UFW; пишет в журнал.
+func createAdminDoor() {
+	sshConn := os.Getenv("SSH_CONNECTION")
+	parts := strings.Fields(sshConn)
+	if len(parts) < 1 {
+		// SSH_CONNECTION пуста (VNC-доступ) — дверь создать невозможно.
+		// Тишина: это штатная ситуация, не сбой.
+		return
+	}
+	adminIP := parts[0]
+	if !isPublicAdminIPv4(adminIP) {
+		sys.LogAction("RESCUE", "PRIVATE_IP_BLOCKED", "ALERT",
+			i18n.TrEventf("rescue.private_ip_blocked", adminIP))
+		return
+	}
+	targetPort := fmt.Sprintf("%d", config.C.RealSshPort)
+	// v8.5.0-идемпотентность: проверяем, есть ли уже дверь с текущим IP админа.
+	// Если есть — тишина, ничего не делаем (панель C не должна дёргать дверь A).
+	if adminDoorExists(adminIP, targetPort) {
+		return
+	}
+	// v8.5.0: дверь с устаревшим IP (смена IP админа без выключения опции A) —
+	// снимаем старую ДО создания новой, чтобы не плодить дубли в UFW.
+	removeAdminDoor()
+	ufwRes := sys.RunTimeout(10*time.Second, "ufw",
+		"allow", "from", adminIP,
+		"to", "any", "port", targetPort, "proto", "tcp",
+		"comment", sigAdminDoor,
+	)
+	if ufwRes.Err != nil {
+		ufwRes.LogWarnIfErr("RESCUE", "ADMIN_DOOR_CREATE", "event=ufw.admin_door_create_failed")
+		return
+	}
+	sys.LogAction("RESCUE", "ADMIN_DOOR_CREATED", "SUCCESS",
+		i18n.TrEventf("rescue.admin_door_created", adminIP, targetPort))
+}
+
+// adminDoorExists проверяет, есть ли в UFW дверь админа с заданным IP и портом.
+// PURPOSE: идемпотентность — createAdminDoor не пересоздаёт существующую дверь,
+// что устраняет мусорные логи при транзакциях SETTINGS, не затрагивающих опцию A.
+// CONTRACT: парсит ufw status numbered; матчит сигнатуру + IP + порт.
+// SIDE-EFFECTS: нет (чистое чтение).
+func adminDoorExists(adminIP, targetPort string) bool {
+	statusRes := sys.RunTimeout(5*time.Second, "ufw", "status", "numbered")
+	if statusRes.Err != nil {
+		return false // сбой чтения — не можем гарантировать наличие; действуем осторожно
+	}
+	for _, line := range strings.Split(statusRes.Stdout, "\n") {
+		if strings.Contains(line, sigAdminDoor) &&
+			strings.Contains(line, adminIP) &&
+			strings.Contains(line, targetPort+"/tcp") {
+			return true
+		}
+	}
+	return false
+}
+
+// removeAdminDoor удаляет постоянную дверь админа (опция A).
+// PURPOSE: зачистка whitelist при выключении опции A.
+// CONTRACT: удаляет все правила с сигнатурой sigAdminDoor для скрытого порта.
+// SIDE-EFFECTS: модифицирует UFW; возвращает количество удалённых правил.
+func removeAdminDoor() int {
+	port := readPortFromMarker()
+	if port == "" {
+		port = fmt.Sprintf("%d", config.C.RealSshPort)
+	}
+	statusRes := sys.RunTimeout(5*time.Second, "ufw", "status", "numbered")
+	if statusRes.Err != nil {
+		statusRes.LogWarnIfErr("RESCUE", "ADMIN_DOOR_REMOVE", "event=ufw.status_failed")
+		return 0
+	}
+	count := 0
+	lines := strings.Split(statusRes.Stdout, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
+		if !strings.Contains(line, sigAdminDoor) || !strings.Contains(line, port+"/tcp") {
+			continue
+		}
+		numStr := extractRuleNumber(line)
+		if numStr == "" {
+			continue
+		}
+		delRes := sys.RunTimeout(10*time.Second, "ufw", "--force", "delete", numStr)
+		if delRes.Err != nil {
+			delRes.LogWarnIfErr("RESCUE", "ADMIN_DOOR_REMOVE", "event=ufw.admin_door_delete_failed")
+			continue
+		}
+		count++
+	}
+	// v8.5.0-идемпотентность: событие логируется ТОЛЬКО при реальном удалении.
+	// Если двери не было — тишина (панель C не дёргает дверь A).
+	if count > 0 {
+		sys.LogAction("RESCUE", "ADMIN_DOOR_REMOVED", "SUCCESS",
+			i18n.TrEventf("rescue.admin_door_removed", count))
+	}
+	return count
+}
+
+// activateRescueChannel активирует канал спасения при совпадении 3 переменных.
+// PURPOSE: Создаёт маркеры и стартует юнит вотчера. НЕ создаёт SIG_HIDDEN.
+// CONTRACT (v8.5.1, A7′):
+//   - Постоянная дверь админа (Master Admin Anti-Lockout) — прерогатива опции A.
+//   - Временная дверь стука (SIG_HIDDEN) — создаётся ТОЛЬКО процессом веб-стука.
+//   - activateRescueChannel создаёт ТОЛЬКО маркеры и юнит: двери без дублей.
+//
+// SIDE-EFFECTS: создаёт маркеры; стартует юнит вотчера.
 func activateRescueChannel() {
 	// v8.4.7: контракт «стартует юнит, если не жив»: юнит следует за декларацией.
 	SyncWatcherUnit()
 	sys.LogAction("RESCUE", "CHANNEL_ACTIVATING", "PENDING",
 		i18n.TrEvent("rescue.activating"))
 
-	// Читаем SSH_CONNECTION для детекции IP админа
+	// v8.5.1 (A7′): SIG_HIDDEN НЕ создаётся здесь. Временные двери — только веб-стук.
+	// Постоянные двери — только опция A. Третьей точки создания дверей не существует.
+	// SSH_CONNECTION читается только для маркера ожидания IP (VNC-доступ).
 	sshConn := os.Getenv("SSH_CONNECTION")
 	parts := strings.Fields(sshConn)
-
-	if len(parts) >= 1 {
-		adminIP := parts[0]
-		// Валидация IPv4
-		if isValidKnockIPv4(adminIP) {
-			// Создаём SIG_HIDDEN через processWebKnock-подобную логику
-			targetPort := fmt.Sprintf("%d", config.C.RealSshPort)
-			sigHidden := fmt.Sprintf("Amber Guard Lab. Private SSH Invisible Port %s", targetPort)
-
-			// Мгновенный iptables на позицию 1
-			iptablesRes := sys.RunTimeout(5*time.Second, "iptables",
-				"-I", "ufw-user-input", "1",
-				"-s", adminIP,
-				"-p", "tcp",
-				"--dport", targetPort,
-				"-j", "ACCEPT",
-				"-m", "comment",
-				"--comment", sigHidden,
-			)
-			iptablesRes.LogWarnIfErr("RESCUE", "SIG_HIDDEN_IPTABLES", "event=iptables.rescue_insert_failed")
-
-			// Синхронный ufw insert 1 (персистентность)
-			ufwRes := sys.RunTimeout(10*time.Second, "ufw",
-				"insert", "1", "allow",
-				"from", adminIP,
-				"to", "any",
-				"port", targetPort,
-				"proto", "tcp",
-				"comment", sigHidden,
-			)
-
-			if ufwRes.Err != nil {
-				ufwRes.LogWarnIfErr("RESCUE", "SIG_HIDDEN_UFW", "event=ufw.rescue_insert_failed")
-				sys.LogAction("RESCUE", "SIG_HIDDEN_PERSIST_FAIL", "ALERT",
-					i18n.TrEventf("rescue.sig_hidden_persist_failed", adminIP, targetPort))
-				return // Не создаём маркер, если правило не персистентно
-			}
-
-			sys.LogAction("RESCUE", "SIG_HIDDEN_CREATED", "SUCCESS",
-				i18n.TrEventf("rescue.activated_with_ip", adminIP, targetPort))
-		} else {
-			sys.LogAction("RESCUE", "INVALID_SSH_IP", "WARNING",
-				i18n.TrEventf("rescue.invalid_ssh_ip", adminIP))
-		}
-	} else {
-		// SSH_CONNECTION пуст (VNC-доступ)
+	if len(parts) < 1 {
+		// SSH_CONNECTION пуст (VNC-доступ) — создаём маркер ожидания детекции IP.
 		sys.LogAction("RESCUE", "NO_SSH_CONNECTION", "WARNING",
 			i18n.TrEvent("rescue.no_ssh_connection"))
-
-		// Создаём маркер ожидания детекции IP
 		if err := os.WriteFile(config.MarkerRescueIpPending, []byte("pending"), 0644); err != nil {
 			sys.LogAction("RESCUE", "IP_PENDING_WRITE_FAIL", "ERROR",
 				i18n.TrEventf("rescue.ip_pending_write_fail", err))
@@ -789,7 +895,6 @@ func activateRescueChannel() {
 			i18n.TrEventf("rescue.marker_write_fail", err))
 		return
 	}
-
 	sys.LogAction("RESCUE", "CHANNEL_ACTIVATED", "SUCCESS",
 		i18n.TrEvent("rescue.activated"))
 }
@@ -807,6 +912,10 @@ func activateRescueChannel() {
 //
 // SIDE-EFFECTS: удаляет маркеры в /var/lib/amberguard/states/; модифицирует UFW.
 func deactivateRescueChannel() {
+	// v8.5.0: опция A — зачистка постоянной двери админа.
+	if !config.C.SshAllowInFromIp {
+		removeAdminDoor()
+	}
 	// v8.4.7-гигиена: наличие маркеров фиксируем ДО удаления — это признак живого канала.
 	hadMarkers := markerExists(config.MarkerRescueActive) || markerExists(config.MarkerRescueIpPending)
 	// Пург дверей идёт первым: факт зачистки важнее церемонии.
@@ -890,7 +999,8 @@ func purgeSigHiddenRules() int {
 //
 // SIDE-EFFECTS: пишет unit-файл, daemon-reload, systemctl start/stop.
 func SyncWatcherUnit() {
-	alive := config.C.WebServerEnabled || config.C.WebRescueEnabled
+	// v8.5.0 (D3): вотчер host'ит физический сервер; жив iff сервер включён.
+	alive := config.C.WebServerEnabled
 	if !alive {
 		stopRes := sys.RunTimeout(10*time.Second, "systemctl", "stop", "agld_watcher.service")
 		stopRes.LogWarnIfErr("WATCHER", "UNIT_STOP", "event=systemd.watcher_stop_failed")
@@ -948,4 +1058,28 @@ func ActivateRescueChannel() {
 // SIDE-EFFECTS: Удаляет маркеры.
 func DeactivateRescueChannel() {
 	deactivateRescueChannel()
+}
+
+// CreateAdminDoor — экспортированная обёртка для service-пакета.
+// PURPOSE: сервисный мост TUI создаёт постоянную дверь админа (опция A).
+// CONTRACT: Валидирует IP через isPublicAdminIPv4; приватные диапазоны отклоняются.
+// SIDE-EFFECTS: модифицирует UFW; пишет в журнал.
+func CreateAdminDoor() {
+	createAdminDoor()
+}
+
+// RemoveAdminDoor — экспортированная обёртка для service-пакета.
+// PURPOSE: сервисный мост TUI зачищает постоянную дверь админа (опция A).
+// CONTRACT: удаляет все правила с сигнатурой sigAdminDoor для скрытого порта.
+// SIDE-EFFECTS: модифицирует UFW; возвращает количество удалённых правил.
+func RemoveAdminDoor() int {
+	return removeAdminDoor()
+}
+
+// ReadMovedPort — экспортированный читатель порта из маркера рокировки.
+// PURPOSE: сервисный мост читает порт для восстановления правила перенесённого порта.
+// CONTRACT: возвращает пустую строку при отсутствии маркера.
+// SIDE-EFFECTS: нет (чистое чтение).
+func ReadMovedPort() string {
+	return readPortFromMarker()
 }

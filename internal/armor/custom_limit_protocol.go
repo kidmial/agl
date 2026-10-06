@@ -110,6 +110,15 @@ func SetCustomRateLimit(targetPort int, sysTag, targetName, action string) error
 		return nil
 
 	case "OFF":
+		// v8.5.1 (A6′): юрисдикция надгробия — у скрытого порта НЕТ «штатного
+		// открытого состояния». Снятие брони на порту рокировки идёт через
+		// санитар БЕЗ надгробия: надгробие ALLOW IN Anywhere на скрытом порту
+		// есть сквозная дыра в защите whitelist'ом.
+		if data, errRead := os.ReadFile(config.MarkerSshMoved); errRead == nil &&
+			strings.TrimSpace(string(data)) == fmt.Sprintf("%d", targetPort) {
+			PurgeLimitRule(targetPort)
+			return nil
+		}
 		// ЦИКЛИЧЕСКИЙ ДЕМОНТАЖ: Вызываем удаление 4 раза подряд.
 		// БЛОК 3.1: прямой exec.Command заменён на sys.RunTimeout.
 		// Демонтаж — best-effort: логируем только последнюю попытку каждого типа.
@@ -227,37 +236,89 @@ func ResetUfwCacheSnapshot() {
 	ufwCacheMu.Unlock()
 }
 
-// PurgeLimitRule (C1-санитар, v8.1.3): жёсткое удаление лимит-правила порта
-// БЕЗ надгробия «Disabled». Используется M4 для зачистки устаревших лимитов
-// на портах с активными ловушками: капкан обязан оставаться доступным,
-// а надгробие на капкане — шум (гейт ямы и так держит allow N/tcp).
+// PurgeLimitRule — единый санитар брони: сносит LIMIT + надгробие Disabled + маркеры.
+// PURPOSE: устраняет войну реконсайлов, когда надгробие "Disabled" остаётся
+// после удаления LIMIT, и RECONCILE_ARMOR восстанавливает лимит из живой квитанции.
+// CONTRACT: маркеры, квитанции, LIMIT и надгробие живут и умирают вместе.
+// SIDE-EFFECTS: модифицирует UFW; удаляет маркеры; сбрасывает кэш.
 func PurgeLimitRule(targetPort int) {
 	portProtocol := fmt.Sprintf("%d/tcp", targetPort)
-	// БЛОК 3.1: удаление больше не слепое.
-	// Три попытки по контракту санитарии; запоминаем последний результат.
+
+	// --- Шаг 1: Удаление LIMIT (три попытки по контракту санитарии) ---
 	var lastPurge sys.CmdResult
 	for i := 0; i < 3; i++ {
 		lastPurge = sys.RunTimeout(5*time.Second, "ufw", "--force", "delete", "limit", portProtocol)
 	}
+	limitAlive := (lastPurge.Err == nil)
 
-	// Если удаление НЕ подтверждено — правило может быть живо.
-	// Тогда маркеры сносить НЕЛЬЗЯ: квитанция живёт и умирает ВМЕСТЕ
-	// с правилом (M4-гигиена). Иначе C1-нарушение на порту с ловушкой
-	// станет невидимым для следующих reconcile.
-	if lastPurge.Err != nil {
-		// WARNING с машинным кодом: санитария C1 не подтверждена.
+	// --- Шаг 2: удаление надгробий Disabled (вынесено в purgeTombstoneRules) ---
+	tombPurged := purgeTombstoneRules(targetPort)
+
+	// --- Шаг 3: Проверка результата ---
+	// Если LIMIT не удалён И надгробие не удалено — маркеры не трогаем.
+	if !limitAlive && !tombPurged {
 		lastPurge.LogWarnIfErr("ARMOR", "LIMIT_PURGE", "event=ufw.purge_delete_failed")
-		// Кэш сбрасываем, чтобы TUI увидел актуальную картину при следующем опросе.
 		ResetUfwCacheSnapshot()
-		// Маркеры остаются: C1-санитар повторится на следующем reconcile.
 		return
 	}
 
-	// Удаление подтверждено — лимит мёртв.
-	// Сносим оба маркера: квитанция и рантайм не должны жить без правила.
+	// --- Шаг 4: Снос маркеров (квитанция + рантайм) ---
 	_ = os.Remove(config.ArmorRateLimitMarkerPath(targetPort))
 	_ = os.Remove(config.ArmorMarkerPath(targetPort))
 	ResetUfwCacheSnapshot()
-	sys.LogAction("ARMOR", "LIMIT_PURGED", "SUCCESS",
-		fmt.Sprintf(i18n.T.ArmorLimitPurgeSuccess, targetPort))
+
+	if limitAlive && tombPurged {
+		sys.LogAction("ARMOR", "LIMIT_PURGED_WITH_TOMBSTONE", "SUCCESS",
+			i18n.TrEventf("armor.limit_purged_with_tombstone", targetPort))
+	} else if limitAlive {
+		sys.LogAction("ARMOR", "LIMIT_PURGED", "SUCCESS",
+			fmt.Sprintf(i18n.T.ArmorLimitPurgeSuccess, targetPort))
+	}
+}
+
+// purgeTombstoneRules удаляет правила-надгробия «Disabled» (ALLOW/REJECT) порта.
+// PURPOSE: единый владелец сигнатуры надгробия; используется санитаром и A2′/A6′.
+// CONTRACT: обратный обход ufw status numbered; граничный матч по порту.
+// SIDE-EFFECTS: модифицирует UFW; возвращает true, если снесено хотя бы одно надгробие.
+func purgeTombstoneRules(targetPort int) bool {
+	portProtocol := fmt.Sprintf("%d/tcp", targetPort)
+	tombSig := fmt.Sprintf("DDoS protection Disabled on Port %d", targetPort)
+	tombPurged := false
+	statusRes := sys.RunTimeout(5*time.Second, "ufw", "status", "numbered")
+	if statusRes.Err != nil {
+		statusRes.LogWarnIfErr("ARMOR", "TOMBSTONE_PURGE", "event=ufw.status_failed_for_tombstone")
+		return false
+	}
+	lines := strings.Split(statusRes.Stdout, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
+		if !strings.Contains(line, tombSig) || !strings.Contains(line, portProtocol) {
+			continue
+		}
+		numStr := extractRuleNumber(line)
+		if numStr == "" {
+			continue
+		}
+		delRes := sys.RunTimeout(5*time.Second, "ufw", "--force", "delete", numStr)
+		if delRes.Err != nil {
+			delRes.LogWarnIfErr("ARMOR", "TOMBSTONE_PURGE", "event=ufw.tombstone_delete_failed")
+			continue
+		}
+		tombPurged = true
+	}
+	if tombPurged {
+		sys.LogAction("ARMOR", "TOMBSTONE_PURGED", "SUCCESS",
+			i18n.TrEventf("armor.tombstone_purged", targetPort))
+	}
+	return tombPurged
+}
+
+// PurgeTombstone — экспортированный санитар ТОЛЬКО надгробия (A2′).
+// PURPOSE: включение защиты сносит правила открытого доступа (надгробия),
+// но НЕ трогает LIMIT: броня сосуществует с защитой по осознанному выбору админа.
+// SIDE-EFFECTS: модифицирует UFW; сбрасывает кэш снимка.
+func PurgeTombstone(targetPort int) {
+	if purgeTombstoneRules(targetPort) {
+		ResetUfwCacheSnapshot()
+	}
 }

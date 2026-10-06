@@ -47,6 +47,10 @@ const (
 	// CONTRACT: Создаётся, если при активации канала переменная SSH_CONNECTION пуста (VNC-доступ).
 	// SIDE-EFFECTS: При первом веб-стуке processWebKnock() удалит этот маркер и создаст SIG_HIDDEN.
 	MarkerRescueIpPending = DirLib + "/agl_rescue_ip_pending"
+	// v8.5.0 (G2): маркер типа правила перенесённого порта (allow/limit/reject).
+	// Пишется при рокировке ON; читается при восстановлении правила перенесённого
+	// порта в момент выключения последней защитной опции (A и B).
+	MarkerMovedRuleType = DirLib + "/agl_moved_rule_type"
 
 	// Журналы подсистем
 	FileTarpitConnLog = DirLog + "/tarpit_connection.log" // Журнал подключений дегтярной ямы

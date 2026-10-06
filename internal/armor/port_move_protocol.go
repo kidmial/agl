@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -153,7 +154,7 @@ func SetMovePortProtocol(action string) error {
 		// ═══════════════════════════════════════════════════════════════
 		// ФАЗА 1: ПОДГОТОВКА К РОКИРОВКЕ ON
 		// ═══════════════════════════════════════════════════════════════
-		backupPath, limiterWasActive, err := prepareCastlingON(customPort)
+		backupPath, err := prepareCastlingON(customPort)
 		if err != nil {
 			return err
 		}
@@ -161,7 +162,7 @@ func SetMovePortProtocol(action string) error {
 		// ═══════════════════════════════════════════════════════════════
 		// ФАЗА 2+3: ПРИМЕНЕНИЕ + ВЕРИФИКАЦИЯ (с автоматическим откатом)
 		// ═══════════════════════════════════════════════════════════════
-		if err := applyCastlingON(customPort, backupPath, limiterWasActive); err != nil {
+		if err := applyCastlingON(customPort, backupPath); err != nil {
 			// ═══════════════════════════════════════════════════════════════
 			// ФАЗА 4: ОТКАТ ПРИ СБОЕ
 			// ═══════════════════════════════════════════════════════════════
@@ -176,12 +177,12 @@ func SetMovePortProtocol(action string) error {
 		// ═══════════════════════════════════════════════════════════════
 		// ФАЗА 1: ПОДГОТОВКА К ОБРАТНОЙ РОКИРОВКЕ OFF
 		// ═══════════════════════════════════════════════════════════════
-		limiterWasActive := prepareCastlingOFF(customPort)
+		prepareCastlingOFF(customPort)
 
 		// ═══════════════════════════════════════════════════════════════
 		// ФАЗА 2+3: ПРИМЕНЕНИЕ + ВЕРИФИКАЦИЯ
 		// ═══════════════════════════════════════════════════════════════
-		if err := applyCastlingOFF(customPort, limiterWasActive); err != nil {
+		if err := applyCastlingOFF(customPort); err != nil {
 			return err
 		}
 
@@ -204,13 +205,13 @@ func SetMovePortProtocol(action string) error {
 // prepareCastlingON выполняет подготовительные шаги перед рокировкой ON:
 //   - Проверка, что порт для рокировки свободен
 //   - Создание бэкапа sshd_config
-//   - Приостановка лимитера на стандартном порту 22 (если был активен)
+//   - Замок A4′: отказ при живой броне на порту 22 (квитанция ИЛИ правило)
 //   - Фиксация геометрии кастлинга в маркере
-//   - Старт юнита наблюдателя (agld_watcher.service)
 //
 // КОНТРАКТ (п. 4.6 аудита — «фаза подготовки»):
-//   - Возвращает (backupPath, limiterWasActive, nil) при успехе
-//   - Возвращает ("", false, err) при критическом сбое (рокировка прервана)
+//   - Возвращает (backupPath, nil) при успехе
+//   - Возвращает ("", err) при критическом сбое (рокировка прервана)
+//   - v8.5.1 (A4′): stateful-миграция лимитера мертва — броня не пересекает переезд
 //
 // ПОБОЧНЫЕ ЭФФЕКТЫ:
 //   - Создаёт бэкап sshd_config с таймстампом
@@ -218,13 +219,23 @@ func SetMovePortProtocol(action string) error {
 //   - Устанавливает и стартует systemd-юнит agld_watcher.service
 //
 // ОБНОВЛЕНО В v8.2.2 (п. 4.6): Извлечено из SetMovePortProtocol для декомпозиции монолита.
-func prepareCastlingON(customPort string) (backupPath string, limiterWasActive bool, err error) {
+func prepareCastlingON(customPort string) (backupPath string, err error) {
 	// v8.2.0 (1.8.5): проверка, что порт для рокировки свободен
 	conn, errListen := net.Listen("tcp", fmt.Sprintf(":%d", config.C.RealSshPort))
 	if errListen != nil {
-		return "", false, fmt.Errorf(i18n.T.PortMovePortBusy, config.C.RealSshPort, errListen)
+		return "", fmt.Errorf(i18n.T.PortMovePortBusy, config.C.RealSshPort, errListen)
 	}
 	_ = conn.Close()
+	// v8.5.1 (A4′): переезд ОТКЛОНЁН, если на порту 22 взведена броня.
+	// Симметрично замку дегтярной ямы: порт 22 обязан быть чистым до переезда.
+	// Админ снимает броню осознанно; после переезда взводит её на скрытом порту.
+	// Отказ по ИЛИ двух фактов: квитанция на диске ИЛИ живое LIMIT-правило (страх десинхрона).
+	if _, errStat := os.Stat(config.ArmorMarkerPath(defaultPortInt)); errStat == nil {
+		return "", fmt.Errorf("%s", i18n.T.PortMoveCastlingArmorLock)
+	}
+	if VerifyUfwRulePresence(fmt.Sprintf("Amber Guard Lab. DDoS Rate Limit Port %d", defaultPortInt), true) {
+		return "", fmt.Errorf("%s", i18n.T.PortMoveCastlingArmorLock)
+	}
 
 	// R-7 (v8.2.3): ДО модификации конфига сохраняем заводской якорь.
 	// Создаётся один раз за всю жизнь хоста; далее вызовы — no-op.
@@ -235,7 +246,7 @@ func prepareCastlingON(customPort string) (backupPath string, limiterWasActive b
 	// БЛОК 3.1: бэкап через единый интерфейс; при сбое — stderr в ошибке.
 	backupRes := sys.RunTimeout(5*time.Second, "cp", "/etc/ssh/sshd_config", backupPath)
 	if backupRes.Err != nil {
-		return "", false, fmt.Errorf(i18n.T.PortMoveBackupCreateFailed,
+		return "", fmt.Errorf(i18n.T.PortMoveBackupCreateFailed,
 			backupRes.Err, strings.TrimSpace(backupRes.Stderr))
 	}
 	sys.LogAction("PORT_CASTLING", "SSHD_BACKUP_CREATED", "SUCCESS",
@@ -244,18 +255,14 @@ func prepareCastlingON(customPort string) (backupPath string, limiterWasActive b
 	// остальные зачищаем прямо сейчас, в момент создания нового.
 	pruneSshBackups()
 
-	// Проверяем активность лимитера на стандартном 22 порту до начала рокировки
-	limiterWasActive = false
-	if err := SetCustomRateLimit(defaultPortInt, "open_ssh", "Open SSH", "CHECK"); err == nil {
-		limiterWasActive = true
-		_ = SetCustomRateLimit(defaultPortInt, "open_ssh", "Open SSH", "OFF")
-		sys.LogAction("PORT_CASTLING", "LIMITER_SUSPEND", "SUCCESS", i18n.TrEvent("port_castling.limiter_suspend"))
-	}
+	// v8.5.1 (A4′): stateful-миграция лимитера мертва: замок отклоняет переезд
+	// с живой бронёй на 22, приостанавливать нечего. Броня взводится на скрытом
+	// порту осознанно ПОСЛЕ переезда (ANTIDDOS).
 
 	// Фиксируем геометрию кастлинга в гарантированную директорию states
 	_ = os.MkdirAll(filepath.Dir(markerFile), 0755)
 	if err := sys.WriteAtomic(markerFile, []byte(customPort), 0644); err != nil {
-		return "", false, fmt.Errorf(i18n.T.PortMoveGeometryWriteFailed, err)
+		return "", fmt.Errorf(i18n.T.PortMoveGeometryWriteFailed, err)
 	}
 
 	// === v8.4.7: ВОТЧЕР НЕ СТАРТУЕТ ПРИ ПЕРЕЕЗДЕ ===
@@ -264,7 +271,7 @@ func prepareCastlingON(customPort string) (backupPath string, limiterWasActive b
 	//           При рокировке вотчер может дремать или активировать канал спасения.
 	// SIDE-EFFECTS: Нет — юнит не создаётся и не стартует в этой фазе.
 
-	return backupPath, limiterWasActive, nil
+	return backupPath, nil
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -278,7 +285,7 @@ func prepareCastlingON(customPort string) (backupPath string, limiterWasActive b
 //   - Зачистка старых правил порта 22
 //   - Маскирование ssh.socket
 //   - Рестарт ssh.service на новом порту
-//   - Восстановление лимитера на новом порту
+//   - v8.5.1 (A5′): автовзвода брони нет — админ взводит её осознанно (ANTIDDOS)
 //   - Асинхронный перескан периметра
 //
 // КОНТРАКТ (п. 4.6 аудита — «фаза применения + верификация»):
@@ -293,7 +300,7 @@ func prepareCastlingON(customPort string) (backupPath string, limiterWasActive b
 //   - Запускает горутину перескана периметра
 //
 // ОБНОВЛЕНО В v8.2.2 (п. 4.6): Извлечено из SetMovePortProtocol для декомпозиции монолита.
-func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error {
+func applyCastlingON(customPort, backupPath string) error {
 	// Модифицируем конфигурацию демона OpenSSH
 	if err := modifySshConfig(customPort); err != nil {
 		return err
@@ -329,7 +336,7 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 	// При сбое детекции IP админа — только SIG_LOCALE + ALERT.
 	// ─────────────────────────────────────────────────────────────
 	// БЛОК 3.1 (lint S1039): строка без форматных глаголов — Sprintf не нужен.
-	sigLocale := "Amber Guard Lab. Master Admin Anti-Lockout"
+	sigLocale := "Amber Guard Lab. Localhost Core Loopback"
 
 	// Правило 1: локальная петля (не испепеляется никогда).
 	// БЛОК 3.1: сбой не игнорируем — локальный доступ тоже канал спасения.
@@ -342,13 +349,6 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 			i18n.TrEventf("port_castling.anti_lockout_locale_created", customPort))
 	}
 
-	// === v8.4.7: SIG_HIDDEN НЕ СОЗДАЁТСЯ ПРИ ПЕРЕЕЗДЕ ===
-	// PURPOSE: Детект SSH_CONNECTION и создание SIG_HIDDEN — задача канала спасения.
-	// CONTRACT: SIG_HIDDEN создаётся только в двух точках:
-	//           (1) activateRescueChannel() — при активации канала
-	//           (2) processWebKnock() — при веб-стуке админа
-	// SIDE-EFFECTS: Нет — переезд создаёт только SIG_LOCALE и зеркальное правило.
-
 	// === v8.4.7: ЗЕРКАЛЬНОЕ ПРАВИЛО ДЛЯ CUSTOMPORT ===
 	// PURPOSE: При рокировке тип правила копируется с порта 22 на customPort.
 	// CONTRACT: Было: ufw limit 22/tcp → Стало: ufw limit customPort/tcp
@@ -357,20 +357,33 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 	// SIDE-EFFECTS: Модифицирует UFW (создаёт правило для customPort).
 
 	// Определяем тип правила на порту 22 через парсинг ufw status numbered
+	// v8.5.0 (G2): маркер типа правила рождается при ЛЮБОЙ рокировке,
+	// чтобы восстановление при выключении защит всегда знало тип.
 	mirrorRuleType := detectRuleTypeForPort(defaultPort)
 	if mirrorRuleType != "" {
-		// Создаём зеркальное правило для customPort
-		mirrorRes := sys.RunTimeout(10*time.Second, "ufw", mirrorRuleType, customPort+"/tcp",
-			"comment", fmt.Sprintf("Amber Guard Lab. SSH Moved Port %s", customPort))
-		if mirrorRes.Err != nil {
-			mirrorRes.LogWarnIfErr("PORT_CASTLING", "MIRROR_RULE_CREATE", "event=ufw.mirror_rule_create_failed")
+		_ = os.WriteFile(config.MarkerMovedRuleType, []byte(mirrorRuleType), 0644)
+	}
+
+	// v8.5.0: правило перенесённого порта создаётся ТОЛЬКО при обеих выключенных
+	// защитных опциях (A=false ∧ B=false). Если хоть одна опция включена —
+	// защита внешнего SSH обеспечивается ей, зеркальное правило не нужно.
+	if !config.C.SshAllowInFromIp && !config.C.SshIpWebKnock {
+		if mirrorRuleType != "" {
+			mirrorRes := sys.RunTimeout(10*time.Second, "ufw", mirrorRuleType, customPort+"/tcp",
+				"comment", fmt.Sprintf("Amber Guard Lab. SSH Moved Port %s", customPort))
+			if mirrorRes.Err != nil {
+				mirrorRes.LogWarnIfErr("PORT_CASTLING", "MIRROR_RULE_CREATE", "event=ufw.mirror_rule_create_failed")
+			} else {
+				sys.LogAction("PORT_CASTLING", "MIRROR_RULE_CREATED", "SUCCESS",
+					i18n.TrEventf("port_castling.mirror_rule_created", customPort, mirrorRuleType))
+			}
 		} else {
-			sys.LogAction("PORT_CASTLING", "MIRROR_RULE_CREATED", "SUCCESS",
-				i18n.TrEventf("port_castling.mirror_rule_created", customPort, mirrorRuleType))
+			sys.LogAction("PORT_CASTLING", "MIRROR_RULE_SKIP", "WARNING",
+				i18n.TrEvent("port_castling.mirror_rule_skip"))
 		}
 	} else {
-		sys.LogAction("PORT_CASTLING", "MIRROR_RULE_SKIP", "WARNING",
-			i18n.TrEvent("port_castling.mirror_rule_skip"))
+		sys.LogAction("PORT_CASTLING", "MIRROR_RULE_SKIP_PROTECTED", "INFO",
+			i18n.TrEvent("port_castling.mirror_rule_skip_protected"))
 	}
 
 	// === v8.4.7: АКТИВАЦИЯ КАНАЛА СПАСЕНИЯ (ЕСЛИ 3 УСЛОВИЯ СОВПАЛИ) ===
@@ -439,16 +452,8 @@ func applyCastlingON(customPort, backupPath string, limiterWasActive bool) error
 		return fmt.Errorf(i18n.T.PortMoveSshListenerVerifyFailed, config.C.RealSshPort, err)
 	}
 
-	if limiterWasActive {
-		time.Sleep(restartSleep)
-		if err := SetCustomRateLimit(config.C.RealSshPort, "open_ssh", "Open SSH", "ON"); err != nil {
-			sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "WARNING",
-				i18n.TrEventf("port_castling.limiter_restore_failed", config.C.RealSshPort, err))
-		} else {
-			sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "SUCCESS",
-				i18n.TrEventf("port_castling.limiter_restore", config.C.RealSshPort))
-		}
-	}
+	// v8.5.1 (A5′): автовзвода брони на скрытом порту нет: админ взводит её
+	// осознанно через ANTIDDOS после переезда. Stateful-миграция мертва как класс.
 
 	// ВАРИАНТ А (v8.4.6): СИНХРОННЫЙ перескан периметра после рокировки.
 	// Геометрия портов изменилась — инвентарь обязан самоактуализироваться,
@@ -543,12 +548,12 @@ func rollbackCastlingON(backupPath, customPort string) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // prepareCastlingOFF выполняет подготовительные шаги перед обратной рокировкой OFF:
-//   - Приостановка лимитера на кастомном порту (если был активен)
+//   - v8.5.1 (A5′): пург брони скрытого порта без автовосстановления на 22
 //   - Удаление персистентного маркера геометрии
-//   - Остановка юнита наблюдателя (agld_watcher.service)
+//   - Деактивация канала спасения (маркеры)
 //
 // КОНТРАКТ (п. 4.6 аудита — «фаза подготовки»):
-//   - Возвращает limiterWasActive (bool)
+//   - Не возвращает значений: броня не пересекает обратную рокировку
 //   - Не возвращает ошибку — best-effort подготовка
 //
 // ПОБОЧНЫЕ ЭФФЕКТЫ:
@@ -556,13 +561,14 @@ func rollbackCastlingON(backupPath, customPort string) {
 //   - Останавливает и отключает agld_watcher.service
 //
 // ОБНОВЛЕНО В v8.2.2 (п. 4.6): Извлечено из SetMovePortProtocol для декомпозиции монолита.
-func prepareCastlingOFF(customPort string) (limiterWasActive bool) {
-	// Проверяем активность лимитера на кастомном порту перед откатом
-	limiterWasActive = false
-	if err := SetCustomRateLimit(config.C.RealSshPort, "open_ssh", "Open SSH", "CHECK"); err == nil {
-		limiterWasActive = true
-		_ = SetCustomRateLimit(config.C.RealSshPort, "open_ssh", "Open SSH", "OFF")
-		sys.LogAction("PORT_CASTLING", "LIMITER_SUSPEND", "SUCCESS", i18n.TrEventf("port_castling.limiter_suspend_custom", config.C.RealSshPort))
+func prepareCastlingOFF(customPort string) {
+	// v8.5.1 (A5′): броня не пересекает обратную рокировку. Пург безусловен
+	// (санитар идемпотентен); подсказка о повторном взводе — только если броня жила.
+	armorWasActive := SetCustomRateLimit(config.C.RealSshPort, "open_ssh", "Open SSH", "CHECK") == nil
+	PurgeLimitRule(config.C.RealSshPort)
+	if armorWasActive {
+		sys.LogAction("PORT_CASTLING", "ARMOR_NOT_CARRIED", "INFO",
+			i18n.TrEventf("port_castling.armor_not_carried", config.C.RealSshPort, defaultPortInt))
 	}
 
 	// Удаляем персистентный маркер геометрии v6.0.0
@@ -580,8 +586,6 @@ func prepareCastlingOFF(customPort string) (limiterWasActive bool) {
 	//           Существующие правила UFW НЕ удаляются (админ может быть в сессии).
 	// SIDE-EFFECTS: Удаляет маркеры в /var/lib/amberguard/states/.
 	deactivateRescueChannel()
-
-	return limiterWasActive
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -595,7 +599,7 @@ func prepareCastlingOFF(customPort string) (limiterWasActive bool) {
 //   - Возврат правил порта 22
 //   - Размаскирование ssh.socket
 //   - Рестарт ssh.service на порту 22
-//   - Восстановление лимитера на порту 22
+//   - v8.5.1 (A5′): броня не восстанавливается на 22; совет написан событием ARMOR_NOT_CARRIED
 //   - Асинхронный перескан периметра
 //
 // КОНТРАКТ (п. 4.6 аудита — «фаза применения + верификация»):
@@ -610,7 +614,7 @@ func prepareCastlingOFF(customPort string) (limiterWasActive bool) {
 //   - Запускает горутину перескана периметра
 //
 // ОБНОВЛЕНО В v8.2.2 (п. 4.6): Извлечено из SetMovePortProtocol для декомпозиции монолита.
-func applyCastlingOFF(customPort string, limiterWasActive bool) error {
+func applyCastlingOFF(customPort string) error {
 	// Возвращаем стандартный Port 22 в sshd_config
 	if err := modifySshConfig(defaultPort); err != nil {
 		// Тут ошибку логичнее прокинуть, так как без конфига SSH не заведется
@@ -632,20 +636,15 @@ func applyCastlingOFF(customPort string, limiterWasActive bool) error {
 	// локальная петля, зеркало перенесённого порта и переходная строчная метка ранних сборок.
 	// Граничный матч customPort+"/tcp" устраняет коллизию префиксов портов (22 vs 2244).
 	purgeCastlingRules(customPort)
+	// v8.5.0 (G2): маркер типа правила больше не нужен — рокировка снята.
+	_ = os.Remove(config.MarkerMovedRuleType)
 
 	// ═══════════════════════════════════════════════════════════════════════════════
 	// STATEFUL-МИГРАЦИЯ ЛИМИТОВ (v8.2.4): взводим броню ДО переключения юнитов.
 	// UFW-лимитер не зависит от sshd, поэтому порт 22 защищён с момента открытия.
 	// ═══════════════════════════════════════════════════════════════════════════════
-	if limiterWasActive {
-		if err := SetCustomRateLimit(defaultPortInt, "open_ssh", "Open SSH", "ON"); err != nil {
-			sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "WARNING",
-				i18n.TrEventf("port_castling.limiter_restore_failed", 22, err))
-		} else {
-			sys.LogAction("PORT_CASTLING", "LIMITER_RESTORE", "SUCCESS",
-				i18n.TrEvent("port_castling.limiter_restore_22"))
-		}
-	}
+	// v8.5.1 (A5′): автовосстановления брони на 22 нет: админ взводит её осознанно.
+	// Совет уже написан событием ARMOR_NOT_CARRIED в prepare-фазе, если броня жила.
 
 	// Возвращаем строгое комментирование UFW по корпоративному стандарту v6.0.0
 	// (DRY: общий helper с откатом рокировки ON, см. restorePort22Perimeter)
@@ -838,10 +837,14 @@ func restorePort22Perimeter() {
 // SIDE-EFFECTS: модифицирует UFW; логирует каждое удаление.
 func purgeCastlingRules(customPort string) {
 	sigHidden := fmt.Sprintf("Amber Guard Lab. Private SSH Invisible Port %s", customPort)
-	sigLocale := "Amber Guard Lab. Master Admin Anti-Lockout"
+	sigLocale := "Amber Guard Lab. Localhost Core Loopback"
 	sigMoved := fmt.Sprintf("Amber Guard Lab. SSH Moved Port %s", customPort)
-	// ПЕРЕХОДНАЯ метка строчным стилем ранних сборок v8.4.7 — до полной миграции хостов.
 	sigMovedLegacy := fmt.Sprintf("Amber Guard Lab. Mirror rule for port %s", customPort)
+	// v8.5.0 (миграция D4): старая сигнатура локальной петли до переименования.
+	// Постоянная дверь админа теперь носит ту же сигнатуру — поэтому матчим
+	// ТОЛЬКО по источнику 127.0.0.1: артефакт петли удаляется, дверь админа
+	// остаётся нетронутой (её жизненный цикл управляется опцией A, не кастлингом).
+	sigLocaleLegacy := "Amber Guard Lab. Master Admin Anti-Lockout"
 	statusRes := sys.RunTimeout(5*time.Second, "ufw", "status", "numbered")
 	if statusRes.Err != nil {
 		statusRes.LogWarnIfErr("PORT_CASTLING", "ANTI_LOCKOUT_REMOVE", "event=ufw.status_failed")
@@ -854,8 +857,10 @@ func purgeCastlingRules(customPort string) {
 		if !strings.Contains(line, customPort+"/tcp") {
 			continue
 		}
+		// v8.5.0 (миграция D4): петля со старой сигнатурой матчится только по источнику.
+		isLegacyLocale := strings.Contains(line, sigLocaleLegacy) && strings.Contains(line, "127.0.0.1")
 		if strings.Contains(line, sigHidden) || strings.Contains(line, sigLocale) ||
-			strings.Contains(line, sigMoved) || strings.Contains(line, sigMovedLegacy) {
+			strings.Contains(line, sigMoved) || strings.Contains(line, sigMovedLegacy) || isLegacyLocale {
 			numStr := extractRuleNumber(line)
 			if numStr == "" {
 				continue
@@ -869,6 +874,10 @@ func purgeCastlingRules(customPort string) {
 			}
 		}
 	}
+	// v8.5.0: санитар брони — снос LIMIT + надгробия Disabled на мёртвом порту.
+	// Устраняет кристаллизацию надгробия после обратной рокировки.
+	portInt, _ := strconv.Atoi(customPort)
+	PurgeLimitRule(portInt)
 }
 
 // watcherUnitPath — абсолютный путь к systemd-юниту наблюдателя.

@@ -241,8 +241,12 @@ func webRescuePasswordValid(input string) bool {
 //   - time.Sleep и рендеринг HTML выполняются вне мьютекса, чтобы один
 //     медленный запрос не блокировал обработку остальных запросов.
 func handleWebRescue(w http.ResponseWriter, r *http.Request) {
+	// v8.5.0 (K2): маршрут /rescue без опции B отдаёт 404 — не «заглушка под панель».
+	if !config.C.SshIpWebKnock {
+		handle404Stub(w, r)
+		return
+	}
 	// Получаем адрес клиента из RemoteAddr.
-	// RemoteAddr обычно имеет вид "1.2.3.4:56789".
 	adminIP := r.RemoteAddr
 
 	// Отделяем IP от порта.
@@ -483,19 +487,94 @@ body { background: #0f141c; color: #00ff66; font-family: monospace; display: fle
 }
 
 // handleWebPanelStub — заглушка для будущего веб-интерфейса.
-func handleWebPanelStub(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusNotImplemented)
-	_, _ = w.Write([]byte("<!DOCTYPE html><html><body><h1>501 Not Implemented</h1><p>Web Panel is under construction.</p></body></html>"))
-}
+// func handleWebPanelStub(w http.ResponseWriter, r *http.Request) {
+// 	// v8.5.0 (K2): маршрут /panel без опции C отдаёт 404 — панель недоступна.
+// 	if !config.C.WebHttpsPanelActive {
+// 		handle404Stub(w, r)
+// 		return
+// 	}
+// 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+// 	w.WriteHeader(http.StatusNotImplemented)
+// 	_, _ = w.Write([]byte("<!DOCTYPE html><html><body><h1>501 Not Implemented</h1><p>Web Panel is under construction.</p></body></html>"))
+// }
 
-// handle404Stub — обработка всех неизвестных путей (защита от сканирования).
-//
-//	func handle404Stub(w http.ResponseWriter, r *http.Request) {
-//		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-//		w.WriteHeader(http.StatusNotFound)
-//		_, _ = w.Write([]byte("<!DOCTYPE html><html><body><h1>404 Not Found</h1></body></html>"))
-//	}
+// handleWebPanelStub — заглушка для будущего веб-интерфейса.
+func handleWebPanelStub(w http.ResponseWriter, r *http.Request) {
+	// v8.5.0 (K2): маршрут /panel без опции C отдаёт 404 — панель недоступна.
+	if !config.C.WebHttpsPanelActive {
+		handle404Stub(w, r)
+		return
+	}
+	// --- 1. Статус ошибки (501) для защиты от сканеров.
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusNotImplemented) // 501 Not Implemented
+	loadingHTML := `
+        <!DOCTYPE html>
+        <html lang="ru">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Web Panel Loading</title>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    background-color: #0f141c;
+                    color: #ffffff;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    text-align: center;
+                    overflow: hidden;
+                }
+
+                .loader-container {
+                    padding: 40px;
+                    animation: pulse 2s infinite;
+                }
+
+                .spinner {
+                    border: 6px solid #1c2030; 
+                    border-radius: 50%;
+                    border-top: 6px solid #2962ff; 
+                    width: 60px;
+                    height: 60px;
+                    animation: spin 1s linear infinite;
+                    margin: 0 auto 20px auto;
+                }
+
+                .loading-text {
+                    font-size: 22px;
+                    font-weight: 400;
+                    color: #d1d4dc;
+                    letter-spacing: 1px;
+                }
+                
+                /* Анимации */
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                
+                @keyframes pulse {
+                    0% { opacity: 1; }
+                    50% { opacity: 0.9; }
+                    100% { opacity: 1; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="loader-container">
+                <div class="spinner"></div>
+                <p class="loading-text">Web Panel is under soon</p>
+            </div>
+        </body>
+        </html>
+    `
+	_, _ = w.Write([]byte(loadingHTML))
+}
 
 // handle404Stub — обработка всех неизвестных путей (защита от сканирования).
 func handle404Stub(w http.ResponseWriter, r *http.Request) {
@@ -507,12 +586,12 @@ func handle404Stub(w http.ResponseWriter, r *http.Request) {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Ошибка 404</title>
+            <title>404</title>
             <style>
                 body {
                     margin: 0;
                     padding: 0;
-                    background-color: #131722;
+                    background-color: #0f141c;
                     color: #ffffff;
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, sans-serif;
                     display: flex;

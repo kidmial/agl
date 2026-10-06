@@ -49,6 +49,7 @@ import (
 	"agl/internal/armor"
 	"agl/internal/buildinfo"
 	"agl/internal/maintenance"
+	"agl/internal/service"
 	"agl/internal/sys"
 	"agl/internal/tarpit"
 	"agl/internal/tarpitctl"
@@ -96,22 +97,25 @@ func ensureDefaultConfig(configPath string) {
 	// Файл отсутствует. Порождаем эталонную конфигурацию мажорной версии.
 	// ОБНОВЛЕНО В v8.3.0: Структура полностью синхронизирована с дефолтами LoadConfig.
 	defaultConfig := config.Config{
-		Lang:             "en", // v8.3.0 (6.3): дефолт генерации — английский
-		StandardSshPort:  22,
-		RealSshPort:      2244,
-		DelayStep:        13,
-		DelayVariance:    8,
-		TarpitMaxConn:    100,
-		TarpitBacklog:    1024,
-		AdminIdleTimeout: 10,                       // M2: дефолт 10 минут
-		WebRescueEnabled: true,                     // M3: канал спасения включён по умолчанию
-		WebRescuePort:    55111,                    // M3b: порт автономного HTTP-сервера веб-стука
-		WebServerEnabled: true,                     // v8.4.7: физический HTTP-слушатель включён по умолчанию
-		TarpitConnLog:    config.FileTarpitConnLog, // БЛОК 4.4: Константа пути
-		TarpitRptLog:     config.FileTarpitRptLog,  // БЛОК 4.4: Константа пути
-		AglLogarchiveDir: config.DirLog,            // БЛОК 4.4: Константа пути
-		BackupRootDir:    "/backup",
-		GeoTool:          "geoiplookup",
+		Lang:                "en", // v8.3.0 (6.3): дефолт генерации — английский
+		StandardSshPort:     22,
+		RealSshPort:         2244,
+		DelayStep:           13,
+		DelayVariance:       8,
+		TarpitMaxConn:       100,
+		TarpitBacklog:       1024,
+		AdminIdleTimeout:    10,                       // M2: дефолт 10 минут
+		WebRescueEnabled:    true,                     // M3: канал спасения включён по умолчанию
+		WebRescuePort:       55111,                    // M3b: порт автономного HTTP-сервера веб-стука
+		WebServerEnabled:    true,                     // v8.4.7: физический HTTP-слушатель включён по умолчанию
+		SshAllowInFromIp:    false,                    // v8.5.0: опция A выключена по умолчанию — защита только по явной декларации
+		SshIpWebKnock:       false,                    // v8.5.0: опция B выключена по умолчанию — защита только по явной декларации
+		WebHttpsPanelActive: false,                    // v8.5.0: опция C выключена по умолчанию
+		TarpitConnLog:       config.FileTarpitConnLog, // БЛОК 4.4: Константа пути
+		TarpitRptLog:        config.FileTarpitRptLog,  // БЛОК 4.4: Константа пути
+		AglLogarchiveDir:    config.DirLog,            // БЛОК 4.4: Константа пути
+		BackupRootDir:       "/backup",
+		GeoTool:             "geoiplookup",
 		SysctlCore: config.SysctlCoreConfig{
 			// Default (Честный стандарт ядра Linux — безопасный baseline)
 			DefaultNetIpv4TcpSyncookies:       1,
@@ -669,7 +673,8 @@ func ReconcileSystemStates() {
 		portBytes, errRead := os.ReadFile(markerCastling)
 		if errRead == nil {
 			customPort := strings.TrimSpace(string(portBytes))
-			sigLocale := "Amber Guard Lab. Master Admin Anti-Lockout"
+			// v8.5.0 (D4): локальная петля переименована по регламенту UFW.
+			sigLocale := "Amber Guard Lab. Localhost Core Loopback"
 
 			// Проверяем наличие правила через парсинг ufw status
 			statusRes := sys.RunTimeout(5*time.Second, "ufw", "status", "numbered")
@@ -706,34 +711,16 @@ func ReconcileSystemStates() {
 	}
 
 	// -------------------------------------------------------------
-	// КОНТУР 1.7: АУДИТ КАНАЛА СПАСЕНИЯ (v8.4.7)
-	// Проверяем трёхфакторный статус:
-	//   Декларация: config.C.WebRescueEnabled && config.C.WebServerEnabled
-	//   Факт: маркер agl_rescue_active
-	//   Рокировка: маркер agl_ssh_moved
-	//
-	// Если декларация есть, рокировка есть, но маркера нет → активировать.
-	// Если декларации нет, но маркер есть → удалить маркер.
-	// Если рокировки нет, но маркер есть → удалить маркер.
+	// КОНТУР 1.7: АУДИТ КАНАЛА СПАСЕНИЯ (v8.5.0)
+	// Делегируем единому сервисному мосту: он учитывает три опции (A, B, C),
+	// создаёт/удаляет постоянную дверь админа и восстанавливает правило
+	// перенесённого порта при выключении обеих защит.
 	// -------------------------------------------------------------
-	castlingActive := armor.MarkerExists(config.MarkerSshMoved)
-	rescueDeclared := config.C.WebRescueEnabled && config.C.WebServerEnabled
-	rescueMarkerExists := armor.MarkerExists(config.MarkerRescueActive)
-
-	if castlingActive && rescueDeclared && !rescueMarkerExists {
-		// Декларация есть, рокировка есть, но маркера нет → активировать канал
-		sys.LogAction("RECONCILE", "RESCUE_CHANNEL_ACTIVATE", "PENDING",
-			i18n.TrEvent("reconcile.rescue_channel_activate"))
-		armor.ActivateRescueChannel()
-	} else if (!rescueDeclared || !castlingActive) && rescueMarkerExists {
-		// Декларации нет или рокировки нет, но маркер есть → удалить маркер
-		sys.LogAction("RECONCILE", "RESCUE_CHANNEL_DEACTIVATE", "PENDING",
-			i18n.TrEvent("reconcile.rescue_channel_deactivate"))
-		armor.DeactivateRescueChannel()
+	// v8.5.1: вход в TUI — автоматический путь: сходимость без создания дверей.
+	if err := service.ReconcileRescueChannel(); err != nil {
+		sys.LogAction("RECONCILE", "RESCUE_CHANNEL_SYNC_FAIL", "ERROR",
+			i18n.TrEventf("reconcile.rescue_channel_sync_fail", err))
 	}
-	// v8.4.7: юнит вотчера следует за декларацией тумблеров.
-	// Закрывает дремлющие строки таблицы (3/4): сервер включён без рокировки → юнит жив.
-	armor.SyncWatcherUnit()
 
 	// -------------------------------------------------------------
 	// КОНТУР 2: АУДИТ СТАТУСА ДЕМОНА
@@ -1143,7 +1130,8 @@ func printInfoHeader(plain bool) {
 func printWebRescueInfo(plain bool) {
 	c := config.C
 	fmt.Println()
-	if c.WebRescueEnabled && c.WebRescuePort > 0 {
+	// v8.5.0: канал спасения активен при опции B (SshIpWebKnock) ∧ сервер.
+	if c.SshIpWebKnock && c.WebServerEnabled && c.WebRescuePort > 0 {
 		// === ФИКС M4a (v8.3.5): используем префикс веб-стука, а не хэш пароля ===
 		hashPrefix := c.WebKnockHashPrefix
 		if hashPrefix == "" {

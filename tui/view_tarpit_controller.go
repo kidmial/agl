@@ -31,6 +31,7 @@ package tui
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"agl/config"
@@ -174,20 +175,36 @@ func uiCloseAndRunCastling() {
 	service.ResetUfwCacheSnapshot()
 	ui.Close()
 
-	// Персистентный маркер рокировки (кастлинга).
-	// Если файл существует → рокировка выполнена → выполняем обратную рокировку.
-	// Если файла нет → рокировка не выполнена → выполняем прямую рокировку.
-	// ОБНОВЛЕНО В v8.0.1: Путь соответствует регламенту маркеров v6.3.9.
 	markerFile := config.MarkerSshMoved
 
+	var castlingErr error
 	if _, err := os.Stat(markerFile); err == nil {
 		// Маркер существует → рокировка активна → выполняем ОБРАТНУЮ рокировку
 		fmt.Println(i18n.T.ViewTarpitCtlReverseCastlingStart)
-		_ = service.ToggleArmorRoute("MOVE_PORT", "OFF")
+		castlingErr = service.ToggleArmorRoute("MOVE_PORT", "OFF")
 	} else {
 		// Маркера нет → рокировка не выполнена → выполняем ПРЯМУЮ рокировку
 		fmt.Println(i18n.T.ViewTarpitCtlDirectCastlingStart)
-		_ = service.ToggleArmorRoute("MOVE_PORT", "ON")
+		castlingErr = service.ToggleArmorRoute("MOVE_PORT", "ON")
+	}
+
+	// v8.5.1 (UX): явная реакция на отказ замка A4′ (броня на 22) и других ошибок.
+	// Без этого админ видел ложное "демоны перезапущены" и не знал причину отказа.
+	if castlingErr != nil {
+		errStr := castlingErr.Error()
+		if strings.Contains(errStr, i18n.T.PortMoveCastlingArmorLock) {
+			// Замок A4′: броня на порту 22 блокирует переезд.
+			fmt.Println(i18n.T.ViewTarpitCtlCastlingArmorLock)
+		} else {
+			// Другие ошибки рокировки (порт занят, сбой валидации и т.д.)
+			fmt.Println(i18n.T.ViewTarpitCtlLockCritical)
+			fmt.Printf("[ПРИЧИНА]: %v\n", castlingErr)
+		}
+		fmt.Println(i18n.T.ViewTarpitCtlPressEnterToReturn)
+		var p string
+		_, _ = fmt.Scanln(&p)
+		_ = ui.Init()
+		return
 	}
 
 	fmt.Println(i18n.T.ViewTarpitCtlDemonsRestarted)
