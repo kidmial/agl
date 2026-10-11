@@ -300,6 +300,7 @@ func uiCloseAndStopTarpitDaemon() {
 func uiCloseAndPrintProtocolInfo() {
 	ui.Close()
 	fmt.Println(i18n.T.ViewTarpitCtlProtocolHeader)
+	fmt.Println(i18n.T.ViewTarpitCtlProtocolText)
 	fmt.Println(i18n.T.ViewTarpitCtlProtocolPressEnter)
 	var p string
 	_, _ = fmt.Scanln(&p)

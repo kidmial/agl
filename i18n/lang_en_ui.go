@@ -601,6 +601,7 @@ func init() {
 		ViewTarpitCtlProtocolHeader:         "\n=== AMBER GUARD LAB - DECEPTION TARPIT PROTOCOL ===",
 		ViewTarpitCtlCastlingArmorLock:      "\n[LOCKOUT]: Castling rejected — armor is armed on port 22.\nDisarm the standard port first (ANTIDDOS), then perform castling.",
 		ViewTarpitCtlProtocolPressEnter:     " Press ENTER to return...",
+		ViewTarpitCtlProtocolText:           "\nBefore activating the trap on port 22, you must first select a backup port number in the\nSETTINGS menu and then perform a port migration using MOVE_PORT. Only after these steps are\ncompleted will it be possible to activate the trap on that specific port. To prevent\nthe administrator from locking themselves out, the algorithm prevents this sequence from being\nexecuted in any other order.\n\nTherefore, as long as the port migration (castling) is not complete, the system's algorithm\nwill prevent the CORE trap from being set on port 22, thereby preventing the server\nadministrator from locking themselves out.\n\nIf castling has not been performed, the safety interlock will block the CORE trap circuit\nfrom starting.\n\nThe CORE trap can be activated through the standard TARPIT -> TARPIT_ON menu. However,\nit is also managed via the MULTITARPIT menu, where it automatically takes a priority position\nwithin the pool managed by the system's central daemon.\n",
 
 		// --- tui/view_tarpit_live_box.go ---
 		ViewTarpitLiveBoxHeaderText: " Scanner Exhaustion and Analysis Chronicle (TARPIT_LIVE_BOX)",

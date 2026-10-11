@@ -95,7 +95,7 @@ func init() {
 			"web_rescue.server_restart":      "Web knock port changed in SETTINGS. Server restarted on port %d.",
 
 			// --- internal/armor/port_move_protocol.go ---
-			"port_castling.armor_not_carried":           "Reverse castling: armor of hidden port %d purged without auto-restore. Arm port %d consciously (ANTIDDOS).",
+			"port_castling.armor_not_carried":           "Reverse castling: arm port %d protection purged. Install the protection on port %d (ANTIDDOS).",
 			"ssh.original_anchor_failed":                "event=ssh.original_anchor_failed err=%v stderr=%s. Castling continues: rollback is ensured by a rolling backup.",
 			"port_castling.ssh_original_anchor_created": "Factory sshd_config anchor created: %s",
 			"ssh.backup_pruned":                         "event=ssh.backup_pruned file=%s. Rotation: keeping %d fresh backups.",

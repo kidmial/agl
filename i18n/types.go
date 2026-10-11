@@ -608,6 +608,7 @@ type UITranslation struct {
 	ViewTarpitCtlProtocolHeader         string
 	ViewTarpitCtlCastlingArmorLock      string
 	ViewTarpitCtlProtocolPressEnter     string
+	ViewTarpitCtlProtocolText           string
 
 	// --- tui/view_tarpit_live_box.go ---
 	ViewTarpitLiveBoxHeaderText string

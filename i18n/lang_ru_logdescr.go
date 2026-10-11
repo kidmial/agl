@@ -95,7 +95,7 @@ func init() {
 			"web_rescue.server_restart":      "Порт веб-стука изменён в SETTINGS. Сервер перезапущен на порту %d.",
 
 			// --- internal/armor/port_move_protocol.go ---
-			"port_castling.armor_not_carried":           "Обратная рокировка: броня скрытого порта %d зачищена без автовосстановления. Взведите броню на порту %d осознанно (ANTIDDOS).",
+			"port_castling.armor_not_carried":           "Обратная рокировка: броня скрытого порта %d очищена. Взведите броню на порту %d (ANTIDDOS).",
 			"ssh.original_anchor_failed":                "event=ssh.original_anchor_failed err=%v stderr=%s. Кастлинг продолжается: откат обеспечен rolling-бэкапом.",
 			"port_castling.ssh_original_anchor_created": "Создан неприкосновенный якорь заводского sshd_config: %s",
 			"ssh.backup_pruned":                         "event=ssh.backup_pruned file=%s. Ротация: держим %d свежих.",
