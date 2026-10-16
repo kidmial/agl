@@ -1024,28 +1024,34 @@ func ReconcileArmorStates() {
 }
 
 // ============================================================================
-// БЛОК 7: ИНФОРМАЦИОННАЯ ПАНЕЛЬ (CLI --info)
+// БЛОК 7: ИНФОРМАЦИОННАЯ ПАНЕЛЬ (CLI --info / --version)
 // ============================================================================
+
+// getLanguage определяет язык интерфейса на основе переменной окружения LANG.
+// По умолчанию возвращается "en" (глобальный стандарт AGL).
+func getLanguage() string {
+	lang := os.Getenv("LANG")
+	if strings.HasPrefix(strings.ToLower(lang), "ru") {
+		return "ru"
+	}
+	return "en"
+}
 
 // ShowInfoPanel отображает интерактивное или плоское информационное меню.
 func ShowInfoPanel(plain bool) {
 	if err := config.LoadConfig(config.FileConfig); err != nil {
-		fmt.Fprintf(os.Stderr, "Error Configuration loading: %v\n", err)
-		os.Exit(1)
+		// Не прерываем работу жестко, если конфига нет, используем дефолты, но логируем
+		fmt.Fprintf(os.Stderr, "Warning: Configuration loading failed, using defaults: %v\n", err)
 	}
-	// Загружаем конфиг для получения актуальных параметров.
-	// Если конфига нет, LoadConfig сам подставит дефолты.
-	// Проверка: является ли stdout терминалом (для детекции пайпов/редиректов)
+
 	fileInfo, _ := os.Stdout.Stat()
 	isTerminal := (fileInfo.Mode() & os.ModeCharDevice) != 0
 
-	// Если вывод не в терминал, принудительно включаем plain-режим и отключаем интерактив
 	if !isTerminal {
 		plain = true
 	}
 
 	if plain || !isTerminal {
-		// Неинтерактивный режим: выводим всё сразу
 		printInfoHeader(plain)
 		printWebRescueInfo(plain)
 		printServiceStatus(plain)
@@ -1055,53 +1061,79 @@ func ShowInfoPanel(plain bool) {
 		return
 	}
 
+	lang := getLanguage()
+
 	// Интерактивный режим
 	for {
 		clearScreen()
 		printInfoHeader(false)
-		fmt.Println("1. Адрес веб-канала спасения")
-		fmt.Println("2. Статус служб комплекса")
-		fmt.Println("3. Пути конфигурации и журналов")
-		fmt.Println("4. Версия и время сборки")
-		fmt.Println("5. Сетевые параметры (рокировка, порты)")
-		fmt.Println("6. Выход")
-		fmt.Print("Выберите пункт [1-6]: ")
+
+		var m1, m2, m3, m4, m5, m6, prompt string
+		if lang == "ru" {
+			m1 = "1. Адрес веб-канала спасения"
+			m2 = "2. Статус служб комплекса"
+			m3 = "3. Пути конфигурации и журналов"
+			m4 = "4. Версия, лицензия и сборка"
+			m5 = "5. Сетевые параметры (рокировка, порты)"
+			m6 = "6. Выход"
+			prompt = "Выберите пункт [1-6]: "
+		} else {
+			m1 = "1. Web Rescue Channel URL"
+			m2 = "2. Complex Service Status"
+			m3 = "3. Configuration and Log Paths"
+			m4 = "4. Version, License and Build"
+			m5 = "5. Network Parameters (castling, ports)"
+			m6 = "6. Exit"
+			prompt = "Select option [1-6]: "
+		}
+
+		fmt.Println(m1)
+		fmt.Println(m2)
+		fmt.Println(m3)
+		fmt.Println(m4)
+		fmt.Println(m5)
+		fmt.Println(m6)
+		fmt.Print("\n" + prompt)
 
 		reader := bufio.NewReader(os.Stdin)
 		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
+		input = strings.TrimSpace(strings.ToLower(input))
 
 		switch input {
 		case "1":
 			clearScreen()
 			printInfoHeader(false)
 			printWebRescueInfo(false)
-			waitForEnter()
+			waitForEnter(lang)
 		case "2":
 			clearScreen()
 			printInfoHeader(false)
 			printServiceStatus(false)
-			waitForEnter()
+			waitForEnter(lang)
 		case "3":
 			clearScreen()
 			printInfoHeader(false)
 			printPathsInfo(false)
-			waitForEnter()
+			waitForEnter(lang)
 		case "4":
 			clearScreen()
 			printInfoHeader(false)
 			printVersionInfo(false)
-			waitForEnter()
+			waitForEnter(lang)
 		case "5":
 			clearScreen()
 			printInfoHeader(false)
 			printNetworkParams(false)
-			waitForEnter()
-		case "6", "0", "exit", "выход":
+			waitForEnter(lang)
+		case "6", "0", "exit", "выход", "quit":
 			clearScreen()
 			return
 		default:
-			fmt.Println("\nНеверный выбор. Попробуйте снова.")
+			if lang == "ru" {
+				fmt.Println("\n\033[1;31mНеверный выбор. Попробуйте снова.\033[0m")
+			} else {
+				fmt.Println("\n\033[1;31mInvalid choice. Please try again.\033[0m")
+			}
 			time.Sleep(1 * time.Second)
 		}
 	}
@@ -1111,71 +1143,101 @@ func clearScreen() {
 	fmt.Print("\033[H\033[2J")
 }
 
-func waitForEnter() {
-	fmt.Print("\nНажмите [ENTER] для возврата в меню...")
+func waitForEnter(lang string) {
+	if lang == "ru" {
+		fmt.Print("\n\033[1;33mНажмите [ENTER] для возврата в меню...\033[0m")
+	} else {
+		fmt.Print("\n\033[1;33mPress [ENTER] to return to the menu...\033[0m")
+	}
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
 
 func printInfoHeader(plain bool) {
+	lang := getLanguage()
+	title := "AMBER GUARD LABORATORY"
+	subtitle := "Asymmetric Perimeter Defense"
+	if lang == "ru" {
+		subtitle = "Асимметричная оборона периметра"
+	}
+
 	if plain {
-		fmt.Println("AMBER GUARD LABORATORY — ИНФОРМАЦИОННАЯ ПАНЕЛЬ")
+		fmt.Println(title)
+		fmt.Println(subtitle)
 		fmt.Println(strings.Repeat("-", 56))
 	} else {
 		fmt.Println("\033[1;36m" + strings.Repeat("═", 56) + "\033[0m")
-		fmt.Println("\033[1;36mAMBER GUARD LABORATORY — ИНФОРМАЦИОННАЯ ПАНЕЛЬ\033[0m")
+		fmt.Printf("\033[1;36m%-56s\033[0m\n", title)
+		fmt.Printf("\033[1;33m%-56s\033[0m\n", subtitle)
 		fmt.Println("\033[1;36m" + strings.Repeat("═", 56) + "\033[0m")
 	}
 }
 
 func printWebRescueInfo(plain bool) {
+	lang := getLanguage()
 	c := config.C
+
 	fmt.Println()
-	// v8.5.0: канал спасения активен при опции B (SshIpWebKnock) ∧ сервер.
 	if c.SshIpWebKnock && c.WebServerEnabled && c.WebRescuePort > 0 {
-		// === ФИКС M4a (v8.3.5): используем префикс веб-стука, а не хэш пароля ===
 		hashPrefix := c.WebKnockHashPrefix
 		if hashPrefix == "" {
 			hashPrefix = "unknown"
 		}
-
-		// === Определяем реальный IP сервера ===
 		serverIP := getServerIP()
 
 		if plain {
-			fmt.Println("Канал спасения: ВКЛЮЧЁН")
-			fmt.Printf("Порт: %d\n", c.WebRescuePort)
-			fmt.Printf("Хэш-префикс: /%s\n", hashPrefix)
-			fmt.Printf("Полный адрес: https://%s:%d/%s/rescue\n", serverIP, c.WebRescuePort, hashPrefix)
-			fmt.Println("Логин: —")
-			fmt.Println("Пароль: ******** (установлен)")
+			if lang == "ru" {
+				fmt.Println("Канал спасения: ВКЛЮЧЁН")
+				fmt.Printf("Полный адрес: https://%s:%d/%s/rescue\n", serverIP, c.WebRescuePort, hashPrefix)
+				fmt.Println("Пароль: ******** (установлен)")
+			} else {
+				fmt.Println("Rescue Channel: ENABLED")
+				fmt.Printf("Full URL: https://%s:%d/%s/rescue\n", serverIP, c.WebRescuePort, hashPrefix)
+				fmt.Println("Password: ******** (set)")
+			}
 		} else {
-			fmt.Println("\033[1;32mКанал спасения: ВКЛЮЧЁН\033[0m")
-			fmt.Printf("Порт: \033[1;33m%d\033[0m\n", c.WebRescuePort)
-			fmt.Printf("Хэш-префикс: \033[1;33m/%s\033[0m\n", hashPrefix)
-			// === Подсветка IP и пути для удобства копирования ===
-			fmt.Printf("Полный адрес: \033[1;33mhttps://%s:%d/%s/rescue\033[0m\n", serverIP, c.WebRescuePort, hashPrefix)
-			fmt.Println("Логин: —")
-			fmt.Println("Пароль: \033[1;33m********\033[0m (установлен)")
+			if lang == "ru" {
+				fmt.Println("\033[1;32mКанал спасения: ВКЛЮЧЁН\033[0m")
+				fmt.Printf("Полный адрес: \033[1;33mhttps://%s:%d/%s/rescue\033[0m\n", serverIP, c.WebRescuePort, hashPrefix)
+				fmt.Println("Пароль: \033[1;33m********\033[0m (установлен)")
+			} else {
+				fmt.Println("\033[1;32mRescue Channel: ENABLED\033[0m")
+				fmt.Printf("Full URL: \033[1;33mhttps://%s:%d/%s/rescue\033[0m\n", serverIP, c.WebRescuePort, hashPrefix)
+				fmt.Println("Password: \033[1;33m********\033[0m (set)")
+			}
 		}
 	} else {
 		if plain {
-			fmt.Println("Канал спасения: ВЫКЛЮЧЕН")
+			if lang == "ru" {
+				fmt.Println("Канал спасения: ВЫКЛЮЧЕН")
+			} else {
+				fmt.Println("Rescue Channel: DISABLED")
+			}
 		} else {
-			fmt.Println("\033[1;31mКанал спасения: ВЫКЛЮЧЕН\033[0m")
+			if lang == "ru" {
+				fmt.Println("\033[1;31mКанал спасения: ВЫКЛЮЧЕН\033[0m")
+			} else {
+				fmt.Println("\033[1;31mRescue Channel: DISABLED\033[0m")
+			}
 		}
 	}
 	fmt.Println()
 }
 
 func printServiceStatus(plain bool) {
+	lang := getLanguage()
 	fmt.Println()
+
 	ufwStatus := checkServiceStatus("ufw")
 	tarpitStatus := checkServiceStatus("agld_tarpit.service")
 	watcherStatus := checkServiceStatus("agld_watcher.service")
 
 	castlingStatus := "OFF"
 	if _, err := os.Stat(config.MarkerSshMoved); err == nil {
-		castlingStatus = fmt.Sprintf("ON → порт %d", config.C.RealSshPort)
+		if lang == "ru" {
+			castlingStatus = fmt.Sprintf("ON → порт %d", config.C.RealSshPort)
+		} else {
+			castlingStatus = fmt.Sprintf("ON → port %d", config.C.RealSshPort)
+		}
 	}
 
 	baseTarpitStatus := "OFF"
@@ -1183,18 +1245,23 @@ func printServiceStatus(plain bool) {
 		baseTarpitStatus = "ON"
 	}
 
+	lblUfw, lblTarpit, lblWatcher, lblCastling, lblBase := "UFW:", "Trap Daemon:", "Watcher:", "Castling:", "Base Pit:"
+	if lang == "ru" {
+		lblUfw, lblTarpit, lblWatcher, lblCastling, lblBase = "UFW:", "Демон ловушек:", "Наблюдатель:", "Рокировка:", "Базовая яма:"
+	}
+
 	if plain {
-		fmt.Printf("UFW:             %s\n", ufwStatus)
-		fmt.Printf("Демон ловушек:   %s\n", tarpitStatus)
-		fmt.Printf("Наблюдатель:     %s\n", watcherStatus)
-		fmt.Printf("Рокировка:       %s\n", castlingStatus)
-		fmt.Printf("Базовая яма:     %s\n", baseTarpitStatus)
+		fmt.Printf("%-18s %s\n", lblUfw, ufwStatus)
+		fmt.Printf("%-18s %s\n", lblTarpit, tarpitStatus)
+		fmt.Printf("%-18s %s\n", lblWatcher, watcherStatus)
+		fmt.Printf("%-18s %s\n", lblCastling, castlingStatus)
+		fmt.Printf("%-18s %s\n", lblBase, baseTarpitStatus)
 	} else {
-		fmt.Printf("UFW:             \033[%s%s\033[0m\n", colorizeStatus(ufwStatus), ufwStatus)
-		fmt.Printf("Демон ловушек:   \033[%s%s\033[0m\n", colorizeStatus(tarpitStatus), tarpitStatus)
-		fmt.Printf("Наблюдатель:     \033[%s%s\033[0m\n", colorizeStatus(watcherStatus), watcherStatus)
-		fmt.Printf("Рокировка:       \033[%s%s\033[0m\n", colorizeStatusActive(castlingStatus), castlingStatus)
-		fmt.Printf("Базовая яма:     \033[%s%s\033[0m\n", colorizeStatus(baseTarpitStatus), baseTarpitStatus)
+		fmt.Printf("%-18s \033[%s%s\033[0m\n", lblUfw, colorizeStatus(ufwStatus), ufwStatus)
+		fmt.Printf("%-18s \033[%s%s\033[0m\n", lblTarpit, colorizeStatus(tarpitStatus), tarpitStatus)
+		fmt.Printf("%-18s \033[%s%s\033[0m\n", lblWatcher, colorizeStatus(watcherStatus), watcherStatus)
+		fmt.Printf("%-18s \033[%s%s\033[0m\n", lblCastling, colorizeStatusActive(castlingStatus), castlingStatus)
+		fmt.Printf("%-18s \033[%s%s\033[0m\n", lblBase, colorizeStatus(baseTarpitStatus), baseTarpitStatus)
 	}
 	fmt.Println()
 }
@@ -1222,61 +1289,114 @@ func colorizeStatusActive(status string) string {
 }
 
 func printPathsInfo(plain bool) {
+	lang := getLanguage()
 	fmt.Println()
+
+	lblConf, lblInv, lblTarpitInv, lblLog, lblState, lblBin := "Config:", "Perimeter Inv:", "Tarpit Inv:", "Log:", "States:", "Binary:"
+	if lang == "ru" {
+		lblConf, lblInv, lblTarpitInv, lblLog, lblState, lblBin = "Конфигурация:", "Инвентарь:", "Инвентарь ям:", "Журнал:", "Состояния:", "Бинарник:"
+	}
+
 	if plain {
-		fmt.Printf("Конфигурация:     %s\n", config.FileConfig)
-		fmt.Printf("Инвентарь:        %s\n", config.FilePerimeterInv)
-		fmt.Printf("Инвентарь ям:     %s\n", config.FileTarpitInventory)
-		fmt.Printf("Журнал:           %s\n", config.FileMainLog)
-		fmt.Printf("Состояния:        %s\n", config.DirLib)
-		fmt.Printf("Бинарник:         %s\n", config.FileBinary)
+		fmt.Printf("%-18s %s\n", lblConf, config.FileConfig)
+		fmt.Printf("%-18s %s\n", lblInv, config.FilePerimeterInv)
+		fmt.Printf("%-18s %s\n", lblTarpitInv, config.FileTarpitInventory)
+		fmt.Printf("%-18s %s\n", lblLog, config.FileMainLog)
+		fmt.Printf("%-18s %s\n", lblState, config.DirLib)
+		fmt.Printf("%-18s %s\n", lblBin, config.FileBinary)
 	} else {
-		fmt.Printf("Конфигурация:     \033[1;33m%s\033[0m\n", config.FileConfig)
-		fmt.Printf("Инвентарь:        \033[1;33m%s\033[0m\n", config.FilePerimeterInv)
-		fmt.Printf("Инвентарь ям:     \033[1;33m%s\033[0m\n", config.FileTarpitInventory)
-		fmt.Printf("Журнал:           \033[1;33m%s\033[0m\n", config.FileMainLog)
-		fmt.Printf("Состояния:        \033[1;33m%s\033[0m\n", config.DirLib)
-		fmt.Printf("Бинарник:         \033[1;33m%s\033[0m\n", config.FileBinary)
+		fmt.Printf("%-18s \033[1;33m%s\033[0m\n", lblConf, config.FileConfig)
+		fmt.Printf("%-18s \033[1;33m%s\033[0m\n", lblInv, config.FilePerimeterInv)
+		fmt.Printf("%-18s \033[1;33m%s\033[0m\n", lblTarpitInv, config.FileTarpitInventory)
+		fmt.Printf("%-18s \033[1;33m%s\033[0m\n", lblLog, config.FileMainLog)
+		fmt.Printf("%-18s \033[1;33m%s\033[0m\n", lblState, config.DirLib)
+		fmt.Printf("%-18s \033[1;33m%s\033[0m\n", lblBin, config.FileBinary)
 	}
 	fmt.Println()
 }
 
 func printVersionInfo(plain bool) {
-	fmt.Println()
+	lang := getLanguage()
 	goVersion := strings.TrimPrefix(runtime.Version(), "go")
-	if plain {
-		fmt.Printf("Версия:     %s\n", buildinfo.Version)
-		fmt.Printf("Сборка:     %s\n", buildinfo.BuildTime)
-		fmt.Printf("Go:         go%s\n", goVersion)
+
+	// Канонические ссылки
+	officialSite := "https://amberguard.dev"
+	sourceCode := "https://github.com/kidmial/agl"
+
+	var lblVer, lblBuild, lblGo, lblLic, lblSite, lblSource string
+
+	if lang == "ru" {
+		lblVer = "Версия:"
+		lblBuild = "Сборка:"
+		lblGo = "Go:"
+		lblLic = "Лицензия:"
+		lblSite = "Офиц. сайт:"
+		lblSource = "Исходный код:"
 	} else {
-		fmt.Printf("Версия:     \033[1;36m%s\033[0m\n", buildinfo.Version)
-		fmt.Printf("Сборка:     \033[1;36m%s\033[0m\n", buildinfo.BuildTime)
-		fmt.Printf("Go:         \033[1;36mgo%s\033[0m\n", goVersion)
+		lblVer = "Version:"
+		lblBuild = "Build:"
+		lblGo = "Go:"
+		lblLic = "License:"
+		lblSite = "Official Site:"
+		lblSource = "Source Code:"
+	}
+
+	if plain {
+		fmt.Printf("%-16s %s\n", lblVer, buildinfo.Version)
+		fmt.Printf("%-16s %s\n", lblBuild, buildinfo.BuildTime)
+		fmt.Printf("%-16s go%s\n", lblGo, goVersion)
+		fmt.Printf("%-16s GNU AGPLv3\n", lblLic)
+		fmt.Printf("%-16s %s\n", lblSite, officialSite)
+		fmt.Printf("%-16s %s\n", lblSource, sourceCode)
+	} else {
+		// Цветовое кодирование для иерархии:
+		// Сайт - янтарный (бренд, основа), Репозиторий - приглушенный циан или белый
+		fmt.Printf("\033[1;36m%-16s\033[0m %s\n", lblVer, buildinfo.Version)
+		fmt.Printf("\033[1;36m%-16s\033[0m %s\n", lblBuild, buildinfo.BuildTime)
+		fmt.Printf("\033[1;36m%-16s\033[0m go%s\n", lblGo, goVersion)
+		fmt.Printf("\033[1;32m%-16s\033[0m GNU AGPLv3\n", lblLic)
+		fmt.Printf("\033[1;33m%-16s\033[0m %s\n", lblSite, officialSite) // Янтарный (акцент)
+		fmt.Printf("\033[0;36m%-16s\033[0m %s\n", lblSource, sourceCode) // Циан (информативно)
 	}
 	fmt.Println()
 }
 
 func printNetworkParams(plain bool) {
+	lang := getLanguage()
 	fmt.Println()
 	c := config.C
-	castlingActive := "НЕАКТИВНА"
-	if _, err := os.Stat(config.MarkerSshMoved); err == nil {
-		castlingActive = "АКТИВНА"
+
+	castlingActive := "INACTIVE"
+	if lang == "ru" {
+		castlingActive = "НЕАКТИВНА"
 	}
+	if _, err := os.Stat(config.MarkerSshMoved); err == nil {
+		if lang == "ru" {
+			castlingActive = "АКТИВНА"
+		} else {
+			castlingActive = "ACTIVE"
+		}
+	}
+
+	lblStd, lblHidden, lblCast, lblJitter, lblLimit, lblIdle := "Std Port:", "Hidden Port:", "Castling:", "Jitter:", "Session Limit:", "Idle Timeout:"
+	if lang == "ru" {
+		lblStd, lblHidden, lblCast, lblJitter, lblLimit, lblIdle = "Стандартный порт:", "Скрытый порт:", "Рокировка:", "Джиттер:", "Лимит сессий:", "Таймаут простоя:"
+	}
+
 	if plain {
-		fmt.Printf("Стандартный порт:    %d\n", c.StandardSshPort)
-		fmt.Printf("Скрытый порт:        %d\n", c.RealSshPort)
-		fmt.Printf("Рокировка порта:     %s\n", castlingActive)
-		fmt.Printf("Джиттер:             %d ± %d сек\n", c.DelayStep, c.DelayVariance)
-		fmt.Printf("Лимит сессий:        %d\n", c.TarpitMaxConn)
-		fmt.Printf("Таймаут простоя:     %d мин\n", c.AdminIdleTimeout)
+		fmt.Printf("%-20s %d\n", lblStd, c.StandardSshPort)
+		fmt.Printf("%-20s %d\n", lblHidden, c.RealSshPort)
+		fmt.Printf("%-20s %s\n", lblCast, castlingActive)
+		fmt.Printf("%-20s %d ± %d sec\n", lblJitter, c.DelayStep, c.DelayVariance)
+		fmt.Printf("%-20s %d\n", lblLimit, c.TarpitMaxConn)
+		fmt.Printf("%-20s %d min\n", lblIdle, c.AdminIdleTimeout)
 	} else {
-		fmt.Printf("Стандартный порт:    \033[1;33m%d\033[0m\n", c.StandardSshPort)
-		fmt.Printf("Скрытый порт:        \033[1;33m%d\033[0m\n", c.RealSshPort)
-		fmt.Printf("Рокировка порта:     \033[%s%s\033[0m\n", colorizeStatusActive(castlingActive), castlingActive)
-		fmt.Printf("Джиттер:             \033[1;33m%d ± %d сек\033[0m\n", c.DelayStep, c.DelayVariance)
-		fmt.Printf("Лимит сессий:        \033[1;33m%d\033[0m\n", c.TarpitMaxConn)
-		fmt.Printf("Таймаут простоя:     \033[1;33m%d мин\033[0m\n", c.AdminIdleTimeout)
+		fmt.Printf("\033[1;36m%-20s\033[0m \033[1;33m%d\033[0m\n", lblStd, c.StandardSshPort)
+		fmt.Printf("\033[1;36m%-20s\033[0m \033[1;33m%d\033[0m\n", lblHidden, c.RealSshPort)
+		fmt.Printf("\033[1;36m%-20s\033[0m \033[%s%s\033[0m\n", lblCast, colorizeStatusActive(castlingActive), castlingActive)
+		fmt.Printf("\033[1;36m%-20s\033[0m \033[1;33m%d ± %d sec\033[0m\n", lblJitter, c.DelayStep, c.DelayVariance)
+		fmt.Printf("\033[1;36m%-20s\033[0m \033[1;33m%d\033[0m\n", lblLimit, c.TarpitMaxConn)
+		fmt.Printf("\033[1;36m%-20s\033[0m \033[1;33m%d min\033[0m\n", lblIdle, c.AdminIdleTimeout)
 	}
 	fmt.Println()
 }

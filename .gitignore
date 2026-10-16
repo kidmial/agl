@@ -17,7 +17,7 @@
 .idea/
 *.swp
 
-# Конфиги с секретами (если есть)
+# Чувствительные данные
 .env
 .env.local
 config/config.local.yml
