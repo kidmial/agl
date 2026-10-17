@@ -45,6 +45,18 @@ if [[ ! -f restore.sh ]]; then
   echo "❌ В корне репозитория нет restore.sh — комплект неполон." >&2
   exit 1
 fi
+
+# === КОНТУР 3.1: гарантия, что инсталлятор действительно несёт зашитый публичный ключ ===
+EXPECTED_MINISIGN_PUBKEY="RWRiAreZhFgyqn6xShxvsZu5p03tdZa8yf8Z3dWVwDjMWyJKQjWBZECR"
+
+if ! grep -Fq "$EXPECTED_MINISIGN_PUBKEY" install.sh; then
+  echo "❌ install.sh не содержит ожидаемый публичный ключ." >&2
+  echo "   Обновите install.sh перед сборкой релиза." >&2
+  exit 1
+fi
+
+echo "✓ install.sh содержит ожидаемый публичный ключ."
+
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
 printf '%s\n' "$VERSION" > "$STAGE/VERSION"
@@ -75,9 +87,12 @@ rm -f "$BIN"
 echo "✓ Директория $STAGE собрана и подписана."
 
 # === КОНТУР 4: архив и контрольная сумма архива ===
-tar -czf "dist/agl-install-$VERSION.tar.gz" -C dist "agl-install-$VERSION"
+# Отключаем упаковку метаданных macOS (xattr, resource forks)
+COPYFILE_DISABLE=1 tar --no-xattrs -czf "dist/agl-install-$VERSION.tar.gz" -C dist "agl-install-$VERSION"
 echo "✓ Архив создан: dist/agl-install-$VERSION.tar.gz"
-sha256sum "dist/agl-install-$VERSION.tar.gz" > "dist/agl-install-$VERSION.tar.gz.sha256"
+
+( cd dist && sha256sum "agl-install-$VERSION.tar.gz" > "agl-install-$VERSION.tar.gz.sha256" )
+echo "✓ Контрольная сумма архива создана: dist/agl-install-$VERSION.tar.gz.sha256"
 
 # === КОНТУР 4.5: Криптографическая подпись архива ===
 echo "→ Подписываю архив (потребуется пароль от ключа)..."
@@ -85,7 +100,9 @@ minisign -S -m "dist/agl-install-$VERSION.tar.gz" -s "$SECRET_KEY_PATH"
 echo "✓ Архив подписан: dist/agl-install-$VERSION.tar.gz.minisig"
 
 echo ""
-echo "🎉 Релиз $VERSION успешно собран и подписан!"
+echo "✓ Релиз $VERSION успешно собран и подписан!"
 echo "Артефакты для публикации:"
 echo "  - $STAGE/ (директория с бинарником)"
 echo "  - dist/agl-install-$VERSION.tar.gz"
+echo "  - dist/agl-install-$VERSION.tar.gz.sha256"
+echo "  - dist/agl-install-$VERSION.tar.gz.minisig"
