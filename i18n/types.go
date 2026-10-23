@@ -121,15 +121,13 @@ type UITranslation struct {
 	ArmorRouterCheckServiceDesync    string
 
 	// --- internal/armor/custom_limit_protocol.go ---
-	ArmorLimitTarpitReject        string
-	ArmorLimitActivateErr         string
-	ArmorLimitDeactivateErr       string
-	ArmorLimitCheckDisabled       string
-	ArmorLimitUnknownAction       string
-	ArmorLimitUfwRestored         string
-	ArmorLimitPurgeSuccess        string
-	ArmorLimitPurgedWithTombstone string
-	ArmorTombstonePurged          string
+	ArmorLimitTarpitReject  string
+	ArmorLimitActivateErr   string
+	ArmorLimitDeactivateErr string
+	ArmorLimitCheckDisabled string
+	ArmorLimitUnknownAction string
+	ArmorLimitUfwRestored   string
+	ArmorLimitPurgeSuccess  string
 
 	// --- internal/armor/multitarpit_service_protocol.go ---
 	ArmorMultiTarpitOpenErr       string
