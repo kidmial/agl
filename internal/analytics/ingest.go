@@ -28,6 +28,17 @@ type IngestConfig struct {
 	// PollInterval — как часто проверять появление новых данных.
 	// Для логов капкана 1-2 секунды более чем достаточно.
 	PollInterval time.Duration
+
+	// Stop — канал для корректной остановки горутины инжеста.
+	//
+	// Если nil — горутина работает до завершения процесса (поведение по умолчанию,
+	// обратно совместимо с продом). Если канал закрыт — горутина завершает цикл,
+	// освобождает ресурсы и выходит.
+	//
+	// Нужен для:
+	//   - регрессионных тестов (иначе горутина утекает);
+	//   - будущего graceful shutdown при остановке сервиса.
+	Stop <-chan struct{}
 }
 
 // DefaultIngestConfig возвращает конфигурацию инжеста по умолчанию.
@@ -65,7 +76,16 @@ func StartIngest(cfg IngestConfig) {
 			// Если файл ещё не создан (первый запуск), ждём и пробуем снова.
 			// Не пишем ERROR, так как это нормальная ситуация при первом старте.
 			sys.LogAction("ANALYTICS", "INGEST_OPEN_FAIL", "WARNING", "Log file not found, waiting: "+err.Error())
-			time.Sleep(5 * time.Second)
+			if cfg.Stop != nil {
+				select {
+				case <-cfg.Stop:
+					sys.LogAction("ANALYTICS", "INGEST_STOP", "INFO", "Ingest stopped during wait")
+					return
+				case <-time.After(5 * time.Second):
+				}
+			} else {
+				time.Sleep(5 * time.Second)
+			}
 			go StartIngest(cfg) // Рекурсивный перезапуск через 5 секунд
 			return
 		}
@@ -96,6 +116,8 @@ func StartIngest(cfg IngestConfig) {
 		var lastSize int64
 
 		// Бесконечный цикл чтения.
+		// Если Stop задан — слушаем канал выхода через select.
+		// Если Stop == nil — select не используется, поведение прода не меняется.
 		for {
 			// Проверяем текущий размер файла.
 			stat, err := file.Stat()
@@ -160,7 +182,16 @@ func StartIngest(cfg IngestConfig) {
 					// При серьёзной ошибке сканера (например, файл удалён),
 					// закрываем текущий файл и пробуем перезапустить инжест.
 					file.Close()
-					time.Sleep(5 * time.Second)
+					if cfg.Stop != nil {
+						select {
+						case <-cfg.Stop:
+							sys.LogAction("ANALYTICS", "INGEST_STOP", "INFO", "Ingest stopped during error recovery")
+							return
+						case <-time.After(5 * time.Second):
+						}
+					} else {
+						time.Sleep(5 * time.Second)
+					}
 					go StartIngest(cfg)
 					return
 				}
@@ -175,8 +206,22 @@ func StartIngest(cfg IngestConfig) {
 				scanner = bufio.NewScanner(file)
 				scanner.Buffer(buf, 1024*1024)
 
-				// Новых данных нет. Ждём следующую итерацию.
-				time.Sleep(cfg.PollInterval)
+				// Новых данных нет. Ждём следующую итерацию или сигнал остановки.
+				//
+				// Если Stop не задан — select работает как обычный sleep (nil-канал
+				// в select блокирует forever, срабатывает только таймер).
+				// Если Stop закрыт — выходим из цикла и освобождаем defer file.Close().
+				if cfg.Stop != nil {
+					select {
+					case <-cfg.Stop:
+						sys.LogAction("ANALYTICS", "INGEST_STOP", "INFO", "Ingest stopped by signal")
+						return
+					case <-time.After(cfg.PollInterval):
+						// Таймер сработал, продолжаем цикл.
+					}
+				} else {
+					time.Sleep(cfg.PollInterval)
+				}
 			}
 		}
 	}()
