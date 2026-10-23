@@ -28,7 +28,9 @@ import (
 
 	"agl/config"
 	"agl/i18n"
+	"agl/internal/analytics"
 	"agl/internal/sys"
+	"agl/internal/webpanel"
 )
 
 // ensureWebRescueGate открывает гейт UFW для порта веб-стука.
@@ -72,9 +74,7 @@ func ensureWebRescueGate(port int) {
 		i18n.TrEventf("web_rescue.ufw_gate_open", port))
 }
 
-// startWebRescueServer поднимает HTTPS-сервер веб-стука на ЛИЧНОМ mux.
-// M3f (v8.1.3): fail closed — нет сертификата, нет сервера.
-// Пароль не должен путешествовать по открытому каналу.
+// startWebRescueServer поднимает HTTPS-сервер веб-стука и делегирует маршруты панели.
 func startWebRescueServer(port int) *http.Server {
 	if err := ensureRescueTLS(); err != nil {
 		if !tlsAlerted {
@@ -84,31 +84,32 @@ func startWebRescueServer(port int) *http.Server {
 		}
 		return nil
 	}
-
 	tlsAlerted = false
+
+	// === ИНИЦИАЛИЗАЦИЯ АНАЛИТИКИ ===
+	// Единый безопасный вызов. Благодаря sync.Once внутри,
+	// инициализация и инжест запустятся ровно один раз.
+	analytics.Start(config.C.TarpitRptLog)
 
 	mux := http.NewServeMux()
 
-	// Формируем уникальные префиксы из конфига (гарантированно не пустые после LoadConfig)
+	// Формируем уникальные префиксы из конфига
 	knockPrefix := "/" + config.C.WebKnockHashPrefix + "/"
 	interfacePrefix := "/" + config.C.WebInterfaceHashPrefix + "/"
 
-	// 1. Редирект с корня префикса на /rescue (удобство для админа)
-	// При заходе на https://ip:55111/a3f9c2e1b4d0/ → редирект на /rescue
+	// 1. Редирект с корня префикса на /rescue
 	mux.HandleFunc(knockPrefix, func(w http.ResponseWriter, r *http.Request) {
-		// Проверяем, что это именно корень префикса (без дополнительных путей)
 		if r.URL.Path == knockPrefix || r.URL.Path == knockPrefix+"/" {
-			http.Redirect(w, r, knockPrefix+"rescue", http.StatusFound) // 302 Found
+			http.Redirect(w, r, knockPrefix+"rescue", http.StatusFound)
 			return
 		}
-		// Если кто-то пытается зайти на /prefix/что-то-ещё → 404
 		handle404Stub(w, r)
 	})
 
 	// 2. Канал спасения (веб-стук)
 	mux.HandleFunc(knockPrefix+"rescue", handleWebRescue)
 
-	// 3. Редирект с корня префикса интерфейса на /panel (для симметрии)
+	// 3. Редирект с корня префикса интерфейса на /panel
 	mux.HandleFunc(interfacePrefix, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == interfacePrefix || r.URL.Path == interfacePrefix+"/" {
 			http.Redirect(w, r, interfacePrefix+"panel", http.StatusFound)
@@ -117,8 +118,12 @@ func startWebRescueServer(port int) *http.Server {
 		handle404Stub(w, r)
 	})
 
-	// 4. Заглушка для будущего веб-интерфейса
-	mux.HandleFunc(interfacePrefix+"panel", handleWebPanelStub)
+	// === Делегирование панели ===
+	// Монтируем реальные обработчики из пакета webpanel.
+	// Они сами проверят config.C.WebHttpsPanelActive и авторизацию.
+	webpanel.RegisterRoutes(mux, analytics.GlobalStore, analytics.GlobalManager, interfacePrefix)
+
+	// 4. Обработчик 404 для всех неизвестных путей
 	mux.HandleFunc("/", handle404Stub)
 
 	srv := &http.Server{
@@ -132,12 +137,14 @@ func startWebRescueServer(port int) *http.Server {
 		MaxHeaderBytes:    1 << 16,
 		ErrorLog:          log.New(httpErrorLogAdapter{}, "", 0),
 	}
+
 	go func() {
 		if err := srv.ListenAndServeTLS(rescueCertPath, rescueKeyPath); err != nil && err != http.ErrServerClosed {
 			sys.LogAction("WEB_RESCUE", "SERVER_FAIL", "ERROR",
 				i18n.TrEventf("web_rescue.server_fail", err))
 		}
 	}()
+
 	sys.LogAction("WEB_RESCUE", "SERVER_START", "SUCCESS",
 		i18n.TrEventf("web_rescue.server_start", port))
 	return srv
@@ -484,96 +491,6 @@ body { background: #0f141c; color: #00ff66; font-family: monospace; display: fle
 </html>`, i18n.T.WebRescuePageSuccessTitle, i18n.T.WebRescuePageAccessGranted, i18n.T.WebRescuePageIPAddress, adminIP, i18n.T.WebRescuePageRecorded, i18n.T.WebRescuePageWaiting)
 
 	_, _ = w.Write([]byte(html))
-}
-
-// handleWebPanelStub — заглушка для будущего веб-интерфейса.
-// func handleWebPanelStub(w http.ResponseWriter, r *http.Request) {
-// 	// v8.5.0 (K2): маршрут /panel без опции C отдаёт 404 — панель недоступна.
-// 	if !config.C.WebHttpsPanelActive {
-// 		handle404Stub(w, r)
-// 		return
-// 	}
-// 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-// 	w.WriteHeader(http.StatusNotImplemented)
-// 	_, _ = w.Write([]byte("<!DOCTYPE html><html><body><h1>501 Not Implemented</h1><p>Web Panel is under construction.</p></body></html>"))
-// }
-
-// handleWebPanelStub — заглушка для будущего веб-интерфейса.
-func handleWebPanelStub(w http.ResponseWriter, r *http.Request) {
-	// v8.5.0 (K2): маршрут /panel без опции C отдаёт 404 — панель недоступна.
-	if !config.C.WebHttpsPanelActive {
-		handle404Stub(w, r)
-		return
-	}
-	// --- 1. Статус ошибки (501) для защиты от сканеров.
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusNotImplemented) // 501 Not Implemented
-	loadingHTML := `
-        <!DOCTYPE html>
-        <html lang="ru">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Web Panel Loading</title>
-            <style>
-                body {
-                    margin: 0;
-                    padding: 0;
-                    background-color: #0f141c;
-                    color: #ffffff;
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, sans-serif;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    text-align: center;
-                    overflow: hidden;
-                }
-
-                .loader-container {
-                    padding: 40px;
-                    animation: pulse 2s infinite;
-                }
-
-                .spinner {
-                    border: 6px solid #1c2030; 
-                    border-radius: 50%;
-                    border-top: 6px solid #2962ff; 
-                    width: 60px;
-                    height: 60px;
-                    animation: spin 1s linear infinite;
-                    margin: 0 auto 20px auto;
-                }
-
-                .loading-text {
-                    font-size: 22px;
-                    font-weight: 400;
-                    color: #d1d4dc;
-                    letter-spacing: 1px;
-                }
-                
-                /* Анимации */
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-                
-                @keyframes pulse {
-                    0% { opacity: 1; }
-                    50% { opacity: 0.9; }
-                    100% { opacity: 1; }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="loader-container">
-                <div class="spinner"></div>
-                <p class="loading-text">Web Panel is under soon</p>
-            </div>
-        </body>
-        </html>
-    `
-	_, _ = w.Write([]byte(loadingHTML))
 }
 
 // handle404Stub — обработка всех неизвестных путей (защита от сканирования).
