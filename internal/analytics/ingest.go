@@ -165,6 +165,16 @@ func StartIngest(cfg IngestConfig) {
 					return
 				}
 
+				// Достигнут EOF (нет новых данных).
+				//bufio.Scanner в Go после EOF ставит внутренний флаг s.done = true,
+				// и все последующие Scan() сразу возвращают false, даже если
+				// писатель дописал новые байты в файл. Это documented behavior.
+				// Решение: пересоздать scanner, чтобы сбросить флаг s.done.
+				// Следующий Scan() снова попытается читать из os.File,
+				// и если писатель дописал данные — прочитает их.
+				scanner = bufio.NewScanner(file)
+				scanner.Buffer(buf, 1024*1024)
+
 				// Новых данных нет. Ждём следующую итерацию.
 				time.Sleep(cfg.PollInterval)
 			}
