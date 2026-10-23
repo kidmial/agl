@@ -147,6 +147,13 @@ type Config struct {
 	// CONTRACT: требует WebServerEnabled; на SSH-доступ не влияет.
 	// Дефолт: false (fail-closed). Настраивается через SETTINGS.
 	WebHttpsPanelActive bool `json:"web_https_panel_active"`
+
+	// --- v8.6.2: Аналитика - автозагрузка истории ---
+	// Тумблер автоматической загрузки истории из tarpit_report.log при старте сервиса.
+	// Дефолт: false (fail-closed). Настраивается через SETTINGS.
+	// При true: после запуска инжеста читается весь лог и обновляются профили акторов.
+	// CONTRACT: требует, чтобы GlobalStore был инициализирован (выполняется в analytics.Start).
+	AnalyticsAutoRebuild bool `json:"analytics_auto_rebuild"`
 }
 
 // C — глобальный синглтон настроек, доступный из любой точки программы.
@@ -198,18 +205,19 @@ func LoadConfig(filePath string) error {
 	local.DelayVariance = 8
 	local.TarpitMaxConn = 100
 	local.TarpitBacklog = 1024
-	local.AdminIdleTimeout = 10       // M2: дефолт 10 минут
-	local.WebRescueEnabled = true     // M3: канал спасения включён по умолчанию
-	local.WebServerEnabled = true     // v8.4.7: физический HTTP-слушатель включён по умолчанию
-	local.WebRescuePort = 55111       // M3b: порт автономного HTTP-сервера веб-стука
-	local.SshAllowInFromIp = false    // v8.5.0: fail-closed — защита только по явной декларации
-	local.SshIpWebKnock = false       // v8.5.0: fail-closed
-	local.WebHttpsPanelActive = false // v8.5.0: fail-closed
-	local.AutoUpdateEnabled = false   // M5: дефолт — автообновления ВЫКЛЮЧЕНЫ
-	local.AutoUpdateReboot = false    // M5: дефолт — ребут только руками
-	local.SshAllowInFromIp = true     // v8.5.0: опция A включена по умолчанию (whitelist IP админа)
-	local.SshIpWebKnock = true        // v8.5.0: опция B включена по умолчанию (веб-стук с испепелением)
-	local.WebHttpsPanelActive = false // v8.5.0: опция C выключена по умолчанию (панель недоступна)
+	local.AdminIdleTimeout = 10        // M2: дефолт 10 минут
+	local.WebRescueEnabled = true      // M3: канал спасения включён по умолчанию
+	local.WebServerEnabled = true      // v8.4.7: физический HTTP-слушатель включён по умолчанию
+	local.WebRescuePort = 55111        // M3b: порт автономного HTTP-сервера веб-стука
+	local.SshAllowInFromIp = false     // v8.5.0: fail-closed — защита только по явной декларации
+	local.SshIpWebKnock = false        // v8.5.0: fail-closed
+	local.WebHttpsPanelActive = false  // v8.5.0: fail-closed
+	local.AutoUpdateEnabled = false    // M5: дефолт — автообновления ВЫКЛЮЧЕНЫ
+	local.AutoUpdateReboot = false     // M5: дефолт — ребут только руками
+	local.SshAllowInFromIp = true      // v8.5.0: опция A включена по умолчанию (whitelist IP админа)
+	local.SshIpWebKnock = true         // v8.5.0: опция B включена по умолчанию (веб-стук с испепелением)
+	local.WebHttpsPanelActive = false  // v8.5.0: опция C выключена по умолчанию (панель недоступна)
+	local.AnalyticsAutoRebuild = false // v8.6.2: fail-closed - автозагрузка выключена
 	local.GeoTool = "geoiplookup"
 	local.AglLogarchiveDir = DirLog // БЛОК 4.4: Используем константу из paths.go
 	local.BackupRootDir = "/backup"

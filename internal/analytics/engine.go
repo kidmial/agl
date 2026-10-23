@@ -67,6 +67,29 @@ func Start(logPath string) {
 		// 4. Запускаем инжест только если файл существует
 		StartIngest(DefaultIngestConfig(logPath))
 
+		// 5. Автозагрузка истории (v8.6.2)
+		// Если флаг включён, загружаем всю историю из лога.
+		// Это происходит ПОСЛЕ запуска инжеста, чтобы новые события
+		// не дублировались (инжест читает хвост, rebuild читает всё с начала).
+		if config.C.AnalyticsAutoRebuild {
+			sys.LogAction("ANALYTICS", "AUTO_REBUILD_START", "INFO",
+				"Auto-rebuild enabled, loading history from log")
+
+			result, err := RebuildHistory(logPath)
+			if err != nil {
+				sys.LogAction("ANALYTICS", "AUTO_REBUILD_FAIL", "ERROR",
+					fmt.Sprintf("Failed to load history: %v", err))
+			} else if result != nil {
+				sys.LogAction("ANALYTICS", "AUTO_REBUILD_DONE", "INFO",
+					fmt.Sprintf("History loaded: %d lines, %d valid, %d broken",
+						result.LinesRead, result.Valid, result.Broken))
+			} else {
+				// result == nil означает, что история уже загружена (guard сработал)
+				sys.LogAction("ANALYTICS", "AUTO_REBUILD_SKIP", "INFO",
+					"History already loaded (guard triggered)")
+			}
+		}
+
 		sys.LogAction("ANALYTICS", "ENGINE_STARTED", "INFO",
 			fmt.Sprintf("Analytics engine and ingest started for: %s", logPath))
 	})

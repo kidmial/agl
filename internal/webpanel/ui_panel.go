@@ -49,6 +49,49 @@ const panelTemplateHTML = `<!DOCTYPE html>
         .badge-low { background: #78350f; color: #fbbf24; }
         .badge-expired { background: #7f1d1d; color: #f87171; }
         .text-muted { color: #64748b; }
+
+        /* Блок управления (контейнер для кнопок) */
+        .control-panel {
+            margin: 20px 0;
+            padding: 16px;
+            background: #1a1f2e;
+            border: 1px solid #2a3040;
+            border-radius: 8px;
+        }
+        .control-panel h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            color: #00ff66;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .control-btn {
+            padding: 8px 16px;
+            background: #2a3040;
+            border: 1px solid #00ff66;
+            color: #00ff66;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .control-btn:hover:not(:disabled) {
+            background: #00ff66;
+            color: #0f141c;
+        }
+        .control-btn:disabled {
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
+        }
+        .control-status {
+            margin-left: 12px;
+            font-size: 12px;
+            color: #a5b4fc;
+        }
+        .control-status.success { color: #00ff66; }
+        .control-status.error { color: #ff4444; }
     </style>
 </head>
 <body>
@@ -72,6 +115,18 @@ const panelTemplateHTML = `<!DOCTYPE html>
             <div class="text-muted">Обновлено: {{ .CurrentTime }}</div>
         </div>
     </div>
+
+        <!-- Блок управления данными (контейнер для кнопок) -->
+        <div class="control-panel">
+            <h3>Управление данными</h3>
+            {{ if .HistoryLoaded }}
+                <button class="control-btn" disabled>История загружена</button>
+                <span class="control-status success">{{ .StoreTotal }} событий в буфере. Перезапустите сервис для повторной загрузки.</span>
+            {{ else }}
+                <button class="control-btn" id="rebuildBtn" onclick="rebuildHistory()">Загрузить историю из лога</button>
+                <span class="control-status" id="rebuildStatus">История не загружена. Нажмите кнопку для загрузки.</span>
+            {{ end }}
+        </div>
 
     <!-- Часовая статистика -->
     <div class="card">
@@ -135,7 +190,45 @@ const panelTemplateHTML = `<!DOCTYPE html>
             </tbody>
         </table>
     </div>
+    <script>
+    function rebuildHistory() {
+        var btn = document.getElementById('rebuildBtn');
+        var status = document.getElementById('rebuildStatus');
+        if (!btn || !status) return;
 
+        btn.disabled = true;
+        btn.textContent = 'Загрузка...';
+        status.textContent = 'Чтение файла лога...';
+        status.className = 'control-status';
+
+        // Извлекаем крипто-префикс из текущего URL
+        var pathParts = window.location.pathname.split('/');
+        var prefix = pathParts[1] ? pathParts[1] + '/' : '';
+
+        fetch('/' + prefix + 'api/rebuild', { method: 'POST' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    btn.textContent = 'История загружена';
+                    status.textContent = data.valid + ' событий загружено (' + data.broken + ' битых строк пропущено). Перезапустите сервис для повторной загрузки.';
+                    status.className = 'control-status success';
+                    // Обновляем страницу через 2 секунды для отображения данных
+                    setTimeout(function() { window.location.reload(); }, 2000);
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = 'Загрузить историю из лога';
+                    status.textContent = data.reason || data.error || 'Ошибка загрузки';
+                    status.className = 'control-status error';
+                }
+            })
+            .catch(function(err) {
+                btn.disabled = false;
+                btn.textContent = 'Загрузить историю из лога';
+                status.textContent = 'Ошибка сети: ' + err.message;
+                status.className = 'control-status error';
+            });
+    }
+    </script>
 </body>
 </html>`
 
@@ -153,6 +246,8 @@ func renderPanelHTML(w http.ResponseWriter, counters analytics.StoreCounters, pr
 		"HourStats":       hourStats,
 		"Profiles":        profiles,
 		"CurrentTime":     time.Now().UTC().Format("2006-01-02 15:04:05 UTC"),
+		"HistoryLoaded":   analytics.IsHistoryLoaded(),
+		"StoreTotal":      counters.TotalEvents,
 	}
 
 	if err := panelTmpl.Execute(w, data); err != nil {

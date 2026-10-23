@@ -11,23 +11,12 @@
 package webpanel
 
 import (
-	"bufio"
-	"fmt"
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 
 	"agl/config"
 	"agl/internal/analytics"
-)
-
-// rebuildMu и rebuildDone защищают от повторной загрузки истории.
-// Повторный вызов /api/rebuild удваивает счётчики — это недопустимо.
-// Guard сбрасывается автоматически при рестарте сервиса.
-var (
-	rebuildMu   sync.Mutex
-	rebuildDone bool
 )
 
 // panel404Stub отдаёт стилизованную 404-страницу, когда панель недоступна.
@@ -255,7 +244,9 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		renderJSON(w, diag)
 	})
 
-	// 7. API: Принудительная загрузка истории из лога
+	// 7. API: Принудительная загрузка истории из лога (v8.6.2)
+	// Использует централизованный RebuildHistory из analytics пакета.
+	// Это гарантирует единый источник правды для автозагрузки и ручной кнопки.
 	mux.HandleFunc(prefix+"api/rebuild", func(w http.ResponseWriter, r *http.Request) {
 		if !config.C.WebHttpsPanelActive {
 			panel404Stub(w, r)
@@ -266,9 +257,24 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			return
 		}
 
-		rebuildMu.Lock()
-		if rebuildDone {
-			rebuildMu.Unlock()
+		logPath := config.C.TarpitRptLog
+		if logPath == "" {
+			logPath = "/var/log/amberguard/tarpit_report.log"
+		}
+
+		// Вызываем централизованную функцию загрузки истории.
+		// Она сама проверяет guard и возвращает статистику.
+		result, err := analytics.RebuildHistory(logPath)
+		if err != nil {
+			renderJSON(w, map[string]interface{}{
+				"success": false,
+				"error":   err.Error(),
+			})
+			return
+		}
+
+		if result == nil {
+			// Guard сработал: история уже загружена в этом процессе.
 			renderJSON(w, map[string]interface{}{
 				"success":     false,
 				"reason":      "history already loaded in this process; restart service to reload",
@@ -276,64 +282,15 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			})
 			return
 		}
-		rebuildDone = true
-		rebuildMu.Unlock()
 
-		logPath := config.C.TarpitRptLog
-		if logPath == "" {
-			logPath = "/var/log/amberguard/tarpit_report.log"
-		}
-
-		file, err := os.Open(logPath)
-		if err != nil {
-			renderJSON(w, map[string]interface{}{
-				"success": false,
-				"error":   fmt.Sprintf("cannot open log: %v", err),
-			})
-			return
-		}
-		defer file.Close()
-
-		scanner := bufio.NewScanner(file)
-		buf := make([]byte, 64*1024)
-		scanner.Buffer(buf, 1024*1024)
-
-		parsed := 0
-		valid := 0
-		broken := 0
-		lineNum := 0
-
-		for scanner.Scan() {
-			lineNum++
-			line := scanner.Text()
-			if strings.TrimSpace(line) == "" {
-				continue
-			}
-
-			rawEvent, err := analytics.ParseLine(line, lineNum, logPath)
-			if err != nil {
-				broken++
-				continue
-			}
-
-			normalized := store.AddRaw(rawEvent)
-			parsed++
-			if normalized.Valid {
-				valid++
-			}
-
-			if manager != nil {
-				manager.ObserveEvent(normalized)
-			}
-		}
-
+		// Успешная загрузка.
 		renderJSON(w, map[string]interface{}{
 			"success":     true,
 			"file":        logPath,
-			"lines_read":  lineNum,
-			"parsed":      parsed,
-			"valid":       valid,
-			"broken":      broken,
+			"lines_read":  result.LinesRead,
+			"parsed":      result.Parsed,
+			"valid":       result.Valid,
+			"broken":      result.Broken,
 			"store_total": store.Counters().TotalEvents,
 			"profiles":    manager.Counters().Profiles,
 		})
