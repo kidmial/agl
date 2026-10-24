@@ -24,6 +24,9 @@ import (
 //go:embed templates/*.html
 var templateFS embed.FS
 
+//go:embed assets
+var uiPanelAssetsFS embed.FS
+
 // panelTmpl — скомпилированные шаблоны, загруженные из встроенных файлов.
 // Парсим все HTML-файлы вместе, чтобы блоки header/footer были доступны всем дашбордам.
 var panelTmpl = template.Must(template.ParseFS(templateFS, "templates/*.html"))

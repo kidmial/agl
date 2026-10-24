@@ -19,6 +19,8 @@ import (
 	"agl/internal/analytics"
 )
 
+var assetsFS = uiPanelAssetsFS
+
 // panel404Stub отдаёт стилизованную 404-страницу, когда панель недоступна.
 //
 // ЛОГИКА:
@@ -163,6 +165,12 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		}
 		renderStub(w, "dashboard_siem_core", prefix)
 	})
+
+	// 1.6. Раздача статических файлов (CSS, JS)
+	// StripPrefix убирает ТОЛЬКО крипто-префикс: внутри embed.FS пути
+	// остаются пакетно-относительными ("assets/js/chart.min.js"),
+	// поэтому остаток URL обязан совпадать с embed-путём целиком.
+	mux.Handle(prefix+"assets/", http.StripPrefix(prefix, http.FileServer(http.FS(assetsFS))))
 
 	// 2. API: Общая статистика
 	mux.HandleFunc(prefix+"api/stats", func(w http.ResponseWriter, r *http.Request) {

@@ -4,15 +4,69 @@
 
 <div class="card">
     <h2>Динамика атаки и самодиагностика</h2>
-    <p class="text-muted">Этот дашборд в разработке. Здесь будут:</p>
-    <ul>
-        <li>Мультислойный таймлайн эскалации фаз (Stacked Area Chart)</li>
-        <li>Индекс «Скорости атаки» (Velocity & Acceleration Index)</li>
-        <li>Визуализация периодичности интервалов пакетов</li>
-        <li>Коэффициент эффективности Tarpit</li>
-        <li>Счётчик упущенных улик (Forensics Drop Rate)</li>
-    </ul>
+    <p class="text-muted">Мультислойный таймлайн эскалации фаз, индекс скорости атаки, визуализация периодичности
+        пакетов.</p>
+
+    <h3>Тестовый график (Stacked Area Chart)</h3>
+    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
+        <canvas id="phaseChart"></canvas>
+    </div>
 </div>
+
+<script>
+    // Тестовые данные для проверки Chart.js
+    const ctx = document.getElementById('phaseChart').getContext('2d');
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
+            datasets: [
+                {
+                    label: 'PHASE_1 (Разведка)',
+                    data: [10, 15, 20, 25, 30, 35],
+                    backgroundColor: 'rgba(255, 99, 132, 0.3)',
+                    borderColor: 'rgb(255, 99, 132)',
+                    fill: true
+                },
+                {
+                    label: 'PHASE_2 (Сбор баннеров)',
+                    data: [5, 10, 15, 20, 25, 30],
+                    backgroundColor: 'rgba(54, 162, 235, 0.3)',
+                    borderColor: 'rgb(54, 162, 235)',
+                    fill: true
+                },
+                {
+                    label: 'PHASE_3 (Эксплуатация)',
+                    data: [2, 5, 8, 12, 18, 25],
+                    backgroundColor: 'rgba(255, 206, 86, 0.3)',
+                    borderColor: 'rgb(255, 206, 86)',
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                    ticks: { color: '#a5b4fc' }
+                },
+                y: {
+                    stacked: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                    ticks: { color: '#a5b4fc' }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { color: '#a5b4fc' }
+                }
+            }
+        }
+    });
+</script>
 
 {{template "footer" .}}
 {{end}}
