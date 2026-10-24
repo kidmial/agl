@@ -1180,6 +1180,30 @@ func (p *ActorProfile) updateStateByConfidence() {
 	p.State = ProfileStateActive
 }
 
+// AvgPlannedHoldSec возвращает среднее запланированное время удержания для профиля.
+//
+// Возврат:
+//   - среднее значение в секундах, если есть данные;
+//   - 0, если валидных пар план/факт не было.
+func (p *ActorProfile) AvgPlannedHoldSec() float64 {
+	if p == nil || p.HoldCount == 0 {
+		return 0
+	}
+	return float64(p.PlannedHoldSumSec) / float64(p.HoldCount)
+}
+
+// AvgActualHoldSec возвращает среднее фактическое время удержания для профиля.
+//
+// Возврат:
+//   - среднее значение в секундах, если есть данные;
+//   - 0, если валидных пар план/факт не было.
+func (p *ActorProfile) AvgActualHoldSec() float64 {
+	if p == nil || p.HoldCount == 0 {
+		return 0
+	}
+	return float64(p.ActualHoldSumSec) / float64(p.HoldCount)
+}
+
 // RTTAvgMs возвращает средний RTT профиля в миллисекундах.
 //
 // Возврат:
