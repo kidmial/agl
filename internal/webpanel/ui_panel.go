@@ -150,11 +150,11 @@ const panelTemplateHTML = `<!DOCTYPE html>
 
     <!-- Часовая статистика -->
     <div class="card">
-        <h2>Последние 24 часа</h2>
+        <h2>События за 24 часа</h2>
         <table>
             <thead>
                 <tr>
-                    <th>Час (UTC)</th>
+                    <th>Час ({{ .TimezoneLabel }})</th>
                     <th>Событий</th>
                     <th>Уник. IP</th>
                     <th>Агрессивных</th>
@@ -257,17 +257,46 @@ const panelTemplateHTML = `<!DOCTYPE html>
 var panelTmpl = template.Must(template.New("panel").Parse(panelTemplateHTML))
 
 // renderPanelHTML отдаёт отрендеренный HTML дашборда.
-func renderPanelHTML(w http.ResponseWriter, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile) {
+//
+// Аргументы:
+//   - counters, profileCounters: счётчики хранилища и профилей
+//   - hourStats: часовые срезы (время в UTC)
+//   - profiles: профили акторов (время в UTC)
+//   - loc: витринная локация для отображения времени
+//   - timezoneLabel: человекочитаемое имя зоны ("UTC", "Local", "Europe/Moscow")
+func renderPanelHTML(w http.ResponseWriter, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, loc *time.Location, timezoneLabel string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
+	// Конвертируем все time.Time в hourStats в витринную зону.
+	// Это нужно, чтобы шаблон рендерил локальное время, а не UTC.
+	convertedHourStats := make([]analytics.HourStat, len(hourStats))
+	for i, hs := range hourStats {
+		convertedHourStats[i] = hs
+		convertedHourStats[i].Hour = hs.Hour.In(loc)
+	}
+
+	// Конвертируем все time.Time в profiles в витринную зону.
+	convertedProfiles := make([]analytics.ActorProfile, len(profiles))
+	for i, p := range profiles {
+		convertedProfiles[i] = p
+		convertedProfiles[i].LastSeen = p.LastSeen.In(loc)
+	}
+
+	// Конвертируем время первого и последнего события в счётчиках.
+	convertedCounters := counters
+	convertedCounters.FirstEventTime = counters.FirstEventTime.In(loc)
+	convertedCounters.LastEventTime = counters.LastEventTime.In(loc)
+
 	data := map[string]interface{}{
-		"StoreCounters":   counters,
+		"StoreCounters":   convertedCounters,
 		"ProfileCounters": profileCounters,
-		"HourStats":       hourStats,
-		"Profiles":        profiles,
-		"CurrentTime":     time.Now().UTC().Format("2006-01-02 15:04:05 UTC"),
-		"HistoryLoaded":   analytics.IsHistoryLoaded(),
-		"StoreTotal":      counters.TotalEvents,
+		"HourStats":       convertedHourStats,
+		"Profiles":        convertedProfiles,
+		"TimezoneLabel":   timezoneLabel,
+		"CurrentTime":     time.Now().In(loc).Format("2006-01-02 15:04:05 MST"),
+
+		"HistoryLoaded": analytics.IsHistoryLoaded(),
+		"StoreTotal":    counters.TotalEvents,
 	}
 
 	if err := panelTmpl.Execute(w, data); err != nil {

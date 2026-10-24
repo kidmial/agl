@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 )
 
 // SysctlCoreConfig изолирует двухуровневые параметры тюнинга сетевого стека ядра Linux.
@@ -148,6 +149,19 @@ type Config struct {
 	// Дефолт: false (fail-closed). Настраивается через SETTINGS.
 	WebHttpsPanelActive bool `json:"web_https_panel_active"`
 
+	// --- v8.6.2: Витринная таймзона веб-панели ---
+	// Таймзона для отображения времени в панели аналитики.
+	//
+	// Значения:
+	//   - "" или "local" — локальная зона сервера (дефолт, fail-safe)
+	//   - "UTC" — всемирное координированное время
+	//   - IANA-имя (например, "Europe/Moscow") — конкретная зона
+	//
+	// CONTRACT: влияет ТОЛЬКО на витрину (рендеринг времени, бакетирование часов).
+	// Внутреннее хранилище и агрегаты остаются в UTC для форензик-совместимости.
+	// Дефолт: "" (локальная зона сервера). Настраивается через SETTINGS.
+	WebPanelTimezone string `json:"web_panel_timezone"`
+
 	// --- v8.6.2: Аналитика - автозагрузка истории ---
 	// Тумблер автоматической загрузки истории из tarpit_report.log при старте сервиса.
 	// Дефолт: false (fail-closed). Настраивается через SETTINGS.
@@ -209,14 +223,12 @@ func LoadConfig(filePath string) error {
 	local.WebRescueEnabled = true      // M3: канал спасения включён по умолчанию
 	local.WebServerEnabled = true      // v8.4.7: физический HTTP-слушатель включён по умолчанию
 	local.WebRescuePort = 55111        // M3b: порт автономного HTTP-сервера веб-стука
-	local.SshAllowInFromIp = false     // v8.5.0: fail-closed — защита только по явной декларации
-	local.SshIpWebKnock = false        // v8.5.0: fail-closed
-	local.WebHttpsPanelActive = false  // v8.5.0: fail-closed
 	local.AutoUpdateEnabled = false    // M5: дефолт — автообновления ВЫКЛЮЧЕНЫ
 	local.AutoUpdateReboot = false     // M5: дефолт — ребут только руками
 	local.SshAllowInFromIp = true      // v8.5.0: опция A включена по умолчанию (whitelist IP админа)
-	local.SshIpWebKnock = true         // v8.5.0: опция B включена по умолчанию (веб-стук с испепелением)
+	local.SshIpWebKnock = false        // v8.5.0: опция B выключена по умолчанию (админ должен включить вручную после получения префикса)
 	local.WebHttpsPanelActive = false  // v8.5.0: опция C выключена по умолчанию (панель недоступна)
+	local.WebPanelTimezone = ""        // v8.6.2: витринная зона = локальная сервера (fail-safe)
 	local.AnalyticsAutoRebuild = false // v8.6.2: fail-closed - автозагрузка выключена
 	local.GeoTool = "geoiplookup"
 	local.AglLogarchiveDir = DirLog // БЛОК 4.4: Используем константу из paths.go
@@ -297,6 +309,17 @@ func LoadConfig(filePath string) error {
 	// v8.2.0 (1.2): есть хэш — plaintext в ОЗУ обязан быть пустым.
 	if local.WebRescuePasswordHash != "" {
 		local.WebRescuePassword = ""
+	}
+
+	// --- v8.6.2: Валидация витринной таймзоны ---
+	// Пустая строка или "local" означает использование локальной зоны сервера.
+	// "UTC" и IANA-имена проверяются через time.LoadLocation.
+	if local.WebPanelTimezone != "" && local.WebPanelTimezone != "local" && local.WebPanelTimezone != "UTC" {
+		// Пытаемся загрузить зону по IANA-имени.
+		if _, err := time.LoadLocation(local.WebPanelTimezone); err != nil {
+			// Зона невалидна — откатываемся на локальную (fail-safe).
+			local.WebPanelTimezone = ""
+		}
 	}
 
 	// --- M4a & M4b (v8.3.0): Генерация префиксов при первом запуске ---

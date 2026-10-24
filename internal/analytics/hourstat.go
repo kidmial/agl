@@ -12,6 +12,7 @@
 package analytics
 
 import (
+	"agl/config"
 	"sort"
 	"time"
 )
@@ -474,7 +475,20 @@ func (a *hourAgg) toHourStat(hour time.Time, topLimit int) HourStat {
 //   - агрегаты не должны зависеть от минут и секунд внутри часа;
 //   - веб-панель сможет группировать данные без повторной логики.
 func HourBucket(t time.Time) time.Time {
-	return t.UTC().Truncate(time.Hour)
+	// Получаем витринную локацию из конфига.
+	// "" или "local" → time.Local (дефолт, fail-safe)
+	// "UTC" → time.UTC
+	// IANA-имя → time.LoadLocation (валидировано в config.go)
+	loc := time.Local
+	if tz := config.C.WebPanelTimezone; tz != "" && tz != "local" {
+		if loaded, err := time.LoadLocation(tz); err == nil {
+			loc = loaded
+		}
+	}
+
+	// Приводим время к витринной зоне и обрезаем до часа.
+	// Это гарантирует, что бакеты совпадают с локальными часами админа.
+	return t.In(loc).Truncate(time.Hour)
 }
 
 // BuildHourStats строит все доступные часовые срезы из хранилища.

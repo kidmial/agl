@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"agl/config"
 	"agl/internal/analytics"
@@ -119,7 +120,35 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		profileCounters := manager.Counters()
 		hourStats := analytics.BuildLatestHourStats(store, 24, 10)
 		profiles := manager.ProfilesSnapshot(20)
-		renderPanelHTML(w, counters, profileCounters, hourStats, profiles)
+
+		// Определяем витринную локацию для отображения времени.
+		// "" или "local" → time.Local (дефолт)
+		// "UTC" → time.UTC
+		// IANA-имя → time.LoadLocation (валидировано в config.go)
+		loc := time.Local
+		timezoneLabel := "Local"
+		if tz := config.C.WebPanelTimezone; tz != "" {
+			if tz == "local" {
+				// Уже time.Local, ничего не делаем
+			} else if tz == "UTC" {
+				loc = time.UTC
+				timezoneLabel = "UTC"
+			} else {
+				if loaded, err := time.LoadLocation(tz); err == nil {
+					loc = loaded
+					// Извлекаем короткое имя зоны (например, "MSK" из "Europe/Moscow")
+					timezoneLabel = loaded.String()
+					if len(timezoneLabel) > 5 {
+						// Если имя длинное, берём последние 3-4 символа (обычно это код зоны)
+						// Например: "Europe/Moscow" → "MSK" не получится, поэтому оставим полное имя
+						// Но для краткости можно обрезать до первых 10 символов
+						timezoneLabel = timezoneLabel[:min(10, len(timezoneLabel))]
+					}
+				}
+			}
+		}
+
+		renderPanelHTML(w, counters, profileCounters, hourStats, profiles, loc, timezoneLabel)
 	})
 
 	// 2. API: Общая статистика
