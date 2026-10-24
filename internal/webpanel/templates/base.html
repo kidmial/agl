@@ -1,0 +1,236 @@
+{{/* internal/webpanel/templates/base.html */}}
+{{define "header"}}
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGL Analytics</title>
+    <style>
+        body {
+            background: #0f141c;
+            color: #a5b4fc;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+            font-size: 14px;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #00ff66;
+            font-weight: normal;
+            border-bottom: 1px solid #1e293b;
+            padding-bottom: 10px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: #111827;
+            border: 1px solid #1e293b;
+            border-radius: 4px;
+            padding: 20px;
+        }
+
+        .metric {
+            font-size: 24px;
+            color: #ffffff;
+            margin: 10px 0;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid #1e293b;
+        }
+
+        th {
+            color: #64748b;
+            font-weight: normal;
+            text-transform: uppercase;
+            font-size: 12px;
+        }
+
+        tr:hover {
+            background: #1e293b;
+        }
+
+        .text-muted {
+            color: #64748b;
+        }
+
+        .header {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            padding: 5px 5px 10px 0;
+            border-bottom: 1px solid #1e293b;
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            font-family: "JetBrains Mono", "Fira Code", monospace;
+            letter-spacing: 0.08em;
+            color: #d8d8dc;
+            font-size: 15px;
+            text-transform: uppercase;
+            font-weight: normal;
+        }
+
+        .logoamber {
+            color: #f4a261;
+        }
+
+        .nav {
+            margin-left: 20px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-link {
+            color: #a5b4fc;
+            text-decoration: none;
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background: #1e293b;
+            color: #00ff66;
+        }
+
+        /* Блок управления */
+        .control-panel {
+            margin: 20px 0;
+            padding: 16px;
+            background: #1a1f2e;
+            border: 1px solid #2a3040;
+            border-radius: 8px;
+        }
+
+        .control-panel h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            color: #00ff66;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-btn {
+            padding: 8px 16px;
+            background: #2a3040;
+            border: 1px solid #00ff66;
+            color: #00ff66;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover:not(:disabled) {
+            background: #00ff66;
+            color: #0f141c;
+        }
+
+        .control-btn:disabled {
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
+        }
+
+        .control-status {
+            margin-left: 12px;
+            font-size: 12px;
+            color: #a5b4fc;
+        }
+
+        .control-status.success {
+            color: #00ff66;
+        }
+
+        .control-status.error {
+            color: #ff4444;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <span class="logo"><span class="logoamber">Amber</span> Guard Laboratory</span>
+        <nav class="nav">
+            <a href="{{.Prefix}}dashboard/overview" class="nav-link">Обзор</a>
+            <a href="{{.Prefix}}dashboard/vitals" class="nav-link">Динамика</a>
+            <a href="{{.Prefix}}dashboard/fingerprints" class="nav-link">Отпечатки</a>
+            <a href="{{.Prefix}}dashboard/tarpit" class="nav-link">Удержание</a>
+            <a href="{{.Prefix}}dashboard/siem" class="nav-link">SIEM</a>
+        </nav>
+    </div>
+    {{end}}
+
+    {{define "footer"}}
+    <script>
+        function rebuildHistory() {
+            var btn = document.getElementById('rebuildBtn');
+            var status = document.getElementById('rebuildStatus');
+            if (!btn || !status) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Загрузка...';
+            status.textContent = 'Чтение файла лога...';
+            status.className = 'control-status';
+
+            var pathParts = window.location.pathname.split('/');
+            var prefix = pathParts[1] ? pathParts[1] + '/' : '';
+
+            fetch('/' + prefix + 'api/rebuild', { method: 'POST' })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data.success) {
+                        btn.textContent = 'История загружена';
+                        status.textContent = data.valid + ' событий загружено (' + data.broken + ' битых строк пропущено). Перезапустите сервис для повторной загрузки.';
+                        status.className = 'control-status success';
+                        setTimeout(function () { window.location.reload(); }, 2000);
+                    } else {
+                        btn.disabled = false;
+                        btn.textContent = 'Загрузить историю из лога';
+                        status.textContent = data.reason || data.error || 'Ошибка загрузки';
+                        status.className = 'control-status error';
+                    }
+                })
+                .catch(function (err) {
+                    btn.disabled = false;
+                    btn.textContent = 'Загрузить историю из лога';
+                    status.textContent = 'Ошибка сети: ' + err.message;
+                    status.className = 'control-status error';
+                });
+        }
+    </script>
+</body>
+
+</html>
+{{end}}

@@ -1,11 +1,12 @@
 // internal/webpanel/ui_panel.go
 // =====================================================================
 // КОМПОНЕНТ: РЕНДЕРИНГ ВЕБ-ПАНЕЛИ АНАЛИТИКИ
-// РОЛЬ: Генерация HTML-дашборда для отображения статистики и профилей.
+// РОЛЬ: Генерация HTML-дашбордов для отображения статистики и профилей.
 // ПРИНЦИП:
 //   - использование //go:embed для встраивания шаблонов в бинарник;
 //   - безопасный вывод данных через html/template;
-//   - поддержка витринной таймзоны из конфига.
+//   - поддержка витринной таймзоны из конфига;
+//   - универсальная функция renderDashboard для всех страниц.
 //
 // =====================================================================
 package webpanel
@@ -23,17 +24,20 @@ import (
 //go:embed templates/*.html
 var templateFS embed.FS
 
-// panelTmpl — скомпилированный шаблон, загруженный из встроенных файлов.
-// Must гарантирует, что шаблон синтезируется на старте, а не во время запроса.
-var panelTmpl = template.Must(template.ParseFS(templateFS, "templates/panel.html"))
+// panelTmpl — скомпилированные шаблоны, загруженные из встроенных файлов.
+// Парсим все HTML-файлы вместе, чтобы блоки header/footer были доступны всем дашбордам.
+var panelTmpl = template.Must(template.ParseFS(templateFS, "templates/*.html"))
 
-// renderPanelHTML отдаёт отрендеренный HTML дашборда.
+// renderDashboard рендерит любой дашборд с полной поддержкой данных и таймзоны.
 //
 // Аргументы:
+//   - w: HTTP-ответ
+//   - templateName: имя шаблона (dashboard_overview, dashboard_vitals, и т.д.)
+//   - prefix: крипто-префикс для навигации
 //   - counters, profileCounters: счётчики хранилища и профилей
-//   - hourStats: часовые срезы (время внутри в UTC)
-//   - profiles: профили акторов (время внутри в UTC)
-func renderPanelHTML(w http.ResponseWriter, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile) {
+//   - hourStats: часовые срезы
+//   - profiles: профили акторов
+func renderDashboard(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// 1. Определяем витринную локацию для отображения времени.
@@ -50,13 +54,13 @@ func renderPanelHTML(w http.ResponseWriter, counters analytics.StoreCounters, pr
 				loc = loaded
 				timezoneLabel = loaded.String()
 				if len(timezoneLabel) > 10 {
-					timezoneLabel = timezoneLabel[:10] // Краткое имя для UI
+					timezoneLabel = timezoneLabel[:10]
 				}
 			}
 		}
 	}
 
-	// 2. Конвертируем все time.Time в витринную зону перед передачей в шаблон.
+	// 2. Конвертируем все time.Time в витринную зону.
 	convertedHourStats := make([]analytics.HourStat, len(hourStats))
 	for i, hs := range hourStats {
 		convertedHourStats[i] = hs
@@ -66,7 +70,6 @@ func renderPanelHTML(w http.ResponseWriter, counters analytics.StoreCounters, pr
 	convertedProfiles := make([]analytics.ActorProfile, len(profiles))
 	for i, p := range profiles {
 		convertedProfiles[i] = p
-		// Конвертируем оба поля времени в витринную зону для корректного отображения
 		convertedProfiles[i].LastSeen = p.LastSeen.In(loc)
 		if !p.LastEventTime.IsZero() {
 			convertedProfiles[i].LastEventTime = p.LastEventTime.In(loc)
@@ -83,19 +86,32 @@ func renderPanelHTML(w http.ResponseWriter, counters analytics.StoreCounters, pr
 
 	// 3. Формируем данные для шаблона.
 	data := map[string]interface{}{
+		"Prefix":          prefix,
 		"StoreCounters":   convertedCounters,
 		"ProfileCounters": profileCounters,
 		"HourStats":       convertedHourStats,
 		"Profiles":        convertedProfiles,
 		"TimezoneLabel":   timezoneLabel,
 		"CurrentTime":     time.Now().In(loc).Format("2006-01-02 15:04:05 MST"),
-
-		// Критично для кнопки rebuild:
-		"HistoryLoaded": analytics.IsHistoryLoaded(),
-		"StoreTotal":    counters.TotalEvents,
+		"HistoryLoaded":   analytics.IsHistoryLoaded(),
+		"StoreTotal":      counters.TotalEvents,
 	}
 
-	if err := panelTmpl.Execute(w, data); err != nil {
+	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
+		http.Error(w, "Template execution error", http.StatusInternalServerError)
+	}
+}
+
+// renderStub рендерит страницу-заглушку (без данных аналитики).
+// Используется для дашбордов в разработке.
+func renderStub(w http.ResponseWriter, templateName string, prefix string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	data := map[string]interface{}{
+		"Prefix": prefix,
+	}
+
+	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
 		http.Error(w, "Template execution error", http.StatusInternalServerError)
 	}
 }

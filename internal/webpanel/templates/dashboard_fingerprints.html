@@ -1,0 +1,17 @@
+{{/* internal/webpanel/templates/dashboard_fingerprints.html */}}
+{{define "dashboard_fingerprints"}}
+{{template "header" .}}
+
+<div class="card">
+    <h2>Цифровой почерк и TCP-отпечатки</h2>
+    <p class="text-muted">Этот дашборд в разработке. Здесь будут:</p>
+    <ul>
+        <li>Стратегия А: Анализ IAT и объёмов (дисперсия интервалов)</li>
+        <li>Стратегия Б: Пассивный TCP Fingerprinting (p0f-логика)</li>
+        <li>Гистограмма распределения прикладных чтений</li>
+        <li>Сетка сопоставления MSS, RcvSpace, Wscale</li>
+    </ul>
+</div>
+
+{{template "footer" .}}
+{{end}}

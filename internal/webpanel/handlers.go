@@ -105,8 +105,8 @@ func panel404Stub(w http.ResponseWriter, r *http.Request) {
 // RegisterRoutes монтирует все маршруты панели аналитики в переданный mux.
 func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analytics.ProfileManager, prefix string) {
 
-	// 1. Главная страница панели (HTML)
-	mux.HandleFunc(prefix+"panel", func(w http.ResponseWriter, r *http.Request) {
+	// 1. Главная страница: Обзор (HTML)
+	mux.HandleFunc(prefix+"dashboard/overview", func(w http.ResponseWriter, r *http.Request) {
 		if !config.C.WebHttpsPanelActive {
 			panel404Stub(w, r)
 			return
@@ -120,8 +120,48 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		hourStats := analytics.BuildLatestHourStats(store, 24, 10)
 		profiles := manager.ProfilesSnapshot(20)
 
-		// Вызов стал чище: вся логика таймзоны теперь внутри renderPanelHTML
-		renderPanelHTML(w, counters, profileCounters, hourStats, profiles)
+		renderDashboard(w, "dashboard_overview", prefix, counters, profileCounters, hourStats, profiles)
+	})
+
+	// 1.1. Обратная совместимость: редирект со старого /panel
+	mux.HandleFunc(prefix+"panel", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, prefix+"dashboard/overview", http.StatusMovedPermanently)
+	})
+
+	// 1.2. Дашборд: Динамика атаки
+	mux.HandleFunc(prefix+"dashboard/vitals", func(w http.ResponseWriter, r *http.Request) {
+		if !config.C.WebHttpsPanelActive {
+			panel404Stub(w, r)
+			return
+		}
+		renderStub(w, "dashboard_vitals", prefix)
+	})
+
+	// 1.3. Дашборд: Отпечатки
+	mux.HandleFunc(prefix+"dashboard/fingerprints", func(w http.ResponseWriter, r *http.Request) {
+		if !config.C.WebHttpsPanelActive {
+			panel404Stub(w, r)
+			return
+		}
+		renderStub(w, "dashboard_fingerprints", prefix)
+	})
+
+	// 1.4. Дашборд: Удержание
+	mux.HandleFunc(prefix+"dashboard/tarpit", func(w http.ResponseWriter, r *http.Request) {
+		if !config.C.WebHttpsPanelActive {
+			panel404Stub(w, r)
+			return
+		}
+		renderStub(w, "dashboard_tarpit", prefix)
+	})
+
+	// 1.5. Дашборд: SIEM Core
+	mux.HandleFunc(prefix+"dashboard/siem", func(w http.ResponseWriter, r *http.Request) {
+		if !config.C.WebHttpsPanelActive {
+			panel404Stub(w, r)
+			return
+		}
+		renderStub(w, "dashboard_siem_core", prefix)
 	})
 
 	// 2. API: Общая статистика

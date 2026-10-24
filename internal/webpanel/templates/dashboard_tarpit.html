@@ -1,0 +1,19 @@
+{{/* internal/webpanel/templates/dashboard_tarpit.html */}}
+{{define "dashboard_tarpit"}}
+{{template "header" .}}
+
+<div class="card">
+    <h2>Анализ удержания и математические корреляторы</h2>
+    <p class="text-muted">Этот дашборд в разработке. Здесь будут:</p>
+    <ul>
+        <li>Стратегия В: Анализ аномалий удержания и деградации сессии</li>
+        <li>Графики PlannedHold vs ActualHold</li>
+        <li>Динамика ретрансмитов и зондов</li>
+        <li>Коррелятор «Темп против Окна»</li>
+        <li>Коррелятор «Агрессивность против Выносливости»</li>
+        <li>Коррелятор «Энтропии IAT и структуры пакета»</li>
+    </ul>
+</div>
+
+{{template "footer" .}}
+{{end}}
