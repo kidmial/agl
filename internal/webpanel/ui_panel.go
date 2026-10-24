@@ -3,290 +3,81 @@
 // КОМПОНЕНТ: РЕНДЕРИНГ ВЕБ-ПАНЕЛИ АНАЛИТИКИ
 // РОЛЬ: Генерация HTML-дашборда для отображения статистики и профилей.
 // ПРИНЦИП:
-//   - тёмная тема, моноширинный шрифт, неоновые акценты (стиль AGL);
-//   - встроенный шаблон (в будущем будет //go:embed assets/panel.html);
-//   - безопасный вывод данных через html/template.
+//   - использование //go:embed для встраивания шаблонов в бинарник;
+//   - безопасный вывод данных через html/template;
+//   - поддержка витринной таймзоны из конфига.
 //
 // =====================================================================
 package webpanel
 
 import (
+	"embed"
 	"html/template"
 	"net/http"
 	"time"
 
+	"agl/config"
 	"agl/internal/analytics"
 )
 
-// panelTemplateHTML — инлайн-шаблон дашборда.
-// Стилизован под терминал AGL: фон #0f141c, текст #a5b4fc, акценты #00ff66.
-const panelTemplateHTML = `<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AGL Analytics Panel</title>
-    <style>
-        body {
-            background: #0f141c;
-            color: #a5b4fc;
-            font-family: 'Courier New', Courier, monospace;
-            margin: 0;
-            padding: 20px;
-            font-size: 14px;
-        }
-        h1, h2, h3 { color: #00ff66; font-weight: normal; border-bottom: 1px solid #1e293b; padding-bottom: 10px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .card { background: #111827; border: 1px solid #1e293b; border-radius: 4px; padding: 20px; }
-        .metric { font-size: 24px; color: #ffffff; margin: 10px 0; }
-        .metric-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #1e293b; }
-        th { color: #64748b; font-weight: normal; text-transform: uppercase; font-size: 12px; }
-        tr:hover { background: #1e293b; }
-        .badge { padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; }
-        .badge-active { background: #064e3b; color: #00ff66; }
-        .badge-low { background: #78350f; color: #fbbf24; }
-        .badge-expired { background: #7f1d1d; color: #f87171; }
-        .text-muted { color: #64748b; }
+//go:embed templates/*.html
+var templateFS embed.FS
 
-        .header {
-            display: flex;
-            flex-direction: row;
-            padding: 5px 5px 10px 0;
-        }
-
-        .logo {
-            font-family: "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas, "Ubuntu Mono", monospace;
-            letter-spacing: 0.08em;
-            color: #d8d8dc;
-            font-size: 15px;
-            text-transform: uppercase;
-            font-weight: normal;
-            padding-bottom: 10px;
-        }
-
-        .logoamber {
-            color: #f4a261;;
-        }
-
-        /* Блок управления (контейнер для кнопок) */
-        .control-panel {
-            margin: 20px 0;
-            padding: 16px;
-            background: #1a1f2e;
-            border: 1px solid #2a3040;
-            border-radius: 8px;
-        }
-        .control-panel h3 {
-            margin: 0 0 12px 0;
-            font-size: 14px;
-            color: #00ff66;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .control-btn {
-            padding: 8px 16px;
-            background: #2a3040;
-            border: 1px solid #00ff66;
-            color: #00ff66;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: all 0.2s;
-        }
-        .control-btn:hover:not(:disabled) {
-            background: #00ff66;
-            color: #0f141c;
-        }
-        .control-btn:disabled {
-            border-color: #555;
-            color: #555;
-            cursor: not-allowed;
-        }
-        .control-status {
-            margin-left: 12px;
-            font-size: 12px;
-            color: #a5b4fc;
-        }
-        .control-status.success { color: #00ff66; }
-        .control-status.error { color: #ff4444; }
-    </style>
-</head>
-<body>
-    <div class="header"><span class="logo"><span class="logoamber">Amber</span> Guard Laboratory</span>&nbsp;::&nbsp;Analytics Dashboard</div>
-
-    <!-- Сводные метрики -->
-    <div class="grid">
-        <div class="card">
-            <div class="metric-label">Всего событий в буфере</div>
-            <div class="metric">{{ .StoreCounters.TotalEvents }}</div>
-            <div class="text-muted">Валидных: {{ .StoreCounters.ValidEvents }} | Битых: {{ .StoreCounters.InvalidEvents }}</div>
-        </div>
-        <div class="card">
-            <div class="metric-label">Активные профили акторов</div>
-            <div class="metric">{{ .ProfileCounters.Active }}</div>
-            <div class="text-muted">Низкая уверенность: {{ .ProfileCounters.LowConfidence }} | Просрочено: {{ .ProfileCounters.Expired }}</div>
-        </div>
-        <div class="card">
-            <div class="metric-label">Временной охват</div>
-            <div class="metric">{{ if .StoreCounters.HasEventTime }}{{ .StoreCounters.FirstEventTime.Format "02.01" }} - {{ .StoreCounters.LastEventTime.Format "02.01" }}{{ else }}Нет данных{{ end }}</div>
-            <div class="text-muted">Обновлено: {{ .CurrentTime }}</div>
-        </div>
-    </div>
-
-        <!-- Блок управления данными (контейнер для кнопок) -->
-        <div class="control-panel">
-            <h3>Управление данными</h3>
-            {{ if .HistoryLoaded }}
-                <button class="control-btn" disabled>История загружена</button>
-                <span class="control-status success">{{ .StoreTotal }} событий в буфере. Перезапустите сервис для повторной загрузки.</span>
-            {{ else }}
-                <button class="control-btn" id="rebuildBtn" onclick="rebuildHistory()">Загрузить историю из лога</button>
-                <span class="control-status" id="rebuildStatus">История не загружена. Нажмите кнопку для загрузки.</span>
-            {{ end }}
-        </div>
-
-    <!-- Часовая статистика -->
-    <div class="card">
-        <h2>События за 24 часа</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Час ({{ .TimezoneLabel }})</th>
-                    <th>Событий</th>
-                    <th>Уник. IP</th>
-                    <th>Агрессивных</th>
-                    <th>Средний RTT</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{ range .HourStats }}
-                <tr>
-                    <td>{{ .Hour.Format "15:04" }}</td>
-                    <td>{{ .Events }}</td>
-                    <td>{{ .UniqueIPs }}</td>
-                    <td>{{ .AggressiveEvents }}</td>
-                    <td>{{ printf "%.0f" .RTTAvgMs }} ms</td>
-                </tr>
-                {{ end }}
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Профили акторов -->
-    <div class="card" style="margin-top: 30px;">
-        <h2>Последние профили акторов</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>ID Профиля</th>
-                    <th>Уник. IP</th>
-                    <th>Состояние</th>
-                    <th>Фаза (Алг.3)</th>
-                    <th>Прогноз (Алг.4)</th>
-                    <th>Дрейф (Алг.2)</th>
-                    <th>Последняя активность</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{ range .Profiles }}
-                <tr>
-                    <td><code>{{ .ID }}</code></td>
-                    <td>{{ .UniqueIPCount }}</td>
-                    <td>
-                        {{ if eq .State "ACTIVE" }}<span class="badge badge-active">ACTIVE</span>
-                        {{ else if eq .State "LOW_CONFIDENCE" }}<span class="badge badge-low">LOW_CONF</span>
-                        {{ else if eq .State "MERGED" }}<span class="badge badge-expired">MERGED</span>
-                        {{ else }}<span class="badge badge-expired">EXPIRED</span>{{ end }}
-                    </td>
-                    <td style="color: #fbbf24;">{{ if .CurrentPhase }}{{ .CurrentPhase }}{{ else }}—{{ end }}</td>
-                    <td style="color: #00ff66;">{{ if .PredictedVector }}{{ .PredictedVector }}{{ else }}—{{ end }}</td>
-                    <td>{{ if .TokenDriftValid }}{{ .TokenDriftMs }} мс{{ else }}—{{ end }}</td>
-                    <td>{{ .LastSeen.Format "15:04:05" }}</td>
-                </tr>
-                {{ end }}
-            </tbody>
-        </table>
-    </div>
-    <script>
-    function rebuildHistory() {
-        var btn = document.getElementById('rebuildBtn');
-        var status = document.getElementById('rebuildStatus');
-        if (!btn || !status) return;
-
-        btn.disabled = true;
-        btn.textContent = 'Загрузка...';
-        status.textContent = 'Чтение файла лога...';
-        status.className = 'control-status';
-
-        // Извлекаем крипто-префикс из текущего URL
-        var pathParts = window.location.pathname.split('/');
-        var prefix = pathParts[1] ? pathParts[1] + '/' : '';
-
-        fetch('/' + prefix + 'api/rebuild', { method: 'POST' })
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if (data.success) {
-                    btn.textContent = 'История загружена';
-                    status.textContent = data.valid + ' событий загружено (' + data.broken + ' битых строк пропущено). Перезапустите сервис для повторной загрузки.';
-                    status.className = 'control-status success';
-                    // Обновляем страницу через 2 секунды для отображения данных
-                    setTimeout(function() { window.location.reload(); }, 2000);
-                } else {
-                    btn.disabled = false;
-                    btn.textContent = 'Загрузить историю из лога';
-                    status.textContent = data.reason || data.error || 'Ошибка загрузки';
-                    status.className = 'control-status error';
-                }
-            })
-            .catch(function(err) {
-                btn.disabled = false;
-                btn.textContent = 'Загрузить историю из лога';
-                status.textContent = 'Ошибка сети: ' + err.message;
-                status.className = 'control-status error';
-            });
-    }
-    </script>
-</body>
-</html>`
-
-// panelTmpl — скомпилированный шаблон.
+// panelTmpl — скомпилированный шаблон, загруженный из встроенных файлов.
 // Must гарантирует, что шаблон синтезируется на старте, а не во время запроса.
-var panelTmpl = template.Must(template.New("panel").Parse(panelTemplateHTML))
+var panelTmpl = template.Must(template.ParseFS(templateFS, "templates/panel.html"))
 
 // renderPanelHTML отдаёт отрендеренный HTML дашборда.
 //
 // Аргументы:
 //   - counters, profileCounters: счётчики хранилища и профилей
-//   - hourStats: часовые срезы (время в UTC)
-//   - profiles: профили акторов (время в UTC)
-//   - loc: витринная локация для отображения времени
-//   - timezoneLabel: человекочитаемое имя зоны ("UTC", "Local", "Europe/Moscow")
-func renderPanelHTML(w http.ResponseWriter, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, loc *time.Location, timezoneLabel string) {
+//   - hourStats: часовые срезы (время внутри в UTC)
+//   - profiles: профили акторов (время внутри в UTC)
+func renderPanelHTML(w http.ResponseWriter, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	// Конвертируем все time.Time в hourStats в витринную зону.
-	// Это нужно, чтобы шаблон рендерил локальное время, а не UTC.
+	// 1. Определяем витринную локацию для отображения времени.
+	loc := time.Local
+	timezoneLabel := "Local"
+	if tz := config.C.WebPanelTimezone; tz != "" {
+		if tz == "local" {
+			// Уже time.Local
+		} else if tz == "UTC" {
+			loc = time.UTC
+			timezoneLabel = "UTC"
+		} else {
+			if loaded, err := time.LoadLocation(tz); err == nil {
+				loc = loaded
+				timezoneLabel = loaded.String()
+				if len(timezoneLabel) > 10 {
+					timezoneLabel = timezoneLabel[:10] // Краткое имя для UI
+				}
+			}
+		}
+	}
+
+	// 2. Конвертируем все time.Time в витринную зону перед передачей в шаблон.
 	convertedHourStats := make([]analytics.HourStat, len(hourStats))
 	for i, hs := range hourStats {
 		convertedHourStats[i] = hs
 		convertedHourStats[i].Hour = hs.Hour.In(loc)
 	}
 
-	// Конвертируем все time.Time в profiles в витринную зону.
 	convertedProfiles := make([]analytics.ActorProfile, len(profiles))
 	for i, p := range profiles {
 		convertedProfiles[i] = p
 		convertedProfiles[i].LastSeen = p.LastSeen.In(loc)
 	}
 
-	// Конвертируем время первого и последнего события в счётчиках.
 	convertedCounters := counters
-	convertedCounters.FirstEventTime = counters.FirstEventTime.In(loc)
-	convertedCounters.LastEventTime = counters.LastEventTime.In(loc)
+	if !convertedCounters.FirstEventTime.IsZero() {
+		convertedCounters.FirstEventTime = counters.FirstEventTime.In(loc)
+	}
+	if !convertedCounters.LastEventTime.IsZero() {
+		convertedCounters.LastEventTime = counters.LastEventTime.In(loc)
+	}
 
+	// 3. Формируем данные для шаблона.
 	data := map[string]interface{}{
 		"StoreCounters":   convertedCounters,
 		"ProfileCounters": profileCounters,
@@ -295,6 +86,7 @@ func renderPanelHTML(w http.ResponseWriter, counters analytics.StoreCounters, pr
 		"TimezoneLabel":   timezoneLabel,
 		"CurrentTime":     time.Now().In(loc).Format("2006-01-02 15:04:05 MST"),
 
+		// Критично для кнопки rebuild:
 		"HistoryLoaded": analytics.IsHistoryLoaded(),
 		"StoreTotal":    counters.TotalEvents,
 	}
