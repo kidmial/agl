@@ -50,6 +50,26 @@ const panelTemplateHTML = `<!DOCTYPE html>
         .badge-expired { background: #7f1d1d; color: #f87171; }
         .text-muted { color: #64748b; }
 
+        .header {
+            display: flex;
+            flex-direction: row;
+            padding: 5px 5px 10px 0;
+        }
+
+        .logo {
+            font-family: "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas, "Ubuntu Mono", monospace;
+            letter-spacing: 0.08em;
+            color: #d8d8dc;
+            font-size: 15px;
+            text-transform: uppercase;
+            font-weight: normal;
+            padding-bottom: 10px;
+        }
+
+        .logoamber {
+            color: #f4a261;;
+        }
+
         /* Блок управления (контейнер для кнопок) */
         .control-panel {
             margin: 20px 0;
@@ -95,7 +115,7 @@ const panelTemplateHTML = `<!DOCTYPE html>
     </style>
 </head>
 <body>
-    <h1>Amber Guard Laboratory :: Analytics Dashboard</h1>
+    <div class="header"><span class="logo"><span class="logoamber">Amber</span> Guard Laboratory</span>&nbsp;::&nbsp;Analytics Dashboard</div>
 
     <!-- Сводные метрики -->
     <div class="grid">
