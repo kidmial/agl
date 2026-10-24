@@ -255,12 +255,12 @@
                     <th>Время завершения</th>
                     <th>План (сек)</th>
                     <th>Факт (сек)</th>
+                    <th>Тип</th>
                     <th>ID Профиля</th>
                     <th>Уник. IP</th>
                     <th>Фаза (Алг.3)</th>
                     <th>Прогноз (Алг.4)</th>
                     <th>Дрейф (Алг.2)</th>
-
                 </tr>
             </thead>
             <tbody>
@@ -269,12 +269,18 @@
                     <td>{{ .LastEventTime.Format "15:04:05" }}</td>
                     <td>{{ if .HoldCount }}{{ printf "%.0f" .AvgPlannedHoldSec }}{{ else }}—{{ end }}</td>
                     <td>{{ if .HoldCount }}{{ printf "%.0f" .AvgActualHoldSec }}{{ else }}—{{ end }}</td>
+                    <td>
+                        {{ $b := .DominantBehavior }}
+                        {{ if eq $b "AGGR" }}<span style="color: #f87171; font-weight: bold;">AGGR</span>
+                        {{ else if eq $b "PASS" }}<span style="color: #34d399; font-weight: bold;">PASS</span>
+                        {{ else if eq $b "MIXED" }}<span style="color: #fbbf24; font-weight: bold;">MIXED</span>
+                        {{ else }}<span class="text-muted">—</span>{{ end }}
+                    </td>
                     <td><code>{{ .ID }}</code></td>
                     <td>{{ .UniqueIPCount }}</td>
                     <td style="color: #fbbf24;">{{ if .CurrentPhase }}{{ .CurrentPhase }}{{ else }}—{{ end }}</td>
                     <td style="color: #00ff66;">{{ if .PredictedVector }}{{ .PredictedVector }}{{ else }}—{{ end }}</td>
                     <td>{{ if .TokenDriftValid }}{{ .TokenDriftMs }} мс{{ else }}—{{ end }}</td>
-
                 </tr>
                 {{ end }}
             </tbody>

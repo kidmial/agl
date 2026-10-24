@@ -1204,6 +1204,35 @@ func (p *ActorProfile) AvgActualHoldSec() float64 {
 	return float64(p.ActualHoldSumSec) / float64(p.HoldCount)
 }
 
+// DominantBehavior возвращает преобладающее поведение профиля в компактном виде.
+//
+// Возврат:
+//   - "AGGR" (только агрессивные сессии)
+//   - "PASS" (только пассивные сессии)
+//   - "MIXED" (сочетание обоих типов, смена тактики)
+//   - "UNK" (нет данных или нераспознанное поведение)
+func (p *ActorProfile) DominantBehavior() string {
+	if p == nil || len(p.BehaviorCounts) == 0 {
+		return "UNK"
+	}
+
+	aggr := p.BehaviorCounts["AGGRESSIVE"]
+	pass := p.BehaviorCounts["PASSIVE"]
+
+	// Если есть и то, и другое — это важный сигнал о смене тактики или прокси-цепочке.
+	if aggr > 0 && pass > 0 {
+		return "MIXED"
+	}
+	if aggr > 0 {
+		return "AGGR"
+	}
+	if pass > 0 {
+		return "PASS"
+	}
+
+	return "UNK"
+}
+
 // RTTAvgMs возвращает средний RTT профиля в миллисекундах.
 //
 // Возврат:
