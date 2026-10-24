@@ -66,7 +66,11 @@ func renderPanelHTML(w http.ResponseWriter, counters analytics.StoreCounters, pr
 	convertedProfiles := make([]analytics.ActorProfile, len(profiles))
 	for i, p := range profiles {
 		convertedProfiles[i] = p
+		// Конвертируем оба поля времени в витринную зону для корректного отображения
 		convertedProfiles[i].LastSeen = p.LastSeen.In(loc)
+		if !p.LastEventTime.IsZero() {
+			convertedProfiles[i].LastEventTime = p.LastEventTime.In(loc)
+		}
 	}
 
 	convertedCounters := counters
