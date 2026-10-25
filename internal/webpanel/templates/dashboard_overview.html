@@ -24,6 +24,26 @@
     </div>
 </div>
 
+<!-- Утилизированное время ботнет сетей -->
+<div class="grid" style="margin-top: 20px;">
+    <div class="card">
+        <div class="metric-label">Утилизированное время ботнет за последний час</div>
+        <div class="metric amber">{{ .StolenTime.HourSec | formatDuration }}</div>
+    </div>
+    <div class="card">
+        <div class="metric-label">Утилизированное время ботнет за 24 часа</div>
+        <div class="metric amber">{{ .StolenTime.DaySec | formatDuration }}</div>
+    </div>
+    <div class="card">
+        <div class="metric-label">Утилизированное время ботнет за 7 дней</div>
+        <div class="metric amber">{{ .StolenTime.WeekSec | formatDuration }}</div>
+    </div>
+    <div class="card">
+        <div class="metric-label">Утилизированное время ботнет за 30 дней</div>
+        <div class="metric amber">{{ .StolenTime.MonthSec | formatDuration }}</div>
+    </div>
+</div>
+
 <!-- Блок управления данными -->
 <div class="control-panel">
     <h3>Управление данными</h3>
@@ -66,7 +86,7 @@
 
 <!-- Профили акторов -->
 <div class="card" style="margin-top: 30px;">
-    <h2>Последние профили акторов</h2>
+    <h2>Свежие профили акторов</h2>
     <table>
         <thead>
             <tr>

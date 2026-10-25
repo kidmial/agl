@@ -130,7 +130,11 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			MaxConnWriteLatencyMs:   maxConnLatency,
 			MaxReportWriteLatencyMs: maxReportLatency,
 		}
-		renderDashboard(w, "dashboard_overview", prefix, counters, profileCounters, hourStats, profiles, health)
+
+		// Вычисляем утилизированное время ботнет сетей
+		stolenTime := analytics.BuildStolenTimeStats(store)
+
+		renderDashboard(w, "dashboard_overview", prefix, counters, profileCounters, hourStats, profiles, health, stolenTime)
 	})
 
 	// 1.1. Обратная совместимость: редирект со старого /panel
@@ -161,7 +165,8 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			MaxConnWriteLatencyMs:   maxConnLatency,
 			MaxReportWriteLatencyMs: maxReportLatency,
 		}
-		renderDashboard(w, "dashboard_vitals", prefix, counters, profileCounters, hourStats, profiles, health)
+		stolenTime := analytics.BuildStolenTimeStats(store)
+		renderDashboard(w, "dashboard_vitals", prefix, counters, profileCounters, hourStats, profiles, health, stolenTime)
 	})
 
 	// 1.3. Дашборд: Отпечатки
@@ -187,7 +192,8 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			MaxConnWriteLatencyMs:   maxConnLatency,
 			MaxReportWriteLatencyMs: maxReportLatency,
 		}
-		renderDashboard(w, "dashboard_fingerprints", prefix, counters, profileCounters, hourStats, profiles, health)
+		stolenTime := analytics.BuildStolenTimeStats(store)
+		renderDashboard(w, "dashboard_fingerprints", prefix, counters, profileCounters, hourStats, profiles, health, stolenTime)
 	})
 
 	// 1.4. Дашборд: Удержание
@@ -213,7 +219,8 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			MaxConnWriteLatencyMs:   maxConnLatency,
 			MaxReportWriteLatencyMs: maxReportLatency,
 		}
-		renderDashboard(w, "dashboard_tarpit", prefix, counters, profileCounters, hourStats, profiles, health)
+		stolenTime := analytics.BuildStolenTimeStats(store)
+		renderDashboard(w, "dashboard_tarpit", prefix, counters, profileCounters, hourStats, profiles, health, stolenTime)
 	})
 
 	// 1.5. Дашборд: SIEM Core

@@ -15,6 +15,7 @@ import (
 	"agl/config"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -1030,4 +1031,122 @@ func BuildBurstSeries(s *Store, window time.Duration) []BurstPoint {
 		})
 	}
 	return points
+}
+
+// StolenTimeStats описывает суммарное время удержания ботов за разные периоды.
+//
+// Это ключевая метрика ценности комплекса: сколько времени мы "украли" у ботнетов,
+// заставив их тратить ресурсы на бесполезное удержание в капкане.
+type StolenTimeStats struct {
+	// HourSec — секунды удержания за последний час.
+	HourSec uint64 `json:"hour_sec"`
+
+	// DaySec — секунды удержания за последние 24 часа.
+	DaySec uint64 `json:"day_sec"`
+
+	// WeekSec — секунды удержания за последние 7 дней.
+	WeekSec uint64 `json:"week_sec"`
+
+	// MonthSec — секунды удержания за последние 30 дней.
+	MonthSec uint64 `json:"month_sec"`
+}
+
+// BuildStolenTimeStats вычисляет суммарное время удержания ботов за разные периоды.
+//
+// Алгоритм:
+//   - берём снапшот событий из Store;
+//   - фильтруем по времени (час/день/неделя/месяц);
+//   - суммируем ActualHoldSec для событий с валидным фактом удержания.
+//
+// Сложность O(E): один проход по снапшоту.
+func BuildStolenTimeStats(s *Store) StolenTimeStats {
+	if s == nil {
+		return StolenTimeStats{}
+	}
+
+	events := s.SnapshotChronological()
+	if len(events) == 0 {
+		return StolenTimeStats{}
+	}
+
+	now := time.Now().UTC()
+	hourAgo := now.Add(-1 * time.Hour)
+	dayAgo := now.Add(-24 * time.Hour)
+	weekAgo := now.Add(-7 * 24 * time.Hour)
+	monthAgo := now.Add(-30 * 24 * time.Hour)
+
+	var stats StolenTimeStats
+
+	for _, event := range events {
+		if !event.StartTimeValid {
+			continue
+		}
+		if !event.ActualHoldValid {
+			continue
+		}
+
+		// Суммируем для каждого периода, если событие попадает в окно.
+		if event.StartTime.After(hourAgo) {
+			stats.HourSec += event.ActualHoldSec
+		}
+		if event.StartTime.After(dayAgo) {
+			stats.DaySec += event.ActualHoldSec
+		}
+		if event.StartTime.After(weekAgo) {
+			stats.WeekSec += event.ActualHoldSec
+		}
+		if event.StartTime.After(monthAgo) {
+			stats.MonthSec += event.ActualHoldSec
+		}
+	}
+
+	return stats
+}
+
+// FormatDuration форматирует секунды в человекочитаемый вид.
+//
+// Примеры:
+//   - 3661 -> "1ч 1м"
+//   - 90061 -> "1д 1ч"
+//   - 604800 -> "7д"
+func FormatDuration(sec uint64) string {
+	if sec == 0 {
+		return "0с"
+	}
+
+	const (
+		secPerMin  = 60
+		secPerHour = 3600
+		secPerDay  = 86400
+	)
+
+	days := sec / secPerDay
+	sec %= secPerDay
+
+	hours := sec / secPerHour
+	sec %= secPerHour
+
+	mins := sec / secPerMin
+
+	var parts []string
+	if days > 0 {
+		parts = append(parts, fmt.Sprintf("%dd", days))
+	}
+	if hours > 0 {
+		parts = append(parts, fmt.Sprintf("%dh", hours))
+	}
+	if mins > 0 {
+		parts = append(parts, fmt.Sprintf("%dm", mins))
+	}
+
+	if len(parts) == 0 {
+		return fmt.Sprintf("%ds", sec)
+	}
+
+	// Возвращаем максимум 2 компонента для краткости.
+	if len(parts) > 2 {
+		parts = parts[:2]
+	}
+
+	return strings.Join(parts, " ")
 }

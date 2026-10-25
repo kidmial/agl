@@ -48,7 +48,8 @@ func toJSON(v interface{}) template.JS {
 var panelTmpl = template.Must(
 	template.New("agl").
 		Funcs(template.FuncMap{
-			"json": toJSON,
+			"json":           toJSON,
+			"formatDuration": analytics.FormatDuration,
 		}).
 		ParseFS(templateFS, "templates/*.html"),
 )
@@ -72,7 +73,7 @@ type PipelineHealth struct {
 	MaxReportWriteLatencyMs uint64 `json:"max_report_write_latency_ms"`
 }
 
-func renderDashboard(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, health PipelineHealth) {
+func renderDashboard(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, health PipelineHealth, stolenTime analytics.StolenTimeStats) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// 1. Определяем витринную локацию для отображения времени.
@@ -131,6 +132,7 @@ func renderDashboard(w http.ResponseWriter, templateName string, prefix string, 
 		"HistoryLoaded":   analytics.IsHistoryLoaded(),
 		"StoreTotal":      counters.TotalEvents,
 		"PipelineHealth":  health,
+		"StolenTime":      stolenTime,
 	}
 
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
