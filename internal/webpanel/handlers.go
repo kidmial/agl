@@ -19,8 +19,6 @@ import (
 	"agl/internal/analytics"
 )
 
-var assetsFS = uiPanelAssetsFS
-
 // panel404Stub отдаёт стилизованную 404-страницу, когда панель недоступна.
 //
 // ЛОГИКА:
@@ -136,7 +134,16 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			panel404Stub(w, r)
 			return
 		}
-		renderStub(w, "dashboard_vitals", prefix)
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		counters := store.Counters()
+		profileCounters := manager.Counters()
+		hourStats := analytics.BuildLatestHourStats(store, 24, 10)
+		profiles := manager.ProfilesSnapshot(20)
+
+		renderDashboard(w, "dashboard_vitals", prefix, counters, profileCounters, hourStats, profiles)
 	})
 
 	// 1.3. Дашборд: Отпечатки

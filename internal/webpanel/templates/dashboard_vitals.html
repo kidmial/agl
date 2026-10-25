@@ -4,45 +4,57 @@
 
 <div class="card">
     <h2>Динамика атаки и самодиагностика</h2>
-    <p class="text-muted">Мультислойный таймлайн эскалации фаз, индекс скорости атаки, визуализация периодичности
-        пакетов.</p>
+    <p class="text-muted">Мультислойный таймлайн эскалации фаз: как волна PHASE_1 переходит в PHASE_2 и PHASE_3.</p>
 
-    <h3>Тестовый график (Stacked Area Chart)</h3>
+    <h3>Эскалация фаз за 24 часа</h3>
     <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
         <canvas id="phaseChart"></canvas>
     </div>
 </div>
 
 <script>
-    // Тестовые данные для проверки Chart.js
+    // Извлекаем данные из Go-шаблона в JavaScript.
+    const hourStats = {{ .HourStats | json }};
+
+    // Маппинг кодов фаз на человекочитаемые имена и цвета.
+    const phaseConfig = {
+        'PHASE_1_BLIND_RECON_L4': { label: 'ФАЗА 1: Слепой скан', color: 'rgba(255, 99, 132, 0.3)', borderColor: 'rgb(255, 99, 132)' },
+        'PHASE_2_BANNER_RECON_L7': { label: 'ФАЗА 2: Сбор баннеров', color: 'rgba(54, 162, 235, 0.3)', borderColor: 'rgb(54, 162, 235)' },
+        'PHASE_3_PAYLOAD_PROBE': { label: 'ФАЗА 3: Payload зонд', color: 'rgba(255, 206, 86, 0.3)', borderColor: 'rgb(255, 206, 86)' },
+        'PHASE_UNKNOWN': { label: 'Не определено', color: 'rgba(128, 128, 128, 0.3)', borderColor: 'rgb(128, 128, 128)' }
+    };
+
+    // Извлекаем метки времени (часы) из hourStats.
+    const labels = hourStats.map(hs => {
+        const date = new Date(hs.hour);
+        return date.getHours().toString().padStart(2, '0') + ':00';
+    });
+
+    // Создаём datasets для каждой фазы.
+    const phaseCodes = Object.keys(phaseConfig);
+    const datasets = phaseCodes.map(code => {
+        const config = phaseConfig[code];
+        const data = hourStats.map(hs => {
+            const phase = hs.phase_counts.find(p => p.key === code);
+            return phase ? phase.count : 0;
+        });
+
+        return {
+            label: config.label,
+            data: data,
+            backgroundColor: config.color,
+            borderColor: config.borderColor,
+            fill: true
+        };
+    });
+
+    // Инициализируем Chart.js.
     const ctx = document.getElementById('phaseChart').getContext('2d');
     const chart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
-            datasets: [
-                {
-                    label: 'PHASE_1 (Разведка)',
-                    data: [10, 15, 20, 25, 30, 35],
-                    backgroundColor: 'rgba(255, 99, 132, 0.3)',
-                    borderColor: 'rgb(255, 99, 132)',
-                    fill: true
-                },
-                {
-                    label: 'PHASE_2 (Сбор баннеров)',
-                    data: [5, 10, 15, 20, 25, 30],
-                    backgroundColor: 'rgba(54, 162, 235, 0.3)',
-                    borderColor: 'rgb(54, 162, 235)',
-                    fill: true
-                },
-                {
-                    label: 'PHASE_3 (Эксплуатация)',
-                    data: [2, 5, 8, 12, 18, 25],
-                    backgroundColor: 'rgba(255, 206, 86, 0.3)',
-                    borderColor: 'rgb(255, 206, 86)',
-                    fill: true
-                }
-            ]
+            labels: labels,
+            datasets: datasets
         },
         options: {
             responsive: true,

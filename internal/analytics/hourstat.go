@@ -100,6 +100,15 @@ type HourStat struct {
 	// Возможно, формат поведения расширился, и нормализатор нужно обновить.
 	UnknownBehaviorEvents int `json:"unknown_behavior_events"`
 
+	// PhaseCounts — распределение событий по фазам угрозы.
+	//
+	// Каждый элемент содержит:
+	//   - Key: код фазы (PHASE_1_BLIND_RECON_L4, PHASE_2_BANNER_RECON_L7, и т.д.);
+	//   - Count: количество событий в этой фазе за час.
+	//
+	// Используется для мультислойного таймлайна эскалации (Stacked Area Chart).
+	PhaseCounts []CountItem `json:"phase_counts"`
+
 	// CloseReasons — распределение причин закрытия.
 	//
 	// Сюда попадают:
@@ -210,6 +219,17 @@ type hourAgg struct {
 	//   - есть ли адаптация к капкану.
 	closeReasonCounts map[string]int
 
+	// phaseCounts — счётчик фаз угрозы.
+	//
+	// Группирует события по кодам фаз:
+	//   - PHASE_1_BLIND_RECON_L4 (слепой скан);
+	//   - PHASE_2_BANNER_RECON_L7 (сбор баннеров);
+	//   - PHASE_3_PAYLOAD_PROBE (зондирование payload);
+	//   - PHASE_UNKNOWN (не определена).
+	//
+	// Используется для мультислойного таймлайна эскалации.
+	phaseCounts map[string]int
+
 	// rttCount — сколько событий имели валидный RTT.
 	rttCount uint64
 
@@ -266,6 +286,7 @@ func newHourAgg() *hourAgg {
 		ipCounts:          make(map[string]int),
 		countryCounts:     make(map[string]int),
 		closeReasonCounts: make(map[string]int),
+		phaseCounts:       make(map[string]int),
 	}
 }
 
@@ -400,6 +421,17 @@ func (a *hourAgg) addEvent(rec EventRecord) {
 		a.actualSum += rec.ActualHoldSec
 		a.holdCount++
 	}
+	// Учитываем фазу угрозы через классификатор.
+	//
+	// ClassifyPhase анализирует чтения (ReadTiny/Small/Medium/Large),
+	// CloseReason и IAT-ритм, возвращая код фазы.
+	//
+	// Мы используем стабильный машинный Code (не Label), чтобы:
+	//   - графики не ломались при изменении подписей;
+	//   - API оставался совместимым;
+	//   - веб-панель могла фильтровать по кодам.
+	phase := ClassifyPhase(rec)
+	a.phaseCounts[phase.Code]++
 }
 
 // toHourStat превращает внутренний аккумулятор в готовую часовую статистику.
@@ -441,11 +473,12 @@ func (a *hourAgg) toHourStat(hour time.Time, topLimit int) HourStat {
 		PassiveEvents:         a.passiveEvents,
 		UnknownBehaviorEvents: a.unknownBehaviorEvents,
 
-		// CloseReasons отдаём полностью, но отсортированно.
+		// CloseReasons и PhaseCounts отдаём полностью, но отсортированно.
 		//
-		// Причины закрытия — небольшой справочный набор.
-		// Его не нужно жёстко резать топ-лимитом.
+		// Причины закрытия и фазы — небольшие справочные наборы.
+		// Их не нужно жёстко резать топ-лимитом.
 		CloseReasons: topFromMap(a.closeReasonCounts, 0),
+		PhaseCounts:  topFromMap(a.phaseCounts, 0),
 
 		RTTCount: a.rttCount,
 		RTTMinMs: a.rttMin,

@@ -13,6 +13,7 @@ package webpanel
 
 import (
 	"embed"
+	"encoding/json"
 	"html/template"
 	"net/http"
 	"time"
@@ -25,11 +26,32 @@ import (
 var templateFS embed.FS
 
 //go:embed assets
-var uiPanelAssetsFS embed.FS
+var assetsFS embed.FS
+
+// toJSON маршалит значение в JSON для встраивания в <script>-блоки.
+//
+// Возвращает template.JS, чтобы html/template трактовал результат
+// как доверенный JavaScript в script-контексте и не переэкранировал его.
+// При ошибке маршалинга возвращаем null — график покажет пустые данные,
+// но страница не умрёт.
+func toJSON(v interface{}) template.JS {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return template.JS("null")
+	}
+	return template.JS(b)
+}
 
 // panelTmpl — скомпилированные шаблоны, загруженные из встроенных файлов.
 // Парсим все HTML-файлы вместе, чтобы блоки header/footer были доступны всем дашбордам.
-var panelTmpl = template.Must(template.ParseFS(templateFS, "templates/*.html"))
+// Funcs регистрирует кастомную функцию json для передачи данных в <script>.
+var panelTmpl = template.Must(
+	template.New("agl").
+		Funcs(template.FuncMap{
+			"json": toJSON,
+		}).
+		ParseFS(templateFS, "templates/*.html"),
+)
 
 // renderDashboard рендерит любой дашборд с полной поддержкой данных и таймзоны.
 //
