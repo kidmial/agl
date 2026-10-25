@@ -129,6 +129,13 @@ type HourStat struct {
 	// а не реальный нулевой интервал.
 	IATEventCount int `json:"iat_event_count"`
 
+	// ToolProfiles — распределение вердиктов о типе инструмента бота.
+	//
+	// Ключи: TIMER_BOT, HUMAN_EMULATION_OR_BAD_PROXY, UNKNOWN.
+	// Используется для стекового графика «временных отпечатков»:
+	// доля событий с фиксированным таймером обнажает автоматический движок.
+	ToolProfiles []CountItem `json:"tool_profiles"`
+
 	// CloseReasons — распределение причин закрытия.
 	//
 	// Сюда попадают:
@@ -268,6 +275,17 @@ type hourAgg struct {
 	// если значение равно 0, то AvgIATMs == 0 означает отсутствие данных.
 	iatEventCount int
 
+	// toolProfileCounts — счётчик вердиктов о типе инструмента бота.
+	//
+	// Группирует события по кодам:
+	//   - TIMER_BOT (жёсткий автоматический таймер);
+	//   - HUMAN_EMULATION_OR_BAD_PROXY (рваный ритм);
+	//   - UNKNOWN (ритм не дал сигнала).
+	//
+	// Это «временные отпечатки пальцев» из ТЗ: фиксированные тайминги
+	// обнажают автоматический движок без привязки к L7.
+	toolProfileCounts map[string]int
+
 	// rttCount — сколько событий имели валидный RTT.
 	rttCount uint64
 
@@ -325,6 +343,7 @@ func newHourAgg() *hourAgg {
 		countryCounts:     make(map[string]int),
 		closeReasonCounts: make(map[string]int),
 		phaseCounts:       make(map[string]int),
+		toolProfileCounts: make(map[string]int),
 	}
 }
 
@@ -479,6 +498,14 @@ func (a *hourAgg) addEvent(rec EventRecord) {
 		a.iatSum += rec.IATSumMs
 		a.iatEventCount++
 	}
+
+	// Учитываем вердикт о типе инструмента бота (временной отпечаток).
+	//
+	// Переиспользуем готовую математику phases.go:
+	// дисперсионный след ритма + сравнение Min/Max интервалов.
+	// TIMER_BOT означает фиксированный тайминг — прямой признак движка.
+	tool := analyzeToolProfile(rec, calculateIATDispersion(rec))
+	a.toolProfileCounts[tool]++
 }
 
 // toHourStat превращает внутренний аккумулятор в готовую часовую статистику.
@@ -536,6 +563,7 @@ func (a *hourAgg) toHourStat(hour time.Time, topLimit int) HourStat {
 		// Их не нужно жёстко резать топ-лимитом.
 		CloseReasons: topFromMap(a.closeReasonCounts, 0),
 		PhaseCounts:  topFromMap(a.phaseCounts, 0),
+		ToolProfiles: topFromMap(a.toolProfileCounts, 0),
 
 		RTTCount: a.rttCount,
 		RTTMinMs: a.rttMin,
