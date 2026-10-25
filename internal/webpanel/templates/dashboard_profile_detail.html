@@ -1,0 +1,196 @@
+{{/* internal/webpanel/templates/dashboard_profile_detail.html */}}
+{{define "dashboard_profile_detail"}}
+{{template "header" .}}
+
+{{ if .Found }}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0;">Досье актора: <code style="color: #00ff66;">{{ .Profile.ID }}</code></h2>
+        <a href="{{.Prefix}}dashboard/overview"
+            style="color: #a5b4fc; text-decoration: none; border: 1px solid #1e293b; padding: 6px 12px; border-radius: 4px; font-size: 13px;">&larr;
+            Назад к обзору</a>
+    </div>
+
+    <!-- Основная информация -->
+    <div class="grid">
+        <div class="card">
+            <div class="metric-label">Состояние</div>
+            <div class="metric" style="font-size: 20px;">
+                {{ if eq .Profile.State "ACTIVE" }}<span style="color: #00ff66;">{{ .Profile.State }}</span>
+                {{ else if eq .Profile.State "LOW_CONFIDENCE" }}<span style="color: #fbbf24;">{{ .Profile.State
+                    }}</span>
+                {{ else if eq .Profile.State "EXPIRED" }}<span style="color: #f87171;">{{ .Profile.State }}</span>
+                {{ else if eq .Profile.State "MERGED" }}<span style="color: #a5b4fc;">{{ .Profile.State }}</span>
+                {{ else }}{{ .Profile.State }}{{ end }}
+            </div>
+            <div class="text-muted">Уверенность: {{ .Profile.Confidence }}% | Риск склейки: {{
+                .Profile.FalsePositiveRisk }}</div>
+        </div>
+        <div class="card">
+            <div class="metric-label">Временной охват</div>
+            <div class="metric" style="font-size: 18px;">{{ .Profile.FirstEventTime.Format "02.01 15:04" }} — {{
+                .Profile.LastEventTime.Format "02.01 15:04" }}</div>
+            <div class="text-muted">Последняя активность: {{ .Profile.LastSeen.Format "02.01 15:04:05" }}</div>
+        </div>
+        <div class="card">
+            <div class="metric-label">Всего событий</div>
+            <div class="metric" style="font-size: 20px;">{{ .Profile.EventCount }}</div>
+            <div class="text-muted">Валидных: {{ .Profile.ValidEventCount }} | Битых: {{ .Profile.InvalidEventCount }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Угроза и Прогноз -->
+    <div class="grid" style="margin-top: 20px;">
+        <div class="card">
+            <div class="metric-label">Текущая фаза (Алг.3)</div>
+            <div class="metric" style="font-size: 18px; color: #fbbf24;">{{ if .Profile.CurrentPhase }}{{
+                .Profile.CurrentPhase }}{{ else }}—{{ end }}</div>
+            <div class="text-muted">Уровень угрозы: {{ if .Profile.ThreatLevel }}{{ .Profile.ThreatLevel }}{{ else }}—{{
+                end }}</div>
+        </div>
+        <div class="card">
+            <div class="metric-label">Прогноз (Алг.4)</div>
+            <div class="metric" style="font-size: 18px; color: #00ff66;">{{ if .Profile.PredictedVector }}{{
+                .Profile.PredictedVector }}{{ else }}—{{ end }}</div>
+            <div class="text-muted">Вероятность: {{ if .Profile.PredictedProbability }}{{ .Profile.PredictedProbability
+                }}{{ else }}—{{ end }}</div>
+        </div>
+        <div class="card">
+            <div class="metric-label">Дрейф времени (Алг.2)</div>
+            <div class="metric" style="font-size: 18px;">{{ if .Profile.TokenDriftValid }}{{ .Profile.TokenDriftMs }}
+                мс{{ else }}—{{ end }}</div>
+            <div class="text-muted">Порт из токена: {{ if .Profile.TokenClientPort }}{{ .Profile.TokenClientPort }}{{
+                else }}—{{ end }}</div>
+        </div>
+    </div>
+
+    <!-- Сетевой стек -->
+    <div class="card" style="margin-top: 20px;">
+        <h3>Сетевой отпечаток (Stack Fingerprint)</h3>
+        {{ if .Profile.StackValid }}
+        <div class="grid" style="margin-top: 10px;">
+            <div><span class="metric-label">MSS:</span> <span style="color: #fff;">{{ .Profile.Stack.MSS }}</span></div>
+            <div><span class="metric-label">RcvSpace:</span> <span style="color: #fff;">{{ .Profile.Stack.RcvSpace
+                    }}</span></div>
+            <div><span class="metric-label">SndWscale:</span> <span style="color: #fff;">{{ .Profile.Stack.SndWscale
+                    }}</span></div>
+            <div><span class="metric-label">RcvWscale:</span> <span style="color: #fff;">{{ .Profile.Stack.RcvWscale
+                    }}</span></div>
+        </div>
+        {{ else }}
+        <p class="text-muted">Сетевой отпечаток неполный или отсутствует.</p>
+        {{ end }}
+    </div>
+
+    <!-- Топ IP и Страны -->
+    <div class="grid" style="margin-top: 20px;">
+        <div class="card">
+            <h3>Топ IP адресов ({{ .Profile.UniqueIPCount }})</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>IP</th>
+                        <th>Событий</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Profile.TopIPs 10 }}
+                    <tr>
+                        <td><code>{{ .Key }}</code></td>
+                        <td>{{ .Count }}</td>
+                    </tr>
+                    {{ else }}
+                    <tr>
+                        <td colspan="2" class="text-muted">Нет данных</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+        <div class="card">
+            <h3>Топ Стран ({{ .Profile.UniqueCountryCount }})</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Страна</th>
+                        <th>Событий</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Profile.TopCountries 10 }}
+                    <tr>
+                        <td>{{ .Key }}</td>
+                        <td>{{ .Count }}</td>
+                    </tr>
+                    {{ else }}
+                    <tr>
+                        <td colspan="2" class="text-muted">Нет данных</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Метрики удержания и RTT -->
+    <div class="grid" style="margin-top: 20px;">
+        <div class="card">
+            <h3>Метрики удержания</h3>
+            <div class="grid" style="margin-top: 10px;">
+                <div><span class="metric-label">Средний план:</span> <span style="color: #fff;">{{ if .Profile.HoldCount
+                        }}{{ printf "%.0f" .Profile.AvgPlannedHoldSec }} сек{{ else }}—{{ end }}</span></div>
+                <div><span class="metric-label">Средний факт:</span> <span style="color: #fff;">{{ if .Profile.HoldCount
+                        }}{{ printf "%.0f" .Profile.AvgActualHoldSec }} сек{{ else }}—{{ end }}</span></div>
+                <div><span class="metric-label">Всего сессий:</span> <span style="color: #fff;">{{ .Profile.HoldCount
+                        }}</span></div>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Сетевая задержка (RTT)</h3>
+            <div class="grid" style="margin-top: 10px;">
+                <div><span class="metric-label">Средний:</span> <span style="color: #fff;">{{ if .Profile.RTTCount }}{{
+                        printf "%.0f" .Profile.RTTAvgMs }} мс{{ else }}—{{ end }}</span></div>
+                <div><span class="metric-label">Мин:</span> <span style="color: #fff;">{{ if .Profile.RTTCount }}{{
+                        .Profile.RTTMinMs }} мс{{ else }}—{{ end }}</span></div>
+                <div><span class="metric-label">Макс:</span> <span style="color: #fff;">{{ if .Profile.RTTCount }}{{
+                        .Profile.RTTMaxMs }} мс{{ else }}—{{ end }}</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Доказательства и Причины -->
+    <div class="grid" style="margin-top: 20px;">
+        <div class="card">
+            <h3>Доказательства (Evidence)</h3>
+            <ul style="color: #a5b4fc; font-size: 13px; line-height: 1.6; margin: 10px 0 0 20px;">
+                {{ range .Profile.Evidence }}
+                <li>{{ . }}</li>
+                {{ else }}
+                <li class="text-muted">Нет зафиксированных доказательств.</li>
+                {{ end }}
+            </ul>
+        </div>
+        <div class="card">
+            <h3>Причины и оговорки (Reasons)</h3>
+            <ul style="color: #a5b4fc; font-size: 13px; line-height: 1.6; margin: 10px 0 0 20px;">
+                {{ range .Profile.Reasons }}
+                <li>{{ . }}</li>
+                {{ else }}
+                <li class="text-muted">Нет зафиксированных причин.</li>
+                {{ end }}
+            </ul>
+        </div>
+    </div>
+
+    {{ else }}
+    <div class="card">
+        <h2>Профиль не найден</h2>
+        <p class="text-muted">Профиль с указанным идентификатором не существует, был удалён или ещё не создан.</p>
+        <a href="{{.Prefix}}dashboard/overview" style="color: #00ff66; text-decoration: none;">&larr; Вернуться к
+            обзору</a>
+    </div>
+    {{ end }}
+
+    {{template "footer" .}}
+    {{end}}

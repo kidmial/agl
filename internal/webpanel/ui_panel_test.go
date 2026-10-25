@@ -63,3 +63,51 @@ func TestRenderVitalsTemplate(t *testing.T) {
 		t.Fatal("hourStats JSON injection not found in rendered output")
 	}
 }
+
+// TestRenderOverviewTemplate исполняет дашборд обзора с профилем в списке.
+// Ловит ошибки контекста внутри range (например, .Prefix вместо $.Prefix).
+func TestRenderOverviewTemplate(t *testing.T) {
+	var buf bytes.Buffer
+	data := map[string]interface{}{
+		"Prefix":     "test/",
+		"HourStats":  []analytics.HourStat{},
+		"StolenTime": analytics.StolenTimeStats{},
+		"Profiles": []analytics.ActorProfile{
+			{ID: "AGL_PROFILE_test123"},
+		},
+	}
+	if err := panelTmpl.ExecuteTemplate(&buf, "dashboard_overview", data); err != nil {
+		t.Fatalf("execute dashboard_overview: %v", err)
+	}
+	if !strings.Contains(buf.String(), "AGL_PROFILE_test123") {
+		t.Fatal("profile ID not found in rendered output")
+	}
+	if !strings.Contains(buf.String(), "test/dashboard/profile/AGL_PROFILE_test123") {
+		t.Fatal("profile link href not found in rendered output")
+	}
+}
+
+// TestRenderProfileDetailTemplate исполняет страницу досье с указателем на профиль.
+// Ловит ошибки вызова pointer-receiver методов (TopIPs, UniqueIPCount) в шаблоне.
+func TestRenderProfileDetailTemplate(t *testing.T) {
+	var buf bytes.Buffer
+	profile := analytics.ActorProfile{
+		ID:            "AGL_PROFILE_test123",
+		IPCounts:      map[string]int{"10.0.0.1": 5},
+		CountryCounts: map[string]int{"Netherlands": 5},
+	}
+	data := map[string]interface{}{
+		"Prefix":  "test/",
+		"Profile": &profile,
+		"Found":   true,
+	}
+	if err := panelTmpl.ExecuteTemplate(&buf, "dashboard_profile_detail", data); err != nil {
+		t.Fatalf("execute dashboard_profile_detail: %v", err)
+	}
+	if !strings.Contains(buf.String(), "10.0.0.1") {
+		t.Fatal("top IP not found in rendered output")
+	}
+	if !strings.Contains(buf.String(), "Netherlands") {
+		t.Fatal("top country not found in rendered output")
+	}
+}

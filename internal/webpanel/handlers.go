@@ -269,7 +269,45 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		renderDashboardSIEM(w, "dashboard_siem_core", prefix, counters, profileCounters, hourStats, profiles, health, detections, burst, proxyCount, spoofCount)
 	})
 
-	// 1.6. Раздача статических файлов (CSS, JS)
+	// 1.6. Дашборд: Детализация профиля
+	mux.HandleFunc(prefix+"dashboard/profile/", func(w http.ResponseWriter, r *http.Request) {
+		if !config.C.WebHttpsPanelActive {
+			panel404Stub(w, r)
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Извлекаем ID профиля из пути
+		profileID := strings.TrimPrefix(r.URL.Path, prefix+"dashboard/profile/")
+		if profileID == "" {
+			http.Error(w, "Profile ID required", http.StatusBadRequest)
+			return
+		}
+
+		// Ищем профиль
+		profile, ok := manager.ProfileByID(profileID)
+
+		// Формируем данные для шаблона.
+		// ВАЖНО: передаём УКАЗАТЕЛЬ на профиль, а не значение.
+		// Методы ActorProfile (TopIPs, UniqueIPCount, AvgPlannedHoldSec и др.)
+		// имеют pointer-receiver. Значение, полученное из map, не addressable,
+		// и шаблон не видит такие методы — ExecuteTemplate прерывался ошибкой.
+		data := map[string]interface{}{
+			"Prefix":  prefix,
+			"Profile": &profile,
+			"Found":   ok,
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if err := panelTmpl.ExecuteTemplate(w, "dashboard_profile_detail", data); err != nil {
+			http.Error(w, "Template execution error", http.StatusInternalServerError)
+		}
+	})
+
+	// 1.7. Раздача статических файлов (CSS, JS)
 	// StripPrefix убирает ТОЛЬКО крипто-префикс: внутри embed.FS пути
 	// остаются пакетно-относительными ("assets/js/chart.min.js"),
 	// поэтому остаток URL обязан совпадать с embed-путём целиком.

@@ -114,7 +114,12 @@
                     {{ else if eq $b "MIXED" }}<span style="color: #fbbf24; font-weight: bold;">MIXED</span>
                     {{ else }}<span class="text-muted">—</span>{{ end }}
                 </td>
-                <td><code>{{ .ID }}</code></td>
+                <td>
+                    <a href="{{$.Prefix}}dashboard/profile/{{.ID}}"
+                        style="color: #00ff66; text-decoration: none; font-family: monospace; border-bottom: 1px dashed #00ff66;">
+                        {{ .ID }}
+                    </a>
+                </td>
                 <td>{{ .UniqueIPCount }}</td>
                 <td style="color: #fbbf24;">{{ if .CurrentPhase }}{{ .CurrentPhase }}{{ else }}—{{ end }}</td>
                 <td style="color: #00ff66;">{{ if .PredictedVector }}{{ .PredictedVector }}{{ else }}—{{ end }}</td>
