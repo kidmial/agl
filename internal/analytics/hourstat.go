@@ -109,6 +109,26 @@ type HourStat struct {
 	// Используется для мультислойного таймлайна эскалации (Stacked Area Chart).
 	PhaseCounts []CountItem `json:"phase_counts"`
 
+	// AvgIATMs — средний интервал между чтениями в миллисекундах за час.
+	//
+	// Вычисляется как: IATSumMs / IATCount (только для событий с валидным IAT).
+	//
+	// Интерпретация:
+	//   - < 5 мс: автоматический скрипт (жёсткий таймер)
+	//   - 5-100 мс: стандартное поведение
+	//   - > 100 мс: имитация человека или медленный бот
+	//
+	// Если валидных IAT не было, значение равно 0.
+	// Это нужно интерпретировать вместе с IATEventCount.
+	AvgIATMs float64 `json:"avg_iat_ms"`
+
+	// IATEventCount — сколько событий в этом часе имели валидный IAT.
+	//
+	// Используется для интерпретации AvgIATMs:
+	// если IATEventCount == 0, то AvgIATMs == 0 означает отсутствие данных,
+	// а не реальный нулевой интервал.
+	IATEventCount int `json:"iat_event_count"`
+
 	// CloseReasons — распределение причин закрытия.
 	//
 	// Сюда попадают:
@@ -229,6 +249,24 @@ type hourAgg struct {
 	//
 	// Используется для мультислойного таймлайна эскалации.
 	phaseCounts map[string]int
+
+	// iatCount — суммарное количество интервалов между чтениями за час.
+	//
+	// Считаем только события с валидным IATCount и IATSumMs.
+	// Используется для вычисления среднего интервала (AvgIATMs).
+	iatCount uint64
+
+	// iatSum — сумма всех интервалов между чтениями за час (мс).
+	//
+	// Считаем только события с валидным IATSumMs.
+	// Используем uint64, чтобы снизить риск переполнения.
+	iatSum uint64
+
+	// iatEventCount — сколько событий имели валидный IAT.
+	//
+	// Используется для интерпретации AvgIATMs:
+	// если значение равно 0, то AvgIATMs == 0 означает отсутствие данных.
+	iatEventCount int
 
 	// rttCount — сколько событий имели валидный RTT.
 	rttCount uint64
@@ -432,6 +470,15 @@ func (a *hourAgg) addEvent(rec EventRecord) {
 	//   - веб-панель могла фильтровать по кодам.
 	phase := ClassifyPhase(rec)
 	a.phaseCounts[phase.Code]++
+	// Учитываем IAT-метрики для индекса скорости атаки.
+	//
+	// Считаем только события с валидным IATCount и IATSumMs.
+	// Это даёт средний интервал между чтениями — маркер автоматизации.
+	if rec.IATCountValid && rec.IATSumMsValid && rec.IATCount > 0 {
+		a.iatCount += rec.IATCount
+		a.iatSum += rec.IATSumMs
+		a.iatEventCount++
+	}
 }
 
 // toHourStat превращает внутренний аккумулятор в готовую часовую статистику.
@@ -456,6 +503,16 @@ func (a *hourAgg) toHourStat(hour time.Time, topLimit int) HourStat {
 	var rttAvg float64
 	if a.rttCount > 0 {
 		rttAvg = float64(a.rttSum) / float64(a.rttCount)
+	}
+
+	// Считаем средний интервал между чтениями (индекс скорости атаки).
+	//
+	// Если валидных IAT не было, среднее остаётся нулевым.
+	// IATEventCount используется для интерпретации:
+	// если он равен 0, то AvgIATMs == 0 означает отсутствие данных.
+	var avgIAT float64
+	if a.iatCount > 0 {
+		avgIAT = float64(a.iatSum) / float64(a.iatCount)
 	}
 
 	// Формируем итоговую часовую статистику.
@@ -484,6 +541,10 @@ func (a *hourAgg) toHourStat(hour time.Time, topLimit int) HourStat {
 		RTTMinMs: a.rttMin,
 		RTTMaxMs: a.rttMax,
 		RTTAvgMs: rttAvg,
+
+		// Индекс скорости атаки (средний интервал между чтениями).
+		AvgIATMs:      avgIAT,
+		IATEventCount: a.iatEventCount,
 
 		PlannedHoldSumSec: a.plannedSum,
 		ActualHoldSumSec:  a.actualSum,
