@@ -151,3 +151,72 @@ func renderStub(w http.ResponseWriter, templateName string, prefix string) {
 		http.Error(w, "Template execution error", http.StatusInternalServerError)
 	}
 }
+
+// renderDashboardSIEM рендерит страницу SIEM Core с данными детекций ботнет-паттернов.
+func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, health PipelineHealth, detections []analytics.BotnetDetection, burst []analytics.BurstPoint) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// 1. Определяем витринную локацию для отображения времени.
+	loc := time.Local
+	timezoneLabel := "Local"
+	if tz := config.C.WebPanelTimezone; tz != "" {
+		if tz == "local" {
+			// Уже time.Local
+		} else if tz == "UTC" {
+			loc = time.UTC
+			timezoneLabel = "UTC"
+		} else {
+			if loaded, err := time.LoadLocation(tz); err == nil {
+				loc = loaded
+				timezoneLabel = loaded.String()
+				if len(timezoneLabel) > 10 {
+					timezoneLabel = timezoneLabel[:10]
+				}
+			}
+		}
+	}
+
+	// 2. Конвертируем все time.Time в витринную зону.
+	convertedHourStats := make([]analytics.HourStat, len(hourStats))
+	for i, hs := range hourStats {
+		convertedHourStats[i] = hs
+		convertedHourStats[i].Hour = hs.Hour.In(loc)
+	}
+
+	convertedProfiles := make([]analytics.ActorProfile, len(profiles))
+	for i, p := range profiles {
+		convertedProfiles[i] = p
+		convertedProfiles[i].LastSeen = p.LastSeen.In(loc)
+		if !p.LastEventTime.IsZero() {
+			convertedProfiles[i].LastEventTime = p.LastEventTime.In(loc)
+		}
+	}
+
+	convertedCounters := counters
+	if !convertedCounters.FirstEventTime.IsZero() {
+		convertedCounters.FirstEventTime = counters.FirstEventTime.In(loc)
+	}
+	if !convertedCounters.LastEventTime.IsZero() {
+		convertedCounters.LastEventTime = counters.LastEventTime.In(loc)
+	}
+
+	// 3. Формируем данные для шаблона.
+	data := map[string]interface{}{
+		"Prefix":          prefix,
+		"StoreCounters":   convertedCounters,
+		"ProfileCounters": profileCounters,
+		"HourStats":       convertedHourStats,
+		"Profiles":        convertedProfiles,
+		"TimezoneLabel":   timezoneLabel,
+		"CurrentTime":     time.Now().In(loc).Format("2006-01-02 15:04:05 MST"),
+		"HistoryLoaded":   analytics.IsHistoryLoaded(),
+		"StoreTotal":      counters.TotalEvents,
+		"PipelineHealth":  health,
+		"Detections":      detections,
+		"BurstSeries":     burst,
+	}
+
+	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
+		http.Error(w, "Template execution error", http.StatusInternalServerError)
+	}
+}

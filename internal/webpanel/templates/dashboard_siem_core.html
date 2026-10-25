@@ -4,15 +4,134 @@
 
 <div class="card">
     <h2>SIEM Core: топология ботнетов и матрица аномалий</h2>
-    <p class="text-muted">Этот дашборд в разработке. Здесь будут:</p>
-    <ul>
-        <li>Стратегия Г: Гео-пространственный анализ ботнетов</li>
-        <li>Стратегия Д: Пассивный эвристический аудит</li>
-        <li>Граф пространственно-временных пересечений</li>
-        <li>Временной коррелятор кучности StartTime</li>
-        <li>Карточки предупреждений: Detected Proxy/Tunnel, OS Spoofing</li>
-    </ul>
+    <p class="text-muted">Корреляционное ядро системы, детекция распределённых ботнет-кампаний.</p>
 </div>
+
+<!-- Сводка детекций -->
+<div class="card" style="margin-top: 20px;">
+    <h3>Обнаруженные ботнет-паттерны (последний час)</h3>
+    {{ if .Detections }}
+    <table>
+        <thead>
+            <tr>
+                <th>Паттерн</th>
+                <th>Уверенность</th>
+                <th>IP вовлечено</th>
+                <th>Время обнаружения</th>
+                <th>Доказательства</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .Detections }}
+            <tr>
+                <td><strong>{{ .Label }}</strong></td>
+                <td>
+                    {{ if eq .Confidence "HIGH" }}<span style="color: #ef4444; font-weight: bold;">{{ .Confidence
+                        }}</span>
+                    {{ else if eq .Confidence "MEDIUM" }}<span style="color: #fbbf24; font-weight: bold;">{{ .Confidence
+                        }}</span>
+                    {{ else }}<span style="color: #34d399;">{{ .Confidence }}</span>{{ end }}
+                </td>
+                <td>{{ len .IPsInvolved }}</td>
+                <td>{{ .StartTime.Format "15:04:05" }}</td>
+                <td>
+                    <details>
+                        <summary>Показать ({{ len .Evidence }})</summary>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            {{ range .Evidence }}
+                            <li>{{ . }}</li>
+                            {{ end }}
+                        </ul>
+                    </details>
+                </td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+    {{ else }}
+    <p class="text-muted">За последний час ботнет-паттернов не обнаружено.</p>
+    {{ end }}
+</div>
+
+<!-- Временной коррелятор кучности -->
+<div class="card" style="margin-top: 20px;">
+    <h3>Временной коррелятор кучности StartTime</h3>
+    <p class="text-muted">Количество событий по секундам (последние 5 минут). Пики указывают на синхронные залпы.</p>
+    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
+        <canvas id="burstChart"></canvas>
+    </div>
+</div>
+
+<!-- Карточки предупреждений -->
+<div class="card" style="margin-top: 20px;">
+    <h3>Карточки предупреждений</h3>
+
+    <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;">
+        <!-- Detected Proxy/Tunnel -->
+        <div style="background: #1a1f2e; border: 1px solid #fbbf24; border-radius: 8px; padding: 16px;">
+            <h4 style="color: #fbbf24; margin: 0 0 10px 0;">⚠️ Detected Proxy/Tunnel</h4>
+            <p class="text-muted" style="margin: 0 0 10px 0;">Несоответствие физического пинга (RTT) и прикладной
+                задержки (WriteLatencyMs).</p>
+            <p style="color: #fbbf24; font-weight: bold; margin: 0;">В разработке</p>
+            <p class="text-muted" style="margin: 5px 0 0 0; font-size: 12px;">Требуется детектор в botnet.go</p>
+        </div>
+
+        <!-- OS Spoofing -->
+        <div style="background: #1a1f2e; border: 1px solid #fbbf24; border-radius: 8px; padding: 16px;">
+            <h4 style="color: #fbbf24; margin: 0 0 10px 0;">⚠️ OS Spoofing / Personality Split</h4>
+            <p class="text-muted" style="margin: 0 0 10px 0;">Несоответствие физики стека L4 прикладной логике L7.</p>
+            <p style="color: #fbbf24; font-weight: bold; margin: 0;">В разработке</p>
+            <p class="text-muted" style="margin: 5px 0 0 0; font-size: 12px;">Требуется детектор в botnet.go</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const detections = {{ .Detections | json }};
+
+    // --- Временной коррелятор кучности (последние 5 минут) ---
+    // Реальные посекундные счётчики из Store (серверная агрегация).
+    const burstSeries = {{ .BurstSeries | json }};
+    const timeLabels = burstSeries.map(p => p.label);
+    const burstData = burstSeries.map(p => p.count);
+
+    const burstCtx = document.getElementById('burstChart').getContext('2d');
+    new Chart(burstCtx, {
+        type: 'line',
+        data: {
+            labels: timeLabels,
+            datasets: [{
+                label: 'Событий в секунду',
+                data: burstData,
+                borderColor: 'rgb(239, 68, 68)',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                    ticks: {
+                        color: '#a5b4fc',
+                        maxTicksLimit: 20
+                    }
+                },
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                    ticks: { color: '#a5b4fc' },
+                    beginAtZero: true
+                }
+            },
+            plugins: { legend: { labels: { color: '#a5b4fc' } } }
+        }
+    });
+</script>
 
 {{template "footer" .}}
 {{end}}

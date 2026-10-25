@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"agl/config"
 	"agl/internal/analytics"
@@ -221,7 +222,32 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			panel404Stub(w, r)
 			return
 		}
-		renderStub(w, "dashboard_siem_core", prefix)
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		counters := store.Counters()
+		profileCounters := manager.Counters()
+		hourStats := analytics.BuildLatestHourStats(store, 24, 10)
+		profiles := manager.ProfilesSnapshot(20)
+
+		// Получаем метрики здоровья конвейера из tarpit
+		droppedConn, droppedReport, maxConnLatency, maxReportLatency := tarpit.GetLogHealth()
+		health := PipelineHealth{
+			DroppedConnectionEvents: droppedConn,
+			DroppedReportEntries:    droppedReport,
+			MaxConnWriteLatencyMs:   maxConnLatency,
+			MaxReportWriteLatencyMs: maxReportLatency,
+		}
+
+		// Запускаем детектор ботнет-паттернов
+		detector := analytics.NewBotnetDetector(store, manager)
+		detections := detector.DetectAll(analytics.Window1Hour)
+
+		// Реальная посекундная плотность событий для коррелятора кучности.
+		burst := analytics.BuildBurstSeries(store, 5*time.Minute)
+
+		renderDashboardSIEM(w, "dashboard_siem_core", prefix, counters, profileCounters, hourStats, profiles, health, detections, burst)
 	})
 
 	// 1.6. Раздача статических файлов (CSS, JS)

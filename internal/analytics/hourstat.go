@@ -969,3 +969,65 @@ func topFromMap(m map[string]int, limit int) []CountItem {
 	// Это нормальное состояние.
 	return items
 }
+
+// BurstPoint описывает плотность событий в одну секунду.
+//
+// Используется временным коррелятором кучности на странице SIEM Core:
+// пики посекундной плотности обнажают синхронные залпы ботнета.
+type BurstPoint struct {
+	// Label — человекочитаемая метка секунды в витринной зоне.
+	Label string `json:"label"`
+
+	// Count — количество событий в эту секунду.
+	Count int `json:"count"`
+}
+
+// BuildBurstSeries возвращает посекундные счётчики событий за окно.
+//
+// Поведение:
+//   - отсутствующие секунды заполняются нулями, чтобы график был непрерывным;
+//   - метки формируются в витринной зоне (как HourBucket);
+//   - окно по умолчанию 5 минут, если передано некорректное.
+//
+// Сложность O(E): один проход по снапшоту, без вложенных циклов.
+func BuildBurstSeries(s *Store, window time.Duration) []BurstPoint {
+	if s == nil {
+		return []BurstPoint{}
+	}
+	if window <= 0 {
+		window = 5 * time.Minute
+	}
+
+	// Витринная зона — та же логика, что в HourBucket.
+	loc := time.Local
+	if tz := config.C.WebPanelTimezone; tz != "" && tz != "local" {
+		if loaded, err := time.LoadLocation(tz); err == nil {
+			loc = loaded
+		}
+	}
+
+	now := time.Now().UTC().Truncate(time.Second)
+	start := now.Add(-window)
+
+	counts := make(map[int64]int)
+	for _, e := range s.SnapshotChronological() {
+		if !e.StartTimeValid {
+			continue
+		}
+		sec := e.StartTime.Unix()
+		if sec < start.Unix() || sec > now.Unix() {
+			continue
+		}
+		counts[sec]++
+	}
+
+	// Заполняем каждую секунду окна, включая нулевые.
+	points := make([]BurstPoint, 0, int(window/time.Second)+1)
+	for sec := start.Unix(); sec <= now.Unix(); sec++ {
+		points = append(points, BurstPoint{
+			Label: time.Unix(sec, 0).In(loc).Format("15:04:05"),
+			Count: counts[sec],
+		})
+	}
+	return points
+}
