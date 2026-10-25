@@ -79,6 +79,23 @@
         }
     });
 </script>
+<div class="card" style="margin-top: 30px;">
+    <h2>Самодиагностика конвейера</h2>
+    <div class="grid">
+        <div class="card">
+            <div class="metric-label">Упущенные события касания</div>
+            <div class="metric">{{ .PipelineHealth.DroppedConnectionEvents }}</div>
+            <div class="text-muted">Макс. латентность: {{ .PipelineHealth.MaxConnWriteLatencyMs }} мс</div>
+        </div>
+        <div class="card">
+            <div class="metric-label">Упущенные отчёты</div>
+            <div class="metric">{{ .PipelineHealth.DroppedReportEntries }}</div>
+            <div class="text-muted">Макс. латентность: {{ .PipelineHealth.MaxReportWriteLatencyMs }} мс</div>
+        </div>
+    </div>
+    <p class="text-muted">Данные с момента старта процесса. Ненулевые значения указывают на перегрузку каналов или
+        медленный диск.</p>
+</div>
 
 {{template "footer" .}}
 {{end}}

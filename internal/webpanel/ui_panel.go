@@ -62,7 +62,17 @@ var panelTmpl = template.Must(
 //   - counters, profileCounters: счётчики хранилища и профилей
 //   - hourStats: часовые срезы
 //   - profiles: профили акторов
-func renderDashboard(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile) {
+//
+// PipelineHealth описывает здоровье конвейера логирования.
+// Используется для самодиагностики в веб-панели.
+type PipelineHealth struct {
+	DroppedConnectionEvents uint64 `json:"dropped_connection_events"`
+	DroppedReportEntries    uint64 `json:"dropped_report_entries"`
+	MaxConnWriteLatencyMs   uint64 `json:"max_conn_write_latency_ms"`
+	MaxReportWriteLatencyMs uint64 `json:"max_report_write_latency_ms"`
+}
+
+func renderDashboard(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, health PipelineHealth) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// 1. Определяем витринную локацию для отображения времени.
@@ -120,6 +130,7 @@ func renderDashboard(w http.ResponseWriter, templateName string, prefix string, 
 		"CurrentTime":     time.Now().In(loc).Format("2006-01-02 15:04:05 MST"),
 		"HistoryLoaded":   analytics.IsHistoryLoaded(),
 		"StoreTotal":      counters.TotalEvents,
+		"PipelineHealth":  health,
 	}
 
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {

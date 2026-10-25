@@ -17,6 +17,7 @@ import (
 
 	"agl/config"
 	"agl/internal/analytics"
+	"agl/internal/tarpit"
 )
 
 // panel404Stub отдаёт стилизованную 404-страницу, когда панель недоступна.
@@ -120,7 +121,15 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		hourStats := analytics.BuildLatestHourStats(store, 24, 10)
 		profiles := manager.ProfilesSnapshot(20)
 
-		renderDashboard(w, "dashboard_overview", prefix, counters, profileCounters, hourStats, profiles)
+		// Получаем метрики здоровья конвейера из tarpit
+		droppedConn, droppedReport, maxConnLatency, maxReportLatency := tarpit.GetLogHealth()
+		health := PipelineHealth{
+			DroppedConnectionEvents: droppedConn,
+			DroppedReportEntries:    droppedReport,
+			MaxConnWriteLatencyMs:   maxConnLatency,
+			MaxReportWriteLatencyMs: maxReportLatency,
+		}
+		renderDashboard(w, "dashboard_overview", prefix, counters, profileCounters, hourStats, profiles, health)
 	})
 
 	// 1.1. Обратная совместимость: редирект со старого /panel
@@ -143,7 +152,15 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		hourStats := analytics.BuildLatestHourStats(store, 24, 10)
 		profiles := manager.ProfilesSnapshot(20)
 
-		renderDashboard(w, "dashboard_vitals", prefix, counters, profileCounters, hourStats, profiles)
+		// Получаем метрики здоровья конвейера из tarpit
+		droppedConn, droppedReport, maxConnLatency, maxReportLatency := tarpit.GetLogHealth()
+		health := PipelineHealth{
+			DroppedConnectionEvents: droppedConn,
+			DroppedReportEntries:    droppedReport,
+			MaxConnWriteLatencyMs:   maxConnLatency,
+			MaxReportWriteLatencyMs: maxReportLatency,
+		}
+		renderDashboard(w, "dashboard_vitals", prefix, counters, profileCounters, hourStats, profiles, health)
 	})
 
 	// 1.3. Дашборд: Отпечатки
