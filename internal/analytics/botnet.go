@@ -112,6 +112,17 @@ func (d *BotnetDetector) DetectSynchronousWave(window time.Duration) []BotnetDet
 		return []BotnetDetection{}
 	}
 
+	// v8.6.2: анализируем ТОЛЬКО окно наблюдения, а не всю историю буфера.
+	now := time.Now().UTC()
+	cutoff := now.Add(-window)
+	filtered := make([]EventRecord, 0, len(events))
+	for _, event := range events {
+		if event.StartTimeValid && !event.StartTime.Before(cutoff) {
+			filtered = append(filtered, event)
+		}
+	}
+	events = filtered
+
 	// Группируем события по секундам.
 	bySecond := make(map[int64][]EventRecord)
 	for _, event := range events {
@@ -212,8 +223,12 @@ func (d *BotnetDetector) DetectSynchronousWave(window time.Duration) []BotnetDet
 // Алгоритм:
 // 1. Ищем профили с циклическими интервалами между событиями.
 // 2. Если интервалы стабильны (в пределах допуска) → CAROUSEL.
+//
+// ВАЖНО (v8.6.2, hotfix CPU 100%):
+//   - снапшот буфера берётся ОДИН раз на всю детекцию;
+//   - число профилей ограничено 200 самыми свежими.
 func (d *BotnetDetector) DetectCarousel(window time.Duration) []BotnetDetection {
-	if d == nil || d.manager == nil {
+	if d == nil || d.manager == nil || d.store == nil {
 		return []BotnetDetection{}
 	}
 
@@ -221,26 +236,28 @@ func (d *BotnetDetector) DetectCarousel(window time.Duration) []BotnetDetection 
 		window = Window1Hour
 	}
 
-	profiles := d.manager.ProfilesSnapshot(0)
+	profiles := d.manager.ProfilesSnapshot(200)
 	if len(profiles) == 0 {
+		return []BotnetDetection{}
+	}
+
+	snapshot := d.store.SnapshotChronological()
+	if len(snapshot) == 0 {
 		return []BotnetDetection{}
 	}
 
 	var detections []BotnetDetection
 
 	for _, profile := range profiles {
-		// Получаем события профиля.
-		events := d.getProfileEvents(profile.ID, window)
+		events := d.getProfileEvents(profile.ID, window, snapshot)
 		if len(events) < CarouselMinCycles {
 			continue
 		}
 
-		// Сортируем события по времени.
 		sort.Slice(events, func(i, j int) bool {
 			return events[i].StartTime.Before(events[j].StartTime)
 		})
 
-		// Вычисляем интервалы между событиями.
 		intervals := make([]time.Duration, 0, len(events)-1)
 		for i := 1; i < len(events); i++ {
 			interval := events[i].StartTime.Sub(events[i-1].StartTime)
@@ -251,7 +268,6 @@ func (d *BotnetDetector) DetectCarousel(window time.Duration) []BotnetDetection 
 			continue
 		}
 
-		// Проверяем цикличность.
 		if d.isCyclic(intervals) {
 			ips := make([]string, 0, len(profile.IPCounts))
 			for ip := range profile.IPCounts {
@@ -304,6 +320,17 @@ func (d *BotnetDetector) DetectWaveJitter(window time.Duration) []BotnetDetectio
 	if len(events) == 0 {
 		return []BotnetDetection{}
 	}
+
+	// v8.6.2: анализируем ТОЛЬКО окно наблюдения, а не всю историю буфера.
+	now := time.Now().UTC()
+	cutoff := now.Add(-window)
+	filtered := make([]EventRecord, 0, len(events))
+	for _, event := range events {
+		if event.StartTimeValid && !event.StartTime.Before(cutoff) {
+			filtered = append(filtered, event)
+		}
+	}
+	events = filtered
 
 	// Делим окно на минутные интервалы.
 	intervalSize := time.Minute
@@ -400,8 +427,12 @@ func (d *BotnetDetector) DetectWaveJitter(window time.Duration) []BotnetDetectio
 // Алгоритм:
 // 1. Ищем профили с постепенным ростом числа связанных IP.
 // 2. Если рост превышает порог → CELL_PROBE.
+//
+// ВАЖНО (v8.6.2, hotfix CPU 100%):
+//   - снапшот буфера берётся ОДИН раз на всю детекцию;
+//   - число профилей ограничено 200 самыми свежими.
 func (d *BotnetDetector) DetectCellProbe(window time.Duration) []BotnetDetection {
-	if d == nil || d.manager == nil {
+	if d == nil || d.manager == nil || d.store == nil {
 		return []BotnetDetection{}
 	}
 
@@ -409,26 +440,28 @@ func (d *BotnetDetector) DetectCellProbe(window time.Duration) []BotnetDetection
 		window = Window1Hour
 	}
 
-	profiles := d.manager.ProfilesSnapshot(0)
+	profiles := d.manager.ProfilesSnapshot(200)
 	if len(profiles) == 0 {
+		return []BotnetDetection{}
+	}
+
+	snapshot := d.store.SnapshotChronological()
+	if len(snapshot) == 0 {
 		return []BotnetDetection{}
 	}
 
 	var detections []BotnetDetection
 
 	for _, profile := range profiles {
-		// Получаем события профиля.
-		events := d.getProfileEvents(profile.ID, window)
+		events := d.getProfileEvents(profile.ID, window, snapshot)
 		if len(events) < CellProbeMinCells {
 			continue
 		}
 
-		// Сортируем события по времени.
 		sort.Slice(events, func(i, j int) bool {
 			return events[i].StartTime.Before(events[j].StartTime)
 		})
 
-		// Делим события на временные окна и считаем уникальные IP в каждом.
 		windowSize := Window5Min
 		cellsByWindow := make(map[int64]map[string]struct{})
 
@@ -443,7 +476,6 @@ func (d *BotnetDetector) DetectCellProbe(window time.Duration) []BotnetDetection
 			cellsByWindow[windowKey][event.IP] = struct{}{}
 		}
 
-		// Сортируем окна по времени.
 		windows := make([]int64, 0, len(cellsByWindow))
 		for w := range cellsByWindow {
 			windows = append(windows, w)
@@ -452,7 +484,6 @@ func (d *BotnetDetector) DetectCellProbe(window time.Duration) []BotnetDetection
 			return windows[i] < windows[j]
 		})
 
-		// Проверяем эскалацию.
 		if len(windows) < 2 {
 			continue
 		}
@@ -511,12 +542,23 @@ func (d *BotnetDetector) DetectAll(window time.Duration) []BotnetDetection {
 }
 
 // getProfileEvents возвращает события профиля за заданное окно.
-func (d *BotnetDetector) getProfileEvents(profileID string, window time.Duration) []EventRecord {
-	if d == nil || d.store == nil {
+//
+// ВАЖНО (v8.6.2, hotfix CPU 100%):
+//   - снапшот событий принимается параметром: буфер больше не копируется
+//     на каждый профиль (ранее P копий буфера);
+//   - ProfileByID вызывается ОДИН раз до цикла: cloneProfile дорог,
+//     ранее было P×E глубоких клонирований — причина зависания.
+func (d *BotnetDetector) getProfileEvents(profileID string, window time.Duration, events []EventRecord) []EventRecord {
+	if d == nil || d.manager == nil {
 		return []EventRecord{}
 	}
 
-	events := d.store.SnapshotChronological()
+	// Достаём профиль ОДИН раз до цикла по событиям.
+	profile, ok := d.manager.ProfileByID(profileID)
+	if !ok {
+		return []EventRecord{}
+	}
+
 	if len(events) == 0 {
 		return []EventRecord{}
 	}
@@ -533,14 +575,7 @@ func (d *BotnetDetector) getProfileEvents(profileID string, window time.Duration
 			continue
 		}
 
-		// Проверяем, принадлежит ли событие профилю.
-		// Для простоты проверяем по IP.
-		// В будущем можно добавить прямую связь событие→профиль.
-		profile, ok := d.manager.ProfileByID(profileID)
-		if !ok {
-			continue
-		}
-
+		// Проверяем принадлежность события профилю по IP.
 		if _, exists := profile.IPCounts[event.IP]; exists {
 			profileEvents = append(profileEvents, event)
 		}
