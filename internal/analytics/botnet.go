@@ -19,11 +19,13 @@ import (
 
 // Коды ботнет-паттернов.
 const (
-	BotnetPatternNone       = "NONE"
-	BotnetPatternSyncWave   = "SYNC_WAVE"
-	BotnetPatternCarousel   = "CAROUSEL"
-	BotnetPatternWaveJitter = "WAVE_JITTER"
-	BotnetPatternCellProbe  = "CELL_PROBE"
+	BotnetPatternNone        = "NONE"
+	BotnetPatternSyncWave    = "SYNC_WAVE"
+	BotnetPatternCarousel    = "CAROUSEL"
+	BotnetPatternWaveJitter  = "WAVE_JITTER"
+	BotnetPatternCellProbe   = "CELL_PROBE"
+	BotnetPatternProxyTunnel = "PROXY_TUNNEL"
+	BotnetPatternOSSpoofing  = "OS_SPOOFING"
 )
 
 // Уровни уверенности ботнет-детекции.
@@ -537,6 +539,8 @@ func (d *BotnetDetector) DetectAll(window time.Duration) []BotnetDetection {
 	allDetections = append(allDetections, d.DetectCarousel(window)...)
 	allDetections = append(allDetections, d.DetectWaveJitter(window)...)
 	allDetections = append(allDetections, d.DetectCellProbe(window)...)
+	allDetections = append(allDetections, d.DetectProxyTunnel(window)...)
+	allDetections = append(allDetections, d.DetectOSSpoofing(window)...)
 
 	return allDetections
 }
@@ -582,6 +586,164 @@ func (d *BotnetDetector) getProfileEvents(profileID string, window time.Duration
 	}
 
 	return profileEvents
+}
+
+// DetectProxyTunnel выявляет атакующих с несоответствием RTT и WriteLatency.
+// Признак: RTT < 50 мс, но WriteLatency > 2000 мс (цепочка прокси/туннели).
+func (d *BotnetDetector) DetectProxyTunnel(window time.Duration) []BotnetDetection {
+	if d == nil || d.store == nil {
+		return []BotnetDetection{}
+	}
+	if window <= 0 {
+		window = Window1Hour
+	}
+
+	events := d.store.SnapshotChronological()
+	if len(events) == 0 {
+		return []BotnetDetection{}
+	}
+
+	now := time.Now().UTC()
+	cutoff := now.Add(-window)
+
+	type proxyEvidence struct {
+		count      int
+		avgRTT     float64
+		maxLatency uint64
+		firstSeen  time.Time
+		lastSeen   time.Time
+	}
+	ipData := make(map[string]*proxyEvidence)
+
+	for _, event := range events {
+		if !event.StartTimeValid || event.StartTime.Before(cutoff) {
+			continue
+		}
+		if !event.IPValid || event.IP == "" {
+			continue
+		}
+
+		// Условие детекции: низкий физический RTT, но огромная прикладная задержка
+		if event.RTTValid && event.RTTMs < 50 && event.WriteLatencyMsValid && event.WriteLatencyMs > 2000 {
+			if ipData[event.IP] == nil {
+				ipData[event.IP] = &proxyEvidence{firstSeen: event.StartTime, lastSeen: event.StartTime}
+			}
+			e := ipData[event.IP]
+			e.count++
+			e.avgRTT += float64(event.RTTMs)
+			if event.WriteLatencyMs > e.maxLatency {
+				e.maxLatency = event.WriteLatencyMs
+			}
+			if event.StartTime.Before(e.firstSeen) {
+				e.firstSeen = event.StartTime
+			}
+			if event.StartTime.After(e.lastSeen) {
+				e.lastSeen = event.StartTime
+			}
+		}
+	}
+
+	var detections []BotnetDetection
+	for ip, data := range ipData {
+		if data.count >= 3 { // Минимум 3 события для уверенности
+			avgRTT := data.avgRTT / float64(data.count)
+			detections = append(detections, BotnetDetection{
+				Pattern:     BotnetPatternProxyTunnel,
+				Label:       "PROXY/TUNNEL: Аномальная прикладная задержка при низком RTT",
+				Confidence:  BotnetConfidenceHigh,
+				IPsInvolved: []string{ip},
+				StartTime:   data.firstSeen,
+				EndTime:     data.lastSeen,
+				Evidence: []string{
+					formatString("событий с аномалией: %d", data.count),
+					formatString("средний RTT: %.0f мс", avgRTT),
+					formatString("максимальная задержка записи: %d мс", data.maxLatency),
+				},
+				Reasons: []string{
+					"низкий сетевой пинг при огромной задержке приложения указывает на прокси-цепочку или туннель",
+				},
+			})
+		}
+	}
+	return detections
+}
+
+// DetectOSSpoofing выявляет несоответствие L4-стека и L7-нагрузки.
+// Признак: малый RcvSpace (как у IoT), но наличие ReadLarge (как у серверов/эксплойтов).
+func (d *BotnetDetector) DetectOSSpoofing(window time.Duration) []BotnetDetection {
+	if d == nil || d.store == nil {
+		return []BotnetDetection{}
+	}
+	if window <= 0 {
+		window = Window1Hour
+	}
+
+	events := d.store.SnapshotChronological()
+	if len(events) == 0 {
+		return []BotnetDetection{}
+	}
+
+	now := time.Now().UTC()
+	cutoff := now.Add(-window)
+
+	type spoofEvidence struct {
+		count          int
+		avgRcvSpace    float64
+		totalReadLarge uint64
+		firstSeen      time.Time
+		lastSeen       time.Time
+	}
+	ipData := make(map[string]*spoofEvidence)
+
+	for _, event := range events {
+		if !event.StartTimeValid || event.StartTime.Before(cutoff) {
+			continue
+		}
+		if !event.IPValid || event.IP == "" {
+			continue
+		}
+
+		// Условие детекции: RcvSpace < 65536 (IoT-подобный) И ReadLarge > 0 (Server-подобный)
+		if event.RcvSpaceValid && event.RcvSpace < 65536 && event.ReadLargeValid && event.ReadLarge > 0 {
+			if ipData[event.IP] == nil {
+				ipData[event.IP] = &spoofEvidence{firstSeen: event.StartTime, lastSeen: event.StartTime}
+			}
+			e := ipData[event.IP]
+			e.count++
+			e.avgRcvSpace += float64(event.RcvSpace)
+			e.totalReadLarge += event.ReadLarge
+			if event.StartTime.Before(e.firstSeen) {
+				e.firstSeen = event.StartTime
+			}
+			if event.StartTime.After(e.lastSeen) {
+				e.lastSeen = event.StartTime
+			}
+		}
+	}
+
+	var detections []BotnetDetection
+	for ip, data := range ipData {
+		if data.count >= 2 { // Минимум 2 события
+			avgRcvSpace := data.avgRcvSpace / float64(data.count)
+			detections = append(detections, BotnetDetection{
+				Pattern:     BotnetPatternOSSpoofing,
+				Label:       "OS SPOOFING: Несоответствие L4-стека и L7-нагрузки",
+				Confidence:  BotnetConfidenceMedium,
+				IPsInvolved: []string{ip},
+				StartTime:   data.firstSeen,
+				EndTime:     data.lastSeen,
+				Evidence: []string{
+					formatString("событий с аномалией: %d", data.count),
+					formatString("средний RcvSpace: %.0f байт (характерно для IoT)", avgRcvSpace),
+					formatString("суммарный ReadLarge: %d байт (характерно для серверов)", data.totalReadLarge),
+				},
+				Reasons: []string{
+					"сетевой стек имитирует маломощное устройство, но полезная нагрузка соответствует серверной платформе",
+				},
+			})
+		}
+	}
+	return detections
 }
 
 // isCyclic проверяет, являются ли интервалы циклическими.

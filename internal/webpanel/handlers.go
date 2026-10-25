@@ -247,7 +247,19 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		// Реальная посекундная плотность событий для коррелятора кучности.
 		burst := analytics.BuildBurstSeries(store, 5*time.Minute)
 
-		renderDashboardSIEM(w, "dashboard_siem_core", prefix, counters, profileCounters, hourStats, profiles, health, detections, burst)
+		// Подсчитываем специфические предупреждения для карточек SIEM
+		proxyCount := 0
+		spoofCount := 0
+		for _, det := range detections {
+			if det.Pattern == analytics.BotnetPatternProxyTunnel {
+				proxyCount++
+			}
+			if det.Pattern == analytics.BotnetPatternOSSpoofing {
+				spoofCount++
+			}
+		}
+
+		renderDashboardSIEM(w, "dashboard_siem_core", prefix, counters, profileCounters, hourStats, profiles, health, detections, burst, proxyCount, spoofCount)
 	})
 
 	// 1.6. Раздача статических файлов (CSS, JS)

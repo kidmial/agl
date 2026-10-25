@@ -153,7 +153,7 @@ func renderStub(w http.ResponseWriter, templateName string, prefix string) {
 }
 
 // renderDashboardSIEM рендерит страницу SIEM Core с данными детекций ботнет-паттернов.
-func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, health PipelineHealth, detections []analytics.BotnetDetection, burst []analytics.BurstPoint) {
+func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, health PipelineHealth, detections []analytics.BotnetDetection, burst []analytics.BurstPoint, proxyCount int, spoofCount int) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// 1. Определяем витринную локацию для отображения времени.
@@ -214,6 +214,8 @@ func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix stri
 		"PipelineHealth":  health,
 		"Detections":      detections,
 		"BurstSeries":     burst,
+		"ProxyCount":      proxyCount,
+		"SpoofCount":      spoofCount,
 	}
 
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
