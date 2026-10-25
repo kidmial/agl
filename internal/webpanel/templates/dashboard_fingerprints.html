@@ -4,14 +4,146 @@
 
 <div class="card">
     <h2>Цифровой почерк и TCP-отпечатки</h2>
-    <p class="text-muted">Этот дашборд в разработке. Здесь будут:</p>
-    <ul>
-        <li>Стратегия А: Анализ IAT и объёмов (дисперсия интервалов)</li>
-        <li>Стратегия Б: Пассивный TCP Fingerprinting (p0f-логика)</li>
-        <li>Гистограмма распределения прикладных чтений</li>
-        <li>Сетка сопоставления MSS, RcvSpace, Wscale</li>
-    </ul>
+    <p class="text-muted">Пассивный анализ природы атакующего софта и его операционной системы.</p>
 </div>
+
+<!-- Гистограмма распределения чтений -->
+<div class="card" style="margin-top: 20px;">
+    <h3>Распределение прикладных чтений</h3>
+    <p class="text-muted">Категории: tiny (0-64 байт), small (65-256), medium (257-1024), large (>1024)</p>
+    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
+        <canvas id="readChart"></canvas>
+    </div>
+</div>
+
+<!-- Топ TCP-отпечатков -->
+<div class="card" style="margin-top: 20px;">
+    <h3>Топ TCP-отпечатков (p0f-логика)</h3>
+    <p class="text-muted">Уникальные комбинации MSS|RcvSpace|SndWscale|RcvWscale идентифицируют ОС. Агрегат за 24 часа.
+    </p>
+    <table>
+        <thead>
+            <tr>
+                <th>Отпечаток (MSS|RcvSpace|SndW|RcvW)</th>
+                <th>Количество событий</th>
+                <th>Доля</th>
+            </tr>
+        </thead>
+        <tbody id="fpTableBody">
+        </tbody>
+    </table>
+</div>
+
+<!-- Дисперсия IAT -->
+<div class="card" style="margin-top: 20px;">
+    <h3>Дисперсия ритма IAT</h3>
+    <p class="text-muted">Средний дисперсионный след по часам. Высокая дисперсия = рваный ритм (человек/прокси).</p>
+    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
+        <canvas id="dispersionChart"></canvas>
+    </div>
+</div>
+
+<script>
+    const hourStats = {{ .HourStats | json }};
+    const labels = hourStats.map(hs => {
+        const date = new Date(hs.hour);
+        return date.getHours().toString().padStart(2, '0') + ':00';
+    });
+
+    // --- Гистограмма распределения чтений (агрегат за все часы) ---
+    const readTotals = { 'tiny (0-64)': 0, 'small (65-256)': 0, 'medium (257-1024)': 0, 'large (>1024)': 0 };
+    hourStats.forEach(hs => {
+        (hs.read_distribution || []).forEach(item => {
+            if (readTotals[item.key] !== undefined) {
+                readTotals[item.key] += item.count;
+            }
+        });
+    });
+
+    const readCtx = document.getElementById('readChart').getContext('2d');
+    new Chart(readCtx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(readTotals),
+            datasets: [{
+                label: 'Количество чтений',
+                data: Object.values(readTotals),
+                backgroundColor: [
+                    'rgba(34, 197, 94, 0.7)',
+                    'rgba(59, 130, 246, 0.7)',
+                    'rgba(251, 191, 36, 0.7)',
+                    'rgba(239, 68, 68, 0.7)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#a5b4fc' } },
+                y: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#a5b4fc' }, beginAtZero: true }
+            },
+            plugins: { legend: { labels: { color: '#a5b4fc' } } }
+        }
+    });
+
+    // --- Таблица топ TCP-отпечатков (агрегат за все часы, без дублей) ---
+    const fpTotals = {};
+    hourStats.forEach(hs => {
+        (hs.top_stack_fingerprints || []).forEach(item => {
+            fpTotals[item.key] = (fpTotals[item.key] || 0) + item.count;
+        });
+    });
+    const fpEntries = Object.entries(fpTotals).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const fpTotal = fpEntries.reduce((sum, e) => sum + e[1], 0);
+
+    const fpBody = document.getElementById('fpTableBody');
+    fpEntries.forEach(entry => {
+        const key = entry[0];
+        const count = entry[1];
+        const share = fpTotal > 0 ? ((count / fpTotal) * 100).toFixed(1) : '0.0';
+
+        const tr = document.createElement('tr');
+        const tdKey = document.createElement('td');
+        const code = document.createElement('code');
+        code.textContent = key; // textContent = защита от инъекций
+        tdKey.appendChild(code);
+        const tdCount = document.createElement('td');
+        tdCount.textContent = count;
+        const tdShare = document.createElement('td');
+        tdShare.textContent = share + '%';
+        tr.appendChild(tdKey);
+        tr.appendChild(tdCount);
+        tr.appendChild(tdShare);
+        fpBody.appendChild(tr);
+    });
+
+    // --- График дисперсии IAT ---
+    const dispCtx = document.getElementById('dispersionChart').getContext('2d');
+    new Chart(dispCtx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Средняя дисперсия IAT',
+                data: hourStats.map(hs => hs.avg_iat_dispersion || 0),
+                borderColor: 'rgb(168, 85, 247)',
+                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#a5b4fc' } },
+                y: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#a5b4fc' }, beginAtZero: true }
+            },
+            plugins: { legend: { labels: { color: '#a5b4fc' } } }
+        }
+    });
+</script>
 
 {{template "footer" .}}
 {{end}}

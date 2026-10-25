@@ -13,6 +13,7 @@ package analytics
 
 import (
 	"agl/config"
+	"fmt"
 	"sort"
 	"time"
 )
@@ -135,6 +136,27 @@ type HourStat struct {
 	// Используется для стекового графика «временных отпечатков»:
 	// доля событий с фиксированным таймером обнажает автоматический движок.
 	ToolProfiles []CountItem `json:"tool_profiles"`
+
+	// TopStackFingerprints — топ уникальных TCP-стеков за час.
+	//
+	// Каждый элемент содержит:
+	//   - Key: комбинация MSS|RcvSpace|SndWscale|RcvWscale
+	//   - Count: количество событий с этим стеком
+	//
+	// Это пассивный TCP Fingerprinting (p0f-логика).
+	TopStackFingerprints []CountItem `json:"top_stack_fingerprints"`
+
+	// ReadDistribution — распределение чтений по категориям.
+	//
+	// Ключи: tiny (0-64), small (65-256), medium (257-1024), large (>1024).
+	// Используется для гистограммы прикладных чтений.
+	ReadDistribution []CountItem `json:"read_distribution"`
+
+	// AvgIATDispersion — средний дисперсионный след ритма IAT за час.
+	//
+	// Высокая дисперсия = рваный ритм (человек/прокси).
+	// Низкая дисперсия = жёсткий таймер (бот).
+	AvgIATDispersion float64 `json:"avg_iat_dispersion"`
 
 	// CloseReasons — распределение причин закрытия.
 	//
@@ -286,6 +308,35 @@ type hourAgg struct {
 	// обнажают автоматический движок без привязки к L7.
 	toolProfileCounts map[string]int
 
+	// stackFingerprintCounts — счётчик уникальных TCP-стеков.
+	//
+	// Ключ — комбинация MSS|RcvSpace|SndWscale|RcvWscale.
+	// Значение — количество событий с этим стеком.
+	//
+	// Это пассивный TCP Fingerprinting (p0f-логика):
+	// уникальная комбинация параметров стека идентифицирует ОС.
+	stackFingerprintCounts map[string]int
+
+	// readTinyCount — суммарное количество чтений 0–64 байта за час.
+	readTinyCount uint64
+
+	// readSmallCount — суммарное количество чтений 65–256 байта за час.
+	readSmallCount uint64
+
+	// readMediumCount — суммарное количество чтений 257–1024 байта за час.
+	readMediumCount uint64
+
+	// readLargeCount — суммарное количество чтений >1024 байта за час.
+	readLargeCount uint64
+
+	// iatDispersionSum — сумма дисперсионных следов IAT за час.
+	//
+	// Используется для вычисления среднего значения дисперсии.
+	iatDispersionSum float64
+
+	// iatDispersionCount — сколько событий имели валидную дисперсию IAT.
+	iatDispersionCount int
+
 	// rttCount — сколько событий имели валидный RTT.
 	rttCount uint64
 
@@ -339,11 +390,12 @@ type hourAgg struct {
 // Это защищает от записи в nil-карту при добавлении событий.
 func newHourAgg() *hourAgg {
 	return &hourAgg{
-		ipCounts:          make(map[string]int),
-		countryCounts:     make(map[string]int),
-		closeReasonCounts: make(map[string]int),
-		phaseCounts:       make(map[string]int),
-		toolProfileCounts: make(map[string]int),
+		ipCounts:               make(map[string]int),
+		countryCounts:          make(map[string]int),
+		closeReasonCounts:      make(map[string]int),
+		phaseCounts:            make(map[string]int),
+		toolProfileCounts:      make(map[string]int),
+		stackFingerprintCounts: make(map[string]int),
 	}
 }
 
@@ -506,6 +558,40 @@ func (a *hourAgg) addEvent(rec EventRecord) {
 	// TIMER_BOT означает фиксированный тайминг — прямой признак движка.
 	tool := analyzeToolProfile(rec, calculateIATDispersion(rec))
 	a.toolProfileCounts[tool]++
+
+	// Учитываем TCP-отпечаток (пассивный fingerprinting).
+	//
+	// Формируем ключ из комбинации MSS|RcvSpace|SndWscale|RcvWscale.
+	// Это уникальная сигнатура сетевого стека, идентифицирующая ОС.
+	if rec.MSSValid && rec.RcvSpaceValid && rec.SndWscaleValid && rec.RcvWscaleValid {
+		fpKey := fmt.Sprintf("%d|%d|%d|%d", rec.MSS, rec.RcvSpace, rec.SndWscale, rec.RcvWscale)
+		a.stackFingerprintCounts[fpKey]++
+	}
+
+	// Учитываем распределение чтений по категориям.
+	//
+	// Это нужно для гистограммы прикладных чтений.
+	if rec.ReadTinyValid {
+		a.readTinyCount += rec.ReadTiny
+	}
+	if rec.ReadSmallValid {
+		a.readSmallCount += rec.ReadSmall
+	}
+	if rec.ReadMediumValid {
+		a.readMediumCount += rec.ReadMedium
+	}
+	if rec.ReadLargeValid {
+		a.readLargeCount += rec.ReadLarge
+	}
+
+	// Учитываем дисперсию IAT для анализа ритма.
+	//
+	// Переиспользуем готовую функцию calculateIATDispersion из phases.go.
+	if rec.IATCountValid && rec.IATSumMsValid && rec.IATSumSqMsValid && rec.IATCount > 0 {
+		dispersion := calculateIATDispersion(rec)
+		a.iatDispersionSum += dispersion
+		a.iatDispersionCount++
+	}
 }
 
 // toHourStat превращает внутренний аккумулятор в готовую часовую статистику.
@@ -542,6 +628,23 @@ func (a *hourAgg) toHourStat(hour time.Time, topLimit int) HourStat {
 		avgIAT = float64(a.iatSum) / float64(a.iatCount)
 	}
 
+	// Считаем средний дисперсионный след ритма IAT.
+	//
+	// Высокая дисперсия = рваный ритм (человек/прокси).
+	// Низкая дисперсия = жёсткий таймер (бот).
+	var avgDispersion float64
+	if a.iatDispersionCount > 0 {
+		avgDispersion = a.iatDispersionSum / float64(a.iatDispersionCount)
+	}
+
+	// Формируем распределение чтений по категориям.
+	readDist := []CountItem{
+		{Key: "tiny (0-64)", Count: int(a.readTinyCount)},
+		{Key: "small (65-256)", Count: int(a.readSmallCount)},
+		{Key: "medium (257-1024)", Count: int(a.readMediumCount)},
+		{Key: "large (>1024)", Count: int(a.readLargeCount)},
+	}
+
 	// Формируем итоговую часовую статистику.
 	//
 	// Все внутренние аккумуляторные поля переводятся
@@ -571,8 +674,9 @@ func (a *hourAgg) toHourStat(hour time.Time, topLimit int) HourStat {
 		RTTAvgMs: rttAvg,
 
 		// Индекс скорости атаки (средний интервал между чтениями).
-		AvgIATMs:      avgIAT,
-		IATEventCount: a.iatEventCount,
+		AvgIATMs:         avgIAT,
+		IATEventCount:    a.iatEventCount,
+		AvgIATDispersion: avgDispersion,
 
 		PlannedHoldSumSec: a.plannedSum,
 		ActualHoldSumSec:  a.actualSum,
@@ -583,6 +687,12 @@ func (a *hourAgg) toHourStat(hour time.Time, topLimit int) HourStat {
 		// Это защищает веб-панель от избыточных списков.
 		TopIPs:       topFromMap(a.ipCounts, topLimit),
 		TopCountries: topFromMap(a.countryCounts, topLimit),
+
+		// TCP-отпечатки (p0f-логика) — топ-10 уникальных стеков.
+		TopStackFingerprints: topFromMap(a.stackFingerprintCounts, 10),
+
+		// Распределение чтений по категориям.
+		ReadDistribution: readDist,
 	}
 }
 

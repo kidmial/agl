@@ -44,7 +44,7 @@ func toJSON(v interface{}) template.JS {
 
 // panelTmpl — скомпилированные шаблоны, загруженные из встроенных файлов.
 // Парсим все HTML-файлы вместе, чтобы блоки header/footer были доступны всем дашбордам.
-// Funcs регистрирует кастомную функцию json для передачи данных в <script>.
+// Funcs регистрирует кастомные функции для шаблонов.
 var panelTmpl = template.Must(
 	template.New("agl").
 		Funcs(template.FuncMap{
