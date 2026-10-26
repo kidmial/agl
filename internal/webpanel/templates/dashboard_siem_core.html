@@ -56,7 +56,7 @@
 <!-- Временной коррелятор кучности -->
 <div class="card" style="margin-top: 20px;">
     <h3>Временной коррелятор кучности StartTime</h3>
-    <p class="text-muted">Количество событий по секундам (последние 5 минут). Пики указывают на синхронные залпы.</p>
+    <p class="text-muted">Количество событий по минутам (срез 60 минут). Пики указывают на синхронные залпы.</p>
     <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
         <canvas id="burstChart"></canvas>
     </div>
@@ -114,7 +114,7 @@
         data: {
             labels: timeLabels,
             datasets: [{
-                label: 'Событий в секунду',
+                label: 'Событий в минуту',
                 data: burstData,
                 borderColor: 'rgb(239, 68, 68)',
                 backgroundColor: 'rgba(239, 68, 68, 0.1)',

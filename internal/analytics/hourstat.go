@@ -983,12 +983,17 @@ type BurstPoint struct {
 	Count int `json:"count"`
 }
 
-// BuildBurstSeries возвращает посекундные счётчики событий за окно.
+// BuildBurstSeries возвращает поминутные счётчики событий за окно.
 //
 // Поведение:
-//   - отсутствующие секунды заполняются нулями, чтобы график был непрерывным;
+//   - отсутствующие минуты заполняются нулями, чтобы график был непрерывным;
 //   - метки формируются в витринной зоне (как HourBucket);
-//   - окно по умолчанию 5 минут, если передано некорректное.
+//   - окно по умолчанию 60 минут, если передано некорректное.
+//
+// Зачем минуты, а не секунды:
+//   - секундные пики в тихий час нечитаемы (единицы на пустом поле);
+//   - минутная агрегация даёт устойчивый тренд плотности;
+//   - секундные залпы по-прежнему ловит серверный детектор SYNC_WAVE.
 //
 // Сложность O(E): один проход по снапшоту, без вложенных циклов.
 func BuildBurstSeries(s *Store, window time.Duration) []BurstPoint {
@@ -996,7 +1001,7 @@ func BuildBurstSeries(s *Store, window time.Duration) []BurstPoint {
 		return []BurstPoint{}
 	}
 	if window <= 0 {
-		window = 5 * time.Minute
+		window = 60 * time.Minute
 	}
 
 	// Витринная зона — та же логика, что в HourBucket.
@@ -1007,27 +1012,27 @@ func BuildBurstSeries(s *Store, window time.Duration) []BurstPoint {
 		}
 	}
 
-	now := time.Now().UTC().Truncate(time.Second)
+	now := time.Now().UTC().Truncate(time.Minute)
 	start := now.Add(-window)
 
+	// Ключ бакета — номер минуты (Unix / 60).
 	counts := make(map[int64]int)
 	for _, e := range s.SnapshotChronological() {
 		if !e.StartTimeValid {
 			continue
 		}
-		sec := e.StartTime.Unix()
-		if sec < start.Unix() || sec > now.Unix() {
+		if e.StartTime.Before(start) || e.StartTime.After(now) {
 			continue
 		}
-		counts[sec]++
+		counts[e.StartTime.Unix()/60]++
 	}
 
-	// Заполняем каждую секунду окна, включая нулевые.
-	points := make([]BurstPoint, 0, int(window/time.Second)+1)
-	for sec := start.Unix(); sec <= now.Unix(); sec++ {
+	// Заполняем каждую минуту окна, включая нулевые.
+	points := make([]BurstPoint, 0, int(window/time.Minute)+1)
+	for t := start; !t.After(now); t = t.Add(time.Minute) {
 		points = append(points, BurstPoint{
-			Label: time.Unix(sec, 0).In(loc).Format("15:04:05"),
-			Count: counts[sec],
+			Label: t.In(loc).Format("15:04"),
+			Count: counts[t.Unix()/60],
 		})
 	}
 	return points

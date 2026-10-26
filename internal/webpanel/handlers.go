@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"agl/config"
 	"agl/internal/analytics"
@@ -251,8 +250,8 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		detector := analytics.NewBotnetDetector(store, manager)
 		detections := detector.DetectAll(analytics.Window1Hour)
 
-		// Реальная посекундная плотность событий для коррелятора кучности.
-		burst := analytics.BuildBurstSeries(store, 5*time.Minute)
+		// Реальная поминутная плотность событий для коррелятора кучности.
+		burst := analytics.BuildBurstSeries(store, analytics.Window1Hour)
 
 		// Подсчитываем специфические предупреждения для карточек SIEM
 		proxyCount := 0
