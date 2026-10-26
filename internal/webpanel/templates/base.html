@@ -93,7 +93,9 @@
             display: flex;
             flex-wrap: nowrap;
             justify-content: space-between;
-            background: rgba(10, 10, 11, 0.85);
+            align-items: center;
+            background: rgb(10 10 11 / 69%);
+            border-bottom: 1px solid #2a3040;
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
@@ -101,7 +103,7 @@
         }
 
         /* header на узких экранах */
-        @media (max-width: 900px) {
+        @media (max-width: 800px) {
             .header {
                 position: sticky;
                 top: 0;
@@ -117,7 +119,7 @@
             }
 
             .nav {
-                margin: 14px 0 5px 0;
+                margin: 10px 0 0 0;
             }
         }
 
@@ -125,7 +127,7 @@
             font-family: "JetBrains Mono", "Fira Code", monospace;
             letter-spacing: 0.08em;
             color: #d8d8dc;
-            font-size: 15px;
+            font-size: 16px;
             text-transform: uppercase;
             font-weight: normal;
         }
@@ -137,13 +139,16 @@
         .nav {
             display: flex;
             gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .nav-link {
             color: #a5b4fc;
             text-decoration: none;
-            padding: 4px 10px;
-            border-radius: 3px;
+            padding: 6px 10px;
+            border: 1px solid #1e293b;
+            border-radius: 10px;
             font-size: 13px;
             transition: all 0.2s;
         }

@@ -3,6 +3,55 @@
 {{template "header" .}}
 
 <div class="card">
+    <h2>Хроника за 60 минут</h2>
+    <p class="text-muted">Поминутная плотность событий в реальном времени. Всплески указывают на кучность
+        активности.</p>
+    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
+        <canvas id="burstChart"></canvas>
+    </div>
+</div>
+
+<script>
+    // --- Хроника атаки: поминутная плотность событий ---
+    const burstSeries = {{ .BurstSeries | json }};
+    const burstLabels = burstSeries.map(p => p.label);
+    const burstData = burstSeries.map(p => p.count);
+
+    const burstCtx = document.getElementById('burstChart').getContext('2d');
+    new Chart(burstCtx, {
+        type: 'line',
+        data: {
+            labels: burstLabels,
+            datasets: [{
+                label: 'Событий в минуту',
+                data: burstData,
+                borderColor: 'rgb(239, 68, 68)',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                    ticks: { color: '#a5b4fc', maxTicksLimit: 12 }
+                },
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                    ticks: { color: '#a5b4fc' },
+                    beginAtZero: true
+                }
+            },
+            plugins: { legend: { labels: { color: '#a5b4fc' } } }
+        }
+    });
+</script>
+
+<div class="card">
     <h2>Динамика атаки и самодиагностика</h2>
     <p class="text-muted">Мультислойный таймлайн эскалации фаз: как волна PHASE_1 переходит в PHASE_2 и PHASE_3.</p>
 

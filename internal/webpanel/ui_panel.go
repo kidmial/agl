@@ -155,7 +155,7 @@ func renderStub(w http.ResponseWriter, templateName string, prefix string) {
 }
 
 // renderDashboardSIEM рендерит страницу SIEM Core с данными детекций ботнет-паттернов.
-func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, health PipelineHealth, detections []analytics.BotnetDetection, burst []analytics.BurstPoint, proxyCount int, spoofCount int) {
+func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, health PipelineHealth, detections []analytics.BotnetDetection, proxyCount int, spoofCount int) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// 1. Определяем витринную локацию для отображения времени.
@@ -215,9 +215,73 @@ func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix stri
 		"StoreTotal":      counters.TotalEvents,
 		"PipelineHealth":  health,
 		"Detections":      detections,
-		"BurstSeries":     burst,
 		"ProxyCount":      proxyCount,
 		"SpoofCount":      spoofCount,
+	}
+
+	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
+		http.Error(w, "Template execution error", http.StatusInternalServerError)
+	}
+}
+
+// renderDashboardVitals рендерит страницу Динамики с дополнительными данными живого пульса активности атаки.
+func renderDashboardVitals(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, health PipelineHealth, stolenTime analytics.StolenTimeStats, burst []analytics.BurstPoint) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	loc := time.Local
+	timezoneLabel := "Local"
+	if tz := config.C.WebPanelTimezone; tz != "" {
+		if tz == "local" {
+		} else if tz == "UTC" {
+			loc = time.UTC
+			timezoneLabel = "UTC"
+		} else {
+			if loaded, err := time.LoadLocation(tz); err == nil {
+				loc = loaded
+				timezoneLabel = loaded.String()
+				if len(timezoneLabel) > 10 {
+					timezoneLabel = timezoneLabel[:10]
+				}
+			}
+		}
+	}
+
+	convertedHourStats := make([]analytics.HourStat, len(hourStats))
+	for i, hs := range hourStats {
+		convertedHourStats[i] = hs
+		convertedHourStats[i].Hour = hs.Hour.In(loc)
+	}
+
+	convertedProfiles := make([]analytics.ActorProfile, len(profiles))
+	for i, p := range profiles {
+		convertedProfiles[i] = p
+		convertedProfiles[i].LastSeen = p.LastSeen.In(loc)
+		if !p.LastEventTime.IsZero() {
+			convertedProfiles[i].LastEventTime = p.LastEventTime.In(loc)
+		}
+	}
+
+	convertedCounters := counters
+	if !convertedCounters.FirstEventTime.IsZero() {
+		convertedCounters.FirstEventTime = counters.FirstEventTime.In(loc)
+	}
+	if !convertedCounters.LastEventTime.IsZero() {
+		convertedCounters.LastEventTime = counters.LastEventTime.In(loc)
+	}
+
+	data := map[string]interface{}{
+		"Prefix":          prefix,
+		"StoreCounters":   convertedCounters,
+		"ProfileCounters": profileCounters,
+		"HourStats":       convertedHourStats,
+		"Profiles":        convertedProfiles,
+		"TimezoneLabel":   timezoneLabel,
+		"CurrentTime":     time.Now().In(loc).Format("2006-01-02 15:04:05 MST"),
+		"HistoryLoaded":   analytics.IsHistoryLoaded(),
+		"StoreTotal":      counters.TotalEvents,
+		"PipelineHealth":  health,
+		"StolenTime":      stolenTime,
+		"BurstSeries":     burst,
 	}
 
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {

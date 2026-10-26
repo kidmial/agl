@@ -165,7 +165,8 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			MaxReportWriteLatencyMs: maxReportLatency,
 		}
 		stolenTime := analytics.BuildStolenTimeStats(store)
-		renderDashboard(w, "dashboard_vitals", prefix, counters, profileCounters, hourStats, profiles, health, stolenTime)
+		burst := analytics.BuildBurstSeries(store, analytics.Window1Hour)
+		renderDashboardVitals(w, "dashboard_vitals", prefix, counters, profileCounters, hourStats, profiles, health, stolenTime, burst)
 	})
 
 	// 1.3. Дашборд: Отпечатки
@@ -250,9 +251,6 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		detector := analytics.NewBotnetDetector(store, manager)
 		detections := detector.DetectAll(analytics.Window1Hour)
 
-		// Реальная поминутная плотность событий для коррелятора кучности.
-		burst := analytics.BuildBurstSeries(store, analytics.Window1Hour)
-
 		// Подсчитываем специфические предупреждения для карточек SIEM
 		proxyCount := 0
 		spoofCount := 0
@@ -265,7 +263,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			}
 		}
 
-		renderDashboardSIEM(w, "dashboard_siem_core", prefix, counters, profileCounters, hourStats, profiles, health, detections, burst, proxyCount, spoofCount)
+		renderDashboardSIEM(w, "dashboard_siem_core", prefix, counters, profileCounters, hourStats, profiles, health, detections, proxyCount, spoofCount)
 	})
 
 	// 1.6. Дашборд: Детализация профиля

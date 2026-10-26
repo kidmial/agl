@@ -53,15 +53,6 @@
     {{ end }}
 </div>
 
-<!-- Временной коррелятор кучности -->
-<div class="card" style="margin-top: 20px;">
-    <h3>Временной коррелятор кучности StartTime</h3>
-    <p class="text-muted">Количество событий по минутам (срез 60 минут). Пики указывают на синхронные залпы.</p>
-    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
-        <canvas id="burstChart"></canvas>
-    </div>
-</div>
-
 <!-- Карточки предупреждений -->
 <div class="card" style="margin-top: 20px;">
     <h3>Активные предупреждения SIEM</h3>
@@ -101,48 +92,6 @@
 
 <script>
     const detections = {{ .Detections | json }};
-
-    // --- Временной коррелятор кучности (последние 5 минут) ---
-    // Реальные посекундные счётчики из Store (серверная агрегация).
-    const burstSeries = {{ .BurstSeries | json }};
-    const timeLabels = burstSeries.map(p => p.label);
-    const burstData = burstSeries.map(p => p.count);
-
-    const burstCtx = document.getElementById('burstChart').getContext('2d');
-    new Chart(burstCtx, {
-        type: 'line',
-        data: {
-            labels: timeLabels,
-            datasets: [{
-                label: 'Событий в минуту',
-                data: burstData,
-                borderColor: 'rgb(239, 68, 68)',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                fill: true,
-                tension: 0.3,
-                pointRadius: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: {
-                        color: '#a5b4fc',
-                        maxTicksLimit: 20
-                    }
-                },
-                y: {
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: { color: '#a5b4fc' },
-                    beginAtZero: true
-                }
-            },
-            plugins: { legend: { labels: { color: '#a5b4fc' } } }
-        }
-    });
 </script>
 
 {{template "footer" .}}
