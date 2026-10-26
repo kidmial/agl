@@ -50,9 +50,34 @@ var panelTmpl = template.Must(
 		Funcs(template.FuncMap{
 			"json":           toJSON,
 			"formatDuration": analytics.FormatDuration,
+			"add":            func(a, b int) int { return a + b },
+			"divf": func(a, b interface{}) float64 {
+				bv := toTemplateFloat(b)
+				if bv == 0 {
+					return 0
+				}
+				return toTemplateFloat(a) / bv
+			},
 		}).
 		ParseFS(templateFS, "templates/*.html"),
 )
+
+// toTemplateFloat приводит числовые типы шаблонов (int, int64, uint64, float64)
+// к float64. Защищает шаблонные функции от падений на смешанных типах полей.
+func toTemplateFloat(v interface{}) float64 {
+	switch n := v.(type) {
+	case int:
+		return float64(n)
+	case int64:
+		return float64(n)
+	case uint64:
+		return float64(n)
+	case float64:
+		return n
+	default:
+		return 0
+	}
+}
 
 // renderDashboard рендерит любой дашборд с полной поддержкой данных и таймзоны.
 //
@@ -284,6 +309,21 @@ func renderDashboardVitals(w http.ResponseWriter, templateName string, prefix st
 		"BurstSeries":     burst,
 	}
 
+	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
+		http.Error(w, "Template execution error", http.StatusInternalServerError)
+	}
+}
+
+// renderDashboardReports рендерит страницу отчётов.
+func renderDashboardReports(w http.ResponseWriter, templateName string, prefix string, rng string, countries []analytics.CountryReport, ips []analytics.IPReport, macro analytics.MacroReport) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	data := map[string]interface{}{
+		"Prefix":    prefix,
+		"Range":     rng,
+		"Countries": countries,
+		"IPs":       ips,
+		"Macro":     macro,
+	}
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
 		http.Error(w, "Template execution error", http.StatusInternalServerError)
 	}

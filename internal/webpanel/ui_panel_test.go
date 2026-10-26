@@ -111,3 +111,38 @@ func TestRenderProfileDetailTemplate(t *testing.T) {
 		t.Fatal("top country not found in rendered output")
 	}
 }
+
+// TestRenderReportsTemplate исполняет страницу отчётов с несколькими странами и IP.
+// Ловит обрыв рендеринга таблицы (ошибки типов в шаблонных функциях):
+// если шаблон упадёт на первой строке, остальные страны и IP не попадут в вывод.
+func TestRenderReportsTemplate(t *testing.T) {
+	var buf bytes.Buffer
+	countries := []analytics.CountryReport{
+		{Code: "France", Events: 100, UniqueIPs: 10, Concentration: 10},
+		{Code: "Indonesia", Events: 80, UniqueIPs: 8, Concentration: 10},
+	}
+	ips := []analytics.IPReport{
+		{IP: "1.2.3.4", Country: "France", Events: 50, TopCloseReason: "TIMEOUT"},
+		{IP: "5.6.7.8", Country: "Indonesia", Events: 40, TopCloseReason: "RST"},
+	}
+	macro := analytics.MacroReport{
+		Events:   180,
+		Behavior: map[string]uint64{"PASSIVE": 100, "AGGRESSIVE": 80},
+	}
+	data := map[string]interface{}{
+		"Prefix":    "test/",
+		"Range":     "24h",
+		"Countries": countries,
+		"IPs":       ips,
+		"Macro":     macro,
+	}
+	if err := panelTmpl.ExecuteTemplate(&buf, "dashboard_reports", data); err != nil {
+		t.Fatalf("execute dashboard_reports: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{"France", "Indonesia", "1.2.3.4", "5.6.7.8"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("report output missing %q (template truncated?)", want)
+		}
+	}
+}

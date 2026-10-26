@@ -385,6 +385,11 @@ func (s *Store) AddEvent(rec EventRecord) {
 	if s.size < s.capacity {
 		s.size++
 	}
+	// Инкремент колец агрегатной отчётности (v8.6.2).
+	// Вызываем под блокировкой Store, чтобы бакеты и кольцо были согласованы.
+	if GlobalRollup != nil {
+		GlobalRollup.Ingest(rec)
+	}
 }
 
 // AddRaw принимает сырое событие, нормализует его и добавляет в хранилище.
@@ -804,5 +809,12 @@ func (s *Store) Clear() {
 	s.hasEventTime = false
 	s.firstEventTime = time.Time{}
 	s.lastEventTime = time.Time{}
+
+	// Сбрасываем кольца агрегатной отчётности.
+	// При следующем rebuild через RebuildHistory бакеты перестроятся
+	// автоматически — тот же AddEvent вызовет GlobalRollup.Ingest.
+	if GlobalRollup != nil {
+		GlobalRollup.Reset()
+	}
 
 }

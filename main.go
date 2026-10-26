@@ -46,6 +46,7 @@ package main
 import (
 	"agl/config"
 	"agl/i18n"
+	"agl/internal/analytics"
 	"agl/internal/armor"
 	"agl/internal/buildinfo"
 	"agl/internal/maintenance"
@@ -480,6 +481,11 @@ func main() {
 				i18n.TrEvent("watcher.disabled_by_config"))
 			return
 		}
+
+		// Инициализация глобальной аналитики (v8.6.2).
+		// Создаёт GlobalStore, GlobalManager, устанавливает таймзону для GlobalRollup.
+		// Вызывается один раз при старте watcher-режима, где живёт веб-панель.
+		analytics.InitAnalytics(0) // 0 = DefaultStoreCapacity
 
 		// ИБ-АУДИТ: Фиксируем старт наблюдателя
 		sys.LogAction("WATCHER", "PROCESS_START", "SUCCESS",

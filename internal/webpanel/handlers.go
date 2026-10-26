@@ -304,6 +304,36 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		}
 	})
 
+	// 1.6.5. Дашборд: Отчёты (блок 1-4)
+	mux.HandleFunc(prefix+"dashboard/reports", func(w http.ResponseWriter, r *http.Request) {
+		if !config.C.WebHttpsPanelActive {
+			panel404Stub(w, r)
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		rng := r.URL.Query().Get("range")
+		var reportRange analytics.ReportRange
+		switch rng {
+		case "7d":
+			reportRange = analytics.Range7d
+		case "30d":
+			reportRange = analytics.Range30d
+		default:
+			rng = "24h"
+			reportRange = analytics.Range24h
+		}
+
+		countries := analytics.GlobalRollup.BuildCountryReport(reportRange, 50)
+		ips := analytics.GlobalRollup.BuildIPReport(reportRange, 100)
+		macro := analytics.GlobalRollup.BuildMacroReport(reportRange)
+
+		renderDashboardReports(w, "dashboard_reports", prefix, rng, countries, ips, macro)
+	})
+
 	// 1.7. Раздача статических файлов (CSS, JS)
 	// StripPrefix убирает ТОЛЬКО крипто-префикс: внутри embed.FS пути
 	// остаются пакетно-относительными ("assets/js/chart.min.js"),
