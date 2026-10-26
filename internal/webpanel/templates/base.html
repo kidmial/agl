@@ -15,7 +15,6 @@
             color: #a5b4fc;
             font-family: 'Courier New', Courier, monospace;
             margin: 0;
-            padding: 20px;
             font-size: 14px;
         }
 
@@ -83,13 +82,43 @@
             color: #64748b;
         }
 
+        .wrap {
+            padding: 20px;
+        }
+
         .header {
+            position: sticky;
+            top: 0;
+            padding: 20px;
             display: flex;
-            flex-direction: row;
-            align-items: center;
-            padding: 5px 5px 10px 0;
-            border-bottom: 1px solid #1e293b;
-            margin-bottom: 20px;
+            flex-wrap: nowrap;
+            justify-content: space-between;
+            background: rgba(10, 10, 11, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            z-index: 100;
+        }
+
+        /* header на узких экранах */
+        @media (max-width: 900px) {
+            .header {
+                position: sticky;
+                top: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 5px 5px 10px 0;
+                border-bottom: 1px solid #1e293b;
+            }
+
+            .logo {
+                padding: 10px 0 0 0;
+            }
+
+            .nav {
+                margin: 14px 0 5px 0;
+            }
         }
 
         .logo {
@@ -106,7 +135,6 @@
         }
 
         .nav {
-            margin-left: 20px;
             display: flex;
             gap: 15px;
         }
@@ -193,46 +221,48 @@
             <a href="{{.Prefix}}dashboard/siem" class="nav-link">SIEM</a>
         </nav>
     </div>
-    {{end}}
+    <div class="wrap">
+        {{end}}
 
-    {{define "footer"}}
-    <script>
-        function rebuildHistory() {
-            var btn = document.getElementById('rebuildBtn');
-            var status = document.getElementById('rebuildStatus');
-            if (!btn || !status) return;
+        {{define "footer"}}
+        <script>
+            function rebuildHistory() {
+                var btn = document.getElementById('rebuildBtn');
+                var status = document.getElementById('rebuildStatus');
+                if (!btn || !status) return;
 
-            btn.disabled = true;
-            btn.textContent = 'Загрузка...';
-            status.textContent = 'Чтение файла лога...';
-            status.className = 'control-status';
+                btn.disabled = true;
+                btn.textContent = 'Загрузка...';
+                status.textContent = 'Чтение файла лога...';
+                status.className = 'control-status';
 
-            var pathParts = window.location.pathname.split('/');
-            var prefix = pathParts[1] ? pathParts[1] + '/' : '';
+                var pathParts = window.location.pathname.split('/');
+                var prefix = pathParts[1] ? pathParts[1] + '/' : '';
 
-            fetch('/' + prefix + 'api/rebuild', { method: 'POST' })
-                .then(function (res) { return res.json(); })
-                .then(function (data) {
-                    if (data.success) {
-                        btn.textContent = 'История загружена';
-                        status.textContent = data.valid + ' событий загружено (' + data.broken + ' битых строк пропущено). Перезапустите сервис для повторной загрузки.';
-                        status.className = 'control-status success';
-                        setTimeout(function () { window.location.reload(); }, 2000);
-                    } else {
+                fetch('/' + prefix + 'api/rebuild', { method: 'POST' })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        if (data.success) {
+                            btn.textContent = 'История загружена';
+                            status.textContent = data.valid + ' событий загружено (' + data.broken + ' битых строк пропущено). Перезапустите сервис для повторной загрузки.';
+                            status.className = 'control-status success';
+                            setTimeout(function () { window.location.reload(); }, 2000);
+                        } else {
+                            btn.disabled = false;
+                            btn.textContent = 'Загрузить историю из лога';
+                            status.textContent = data.reason || data.error || 'Ошибка загрузки';
+                            status.className = 'control-status error';
+                        }
+                    })
+                    .catch(function (err) {
                         btn.disabled = false;
                         btn.textContent = 'Загрузить историю из лога';
-                        status.textContent = data.reason || data.error || 'Ошибка загрузки';
+                        status.textContent = 'Ошибка сети: ' + err.message;
                         status.className = 'control-status error';
-                    }
-                })
-                .catch(function (err) {
-                    btn.disabled = false;
-                    btn.textContent = 'Загрузить историю из лога';
-                    status.textContent = 'Ошибка сети: ' + err.message;
-                    status.className = 'control-status error';
-                });
-        }
-    </script>
+                    });
+            }
+        </script>
+    </div>
 </body>
 
 </html>
