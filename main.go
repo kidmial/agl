@@ -1,11 +1,9 @@
 // main.go
 // ============================================================================
-// КОМПОНЕНТ: Точка входа комплекса кибербезопасности «Амберная Гвардия Лаборатория»
-// ВЕРСИЯ: v8.0.1
+// КОМПОНЕНТ: Точка входа комплекса кибербезопасности «Amber Guard Laboratory»
+// ВЕРСИЯ: v8.6.2
 // РОЛЬ: Инициализация окружения, маршрутизация режимов запуска (демон / TUI),
-//
-//	реанимация состояний при старте.
-//
+// реанимация состояний при старте.
 // ============================================================================
 //
 // АРХИТЕКТУРНАЯ ПОЗИЦИЯ:
@@ -69,7 +67,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
-	"time" // <-- ДОБАВИТЬ: для получения версии Go
+	"time"
 )
 
 // ============================================================================
@@ -107,7 +105,7 @@ func ensureDefaultConfig(configPath string) {
 		TarpitBacklog:       1024,
 		AdminIdleTimeout:    10,                       // M2: дефолт 10 минут
 		WebRescueEnabled:    true,                     // M3: канал спасения включён по умолчанию
-		WebRescuePort:       55111,                    // M3b: порт автономного HTTP-сервера веб-стука
+		WebRescuePort:       55111,                    // M3b: порт автономного HTTP-сервера
 		WebServerEnabled:    true,                     // v8.4.7: физический HTTP-слушатель включён по умолчанию
 		SshAllowInFromIp:    false,                    // v8.5.0: опция A выключена по умолчанию — защита только по явной декларации
 		SshIpWebKnock:       false,                    // v8.5.0: опция B выключена по умолчанию — защита только по явной декларации
@@ -306,7 +304,7 @@ func main() {
 	}
 
 	// СТРОГО ДЕТЕРМИНИРОВАННЫЙ ГЛОБАЛЬНЫЙ ПУТЬ КОНФИГУРАЦИИ БРЕНДА
-	// Соответствует мировому стандарту Filesystem Hierarchy Standard (FHS).
+	// Соответствует стандарту Filesystem Hierarchy Standard (FHS).
 	// БЛОК 4.4: Используем константу из config/paths.go
 	configPath := config.FileConfig
 
@@ -440,9 +438,7 @@ func main() {
 	}
 
 	// =========================================================================
-	//
 	//	ЭТАП: Режим наблюдателя простоя администратора (--watcher)
-	//
 	// =========================================================================
 	//
 	// Если процесс запущен с флагом `--watcher`, он работает как
@@ -1060,6 +1056,7 @@ func ShowInfoPanel(plain bool) {
 	if plain || !isTerminal {
 		printInfoHeader(plain)
 		printWebRescueInfo(plain)
+		printStatisticsInfo(plain)
 		printServiceStatus(plain)
 		printPathsInfo(plain)
 		printVersionInfo(plain)
@@ -1074,23 +1071,25 @@ func ShowInfoPanel(plain bool) {
 		clearScreen()
 		printInfoHeader(false)
 
-		var m1, m2, m3, m4, m5, m6, prompt string
+		var m1, m2, m3, m4, m5, m6, m7, prompt string
 		if lang == "ru" {
 			m1 = "1. Адрес веб-канала спасения"
-			m2 = "2. Статус служб комплекса"
-			m3 = "3. Пути конфигурации и журналов"
-			m4 = "4. Версия, лицензия и сборка"
-			m5 = "5. Сетевые параметры (рокировка, порты)"
-			m6 = "6. Выход"
-			prompt = "Выберите пункт [1-6]: "
+			m2 = "2. Веб-панель статистики"
+			m3 = "3. Статус служб комплекса"
+			m4 = "4. Пути конфигурации и журналов"
+			m5 = "5. Версия, лицензия и сборка"
+			m6 = "6. Сетевые параметры (рокировка, порты)"
+			m7 = "7. Выход"
+			prompt = "Выберите пункт [1-7]: "
 		} else {
 			m1 = "1. Web Rescue Channel URL"
-			m2 = "2. Complex Service Status"
-			m3 = "3. Configuration and Log Paths"
-			m4 = "4. Version, License and Build"
-			m5 = "5. Network Parameters (castling, ports)"
-			m6 = "6. Exit"
-			prompt = "Select option [1-6]: "
+			m2 = "2. Statistics web panel"
+			m3 = "3. Complex Service Status"
+			m4 = "4. Configuration and Log Paths"
+			m5 = "5. Version, License and Build"
+			m6 = "6. Network Parameters (castling, ports)"
+			m7 = "7. Exit"
+			prompt = "Select option [1-7]: "
 		}
 
 		fmt.Println(m1)
@@ -1099,6 +1098,7 @@ func ShowInfoPanel(plain bool) {
 		fmt.Println(m4)
 		fmt.Println(m5)
 		fmt.Println(m6)
+		fmt.Println(m7)
 		fmt.Print("\n" + prompt)
 
 		reader := bufio.NewReader(os.Stdin)
@@ -1114,24 +1114,29 @@ func ShowInfoPanel(plain bool) {
 		case "2":
 			clearScreen()
 			printInfoHeader(false)
-			printServiceStatus(false)
+			printStatisticsInfo(false)
 			waitForEnter(lang)
 		case "3":
 			clearScreen()
 			printInfoHeader(false)
-			printPathsInfo(false)
+			printServiceStatus(false)
 			waitForEnter(lang)
 		case "4":
 			clearScreen()
 			printInfoHeader(false)
-			printVersionInfo(false)
+			printPathsInfo(false)
 			waitForEnter(lang)
 		case "5":
 			clearScreen()
 			printInfoHeader(false)
+			printVersionInfo(false)
+			waitForEnter(lang)
+		case "6":
+			clearScreen()
+			printInfoHeader(false)
 			printNetworkParams(false)
 			waitForEnter(lang)
-		case "6", "0", "exit", "выход", "quit":
+		case "7", "0", "exit", "выход", "quit":
 			clearScreen()
 			return
 		default:
@@ -1223,6 +1228,74 @@ func printWebRescueInfo(plain bool) {
 				fmt.Println("\033[1;31mКанал спасения: ВЫКЛЮЧЕН\033[0m")
 			} else {
 				fmt.Println("\033[1;31mRescue Channel: DISABLED\033[0m")
+			}
+		}
+	}
+	fmt.Println()
+}
+
+// printStatisticsInfo выводит URL веб-панели статистики.
+// v8.6.2: отдельный пункт меню (--info), так как панель — ключевой
+// компонент обзора периметра и заслуживает собственного экрана.
+//
+// Источник правды:
+//   - WebHttpsPanelActive — тумблер включения панели;
+//   - WebInterfaceHashPrefix — криптографический префикс пути (защита от перебора);
+//   - WebPanelTimezone — витринная таймзона для отчётов.
+//
+// Порт HTTPS для панели не задан отдельным полем в конфиге —
+// панель слушает на HTTPS-порту (по умолчанию 55111), который обслуживается
+// watcher-сервисом комплекса.
+func printStatisticsInfo(plain bool) {
+	lang := getLanguage()
+	c := config.C
+
+	fmt.Println()
+	if c.WebHttpsPanelActive {
+		hashPrefix := c.WebInterfaceHashPrefix
+		if hashPrefix == "" {
+			hashPrefix = "unknown"
+		}
+		serverIP := getServerIP()
+
+		tz := c.WebPanelTimezone
+		if tz == "" {
+			tz = "Local"
+		}
+
+		if plain {
+			if lang == "ru" {
+				fmt.Println("Веб-панель статистики: ВКЛЮЧЕНА")
+				fmt.Printf("Полный адрес: https://%s:%d/%s/\n", serverIP, c.WebRescuePort, hashPrefix)
+				fmt.Printf("Часовой пояс: %s\n", tz)
+			} else {
+				fmt.Println("Statistics Panel: ENABLED")
+				fmt.Printf("Full URL: https://%s:%d/%s/\n", serverIP, c.WebRescuePort, hashPrefix)
+				fmt.Printf("Timezone: %s\n", tz)
+			}
+		} else {
+			if lang == "ru" {
+				fmt.Println("\033[1;32mВеб-панель статистики: ВКЛЮЧЕНА\033[0m")
+				fmt.Printf("Полный адрес: \033[1;33mhttps://%s:%d/%s/\033[0m\n", serverIP, c.WebRescuePort, hashPrefix)
+				fmt.Printf("Часовой пояс: \033[0;36m%s\033[0m\n", tz)
+			} else {
+				fmt.Println("\033[1;32mStatistics Panel: ENABLED\033[0m")
+				fmt.Printf("Full URL: \033[1;33mhttps://%s:%d/%s/\033[0m\n", serverIP, c.WebRescuePort, hashPrefix)
+				fmt.Printf("Timezone: \033[0;36m%s\033[0m\n", tz)
+			}
+		}
+	} else {
+		if plain {
+			if lang == "ru" {
+				fmt.Println("Веб-панель статистики: ВЫКЛЮЧЕНА")
+			} else {
+				fmt.Println("Statistics Panel: DISABLED")
+			}
+		} else {
+			if lang == "ru" {
+				fmt.Println("\033[1;31mВеб-панель статистики: ВЫКЛЮЧЕНА\033[0m")
+			} else {
+				fmt.Println("\033[1;31mStatistics Panel: DISABLED\033[0m")
 			}
 		}
 	}
