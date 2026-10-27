@@ -1251,7 +1251,7 @@ func printServiceStatus(plain bool) {
 		baseTarpitStatus = "ON"
 	}
 
-	lblUfw, lblTarpit, lblWatcher, lblCastling, lblBase := "UFW:", "Trap Daemon:", "Watcher:", "Castling:", "Base Pit:"
+	lblUfw, lblTarpit, lblWatcher, lblCastling, lblBase := "UFW:", "Trap Daemon:", "Watcher:", "Castling:", "CORE Pit:"
 	if lang == "ru" {
 		lblUfw, lblTarpit, lblWatcher, lblCastling, lblBase = "UFW:", "Демон ловушек:", "Наблюдатель:", "Рокировка:", "Базовая яма:"
 	}
@@ -1300,7 +1300,7 @@ func printPathsInfo(plain bool) {
 
 	lblConf, lblInv, lblTarpitInv, lblLog, lblState, lblBin := "Config:", "Perimeter Inv:", "Tarpit Inv:", "Log:", "States:", "Binary:"
 	if lang == "ru" {
-		lblConf, lblInv, lblTarpitInv, lblLog, lblState, lblBin = "Конфигурация:", "Инвентарь:", "Инвентарь ям:", "Журнал:", "Состояния:", "Бинарник:"
+		lblConf, lblInv, lblTarpitInv, lblLog, lblState, lblBin = "Конфигурация:", "Инвентарь:", "Инвентарь ловушек:", "Журнал:", "Состояния:", "Бинарник:"
 	}
 
 	if plain {
@@ -1321,48 +1321,58 @@ func printPathsInfo(plain bool) {
 	fmt.Println()
 }
 
+// printVersionInfo выводит информацию о версии и источниках.
 func printVersionInfo(plain bool) {
 	lang := getLanguage()
 	goVersion := strings.TrimPrefix(runtime.Version(), "go")
 
 	// Канонические ссылки
 	officialSite := "https://amberguard.dev"
-	sourceCode := "https://github.com/kidmial/agl"
+	// GitHub Source Code
+	sourceCodeGitHub := "https://github.com/kidmial/agl"
+	// GitFlic Source Code
+	sourceCodeGitFlic := "https://gitflic.ru/project/kidmial/agl"
 
-	var lblVer, lblBuild, lblGo, lblLic, lblSite, lblSource string
+	var lblVer, lblBuild, lblGo, lblLic, lblSite, lblGitHubSource, lblGitFlicSource string
 
+	// 1. Определение меток (Labels) в зависимости от языка
 	if lang == "ru" {
 		lblVer = "Версия:"
 		lblBuild = "Сборка:"
 		lblGo = "Go:"
 		lblLic = "Лицензия:"
 		lblSite = "Офиц. сайт:"
-		lblSource = "Исходный код:"
+		lblGitHubSource = "GitHub Source Code:"
+		lblGitFlicSource = "GitFlic Source Code:"
 	} else {
 		lblVer = "Version:"
 		lblBuild = "Build:"
 		lblGo = "Go:"
 		lblLic = "License:"
 		lblSite = "Official Site:"
-		lblSource = "Source Code:"
+		lblGitHubSource = "GitHub Source Code:"
+		lblGitFlicSource = "GitFlic Source Code:"
 	}
 
+	// 2. Вывод информации
 	if plain {
-		fmt.Printf("%-16s %s\n", lblVer, buildinfo.Version)
-		fmt.Printf("%-16s %s\n", lblBuild, buildinfo.BuildTime)
-		fmt.Printf("%-16s go%s\n", lblGo, goVersion)
-		fmt.Printf("%-16s GNU AGPLv3\n", lblLic)
-		fmt.Printf("%-16s %s\n", lblSite, officialSite)
-		fmt.Printf("%-16s %s\n", lblSource, sourceCode)
+		// --- plain вывод информации ---
+		fmt.Printf("%-20s %s\n", lblVer, buildinfo.Version)
+		fmt.Printf("%-20s %s\n", lblBuild, buildinfo.BuildTime)
+		fmt.Printf("%-20s go%s\n", lblGo, goVersion)
+		fmt.Printf("%-20s GNU AGPLv3\n", lblLic)
+		fmt.Printf("%-20s %s\n", lblSite, officialSite)
+		fmt.Printf("%-20s %s\n", lblGitHubSource, sourceCodeGitHub)
+		fmt.Printf("%-20s %s\n", lblGitFlicSource, sourceCodeGitFlic)
 	} else {
-		// Цветовое кодирование для иерархии:
-		// Сайт - янтарный (бренд, основа), Репозиторий - приглушенный циан или белый
-		fmt.Printf("\033[1;36m%-16s\033[0m %s\n", lblVer, buildinfo.Version)
-		fmt.Printf("\033[1;36m%-16s\033[0m %s\n", lblBuild, buildinfo.BuildTime)
-		fmt.Printf("\033[1;36m%-16s\033[0m go%s\n", lblGo, goVersion)
-		fmt.Printf("\033[1;32m%-16s\033[0m GNU AGPLv3\n", lblLic)
-		fmt.Printf("\033[1;33m%-16s\033[0m %s\n", lblSite, officialSite) // Янтарный (акцент)
-		fmt.Printf("\033[0;36m%-16s\033[0m %s\n", lblSource, sourceCode) // Циан (информативно)
+		// --- Вывод информации в терминале ---
+		fmt.Printf("\033[1;36m%-20s\033[0m %s\n", lblVer, buildinfo.Version)
+		fmt.Printf("\033[1;36m%-20s\033[0m %s\n", lblBuild, buildinfo.BuildTime)
+		fmt.Printf("\033[1;36m%-20s\033[0m go%s\n", lblGo, goVersion)
+		fmt.Printf("\033[1;32m%-20s\033[0m GNU AGPLv3\n", lblLic)
+		fmt.Printf("\033[1;33m%-20s\033[0m %s\n", lblSite, officialSite)
+		fmt.Printf("\033[0;36m%-20s\033[0m %s\n", lblGitHubSource, sourceCodeGitHub)
+		fmt.Printf("\033[0;36m%-20s\033[0m %s\n", lblGitFlicSource, sourceCodeGitFlic)
 	}
 	fmt.Println()
 }

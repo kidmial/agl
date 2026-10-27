@@ -95,14 +95,16 @@ sudo ./agl --watcher
 sudo ./agl --autoupdate
 ```
 
-## CLI-ключи
+## CLI-флаги
 
 ```bash
-sudo ./agl --version      # Версия и штамп сборки
-sudo ./agl --info         # Интерактивная инфопанель (пути, статусы, канал спасения)
-sudo ./agl --info --plain # Плоский текстовый вывод для --info (без псевдографики)
-sudo ./agl --autoupdate   # Oneshot-цикл обновлений ОС (вызывается таймером)
-sudo ./agl --lang ru|en   # Язык интерфейса на этот запуск (не сохраняется)
+# При установке, инсталлятор создает символьные ссылки
+# CLI-флаги запускаются при помощи команды `agl --ФЛАГ`
+agl --version      # Версия и штамп сборки
+agl --info         # Интерактивная инфопанель (пути, статусы, канал спасения)
+agl --info --plain # Плоский текстовый вывод для --info (без псевдографики)
+agl --autoupdate   # Oneshot-цикл обновлений ОС (вызывается таймером)
+agl --lang ru|en   # Язык интерфейса на разовый запуск (не сохраняется)
 ```
 
 ## Режимы запуска
@@ -118,30 +120,30 @@ sudo ./agl --lang ru|en   # Язык интерфейса на этот запу
 
 ## Структура директорий
 
-| Путь                                                    | Назначение                                         |
-| ------------------------------------------------------- | -------------------------------------------------- |
-| `/opt/amberguard/agl`                                   | Исполняемый бинарник                               |
-| `/etc/amberguard/config.json`                           | Центральный конфиг                                 |
-| `/etc/amberguard/tarpit_inventory.json`                 | Декларативный инвентарь ловушек                    |
-| `/etc/amberguard/perimeter_inventory.json`              | Инвентарь периметра (авто-скан)                    |
-| `/etc/amberguard/backup_targets.json`                   | Цели резервного копирования                        |
-| `/etc/amberguard/certs/server.crt`                      | TLS-сертификат веб-стука (самоподписанный, 10 лет) |
-| `/etc/amberguard/certs/server.key`                      | Приватный ключ TLS (0600)                          |
-| `/var/lib/amberguard/states/`                           | Персистентные маркеры состояний                    |
-| `/var/lib/amberguard/states/agl_autoupdate_last_run`    | Unix-время последнего успешного цикла обновлений   |
-| `/var/lib/amberguard/states/agl_rescue_active`          | Маркер активного канала спасения                   |
-| `/var/lib/amberguard/states/agl_rescue_ip_pending`      | Маркер ожидания детекции IP админа                 |
-| `/var/lib/amberguard/states/agl_moved_rule_type`        | Тип правила перенесённого порта (allow/limit/reject)|
-| `/var/log/amberguard/amberguard.log`                    | Главный журнал (logrotate)                         |
-| `/var/log/amberguard/tarpit_connection.log`             | Касания сокетов                                    |
-| `/var/log/amberguard/tarpit_report.log`                 | Криминалистическая хроника (30 колонок)            |
-| `/var/run/amberguard/`                                  | Runtime (flock-предохранители единственности)      |
-| `/dev/shm/amberguard.counter`                           | IPC-счётчик ботов в капкане                        |
-| `/dev/shm/agl_proto_web_rescue/`                        | Директория веб-стука (tmpfs, 0700)                 |
-| `/etc/systemd/system/agld_tarpit.service`               | Юнит демона ловушек                                |
-| `/etc/systemd/system/agld_watcher.service`              | Юнит наблюдателя (Restart=on-failure)              |
-| `/etc/systemd/system/agld_autoupdate.timer`             | Расписание автообновлений (создаётся декларативно) |
-| `/etc/logrotate.d/amberguard`                           | Конфиг ротации логов (создаётся при первом старте) |
+| Путь                                                 | Назначение                                           |
+| ---------------------------------------------------- | ---------------------------------------------------- |
+| `/opt/amberguard/agl`                                | Исполняемый бинарник                                 |
+| `/etc/amberguard/config.json`                        | Центральный конфиг                                   |
+| `/etc/amberguard/tarpit_inventory.json`              | Декларативный инвентарь ловушек                      |
+| `/etc/amberguard/perimeter_inventory.json`           | Инвентарь периметра (авто-скан)                      |
+| `/etc/amberguard/backup_targets.json`                | Цели резервного копирования                          |
+| `/etc/amberguard/certs/server.crt`                   | TLS-сертификат веб-стука (самоподписанный, 10 лет)   |
+| `/etc/amberguard/certs/server.key`                   | Приватный ключ TLS (0600)                            |
+| `/var/lib/amberguard/states/`                        | Персистентные маркеры состояний                      |
+| `/var/lib/amberguard/states/agl_autoupdate_last_run` | Unix-время последнего успешного цикла обновлений     |
+| `/var/lib/amberguard/states/agl_rescue_active`       | Маркер активного канала спасения                     |
+| `/var/lib/amberguard/states/agl_rescue_ip_pending`   | Маркер ожидания детекции IP админа                   |
+| `/var/lib/amberguard/states/agl_moved_rule_type`     | Тип правила перенесённого порта (allow/limit/reject) |
+| `/var/log/amberguard/amberguard.log`                 | Главный журнал (logrotate)                           |
+| `/var/log/amberguard/tarpit_connection.log`          | Касания сокетов                                      |
+| `/var/log/amberguard/tarpit_report.log`              | Криминалистическая хроника (30 колонок)              |
+| `/var/run/amberguard/`                               | Runtime (flock-предохранители единственности)        |
+| `/dev/shm/amberguard.counter`                        | IPC-счётчик ботов в капкане                          |
+| `/dev/shm/agl_proto_web_rescue/`                     | Директория веб-стука (tmpfs, 0700)                   |
+| `/etc/systemd/system/agld_tarpit.service`            | Юнит демона ловушек                                  |
+| `/etc/systemd/system/agld_watcher.service`           | Юнит наблюдателя (Restart=on-failure)                |
+| `/etc/systemd/system/agld_autoupdate.timer`          | Расписание автообновлений (создаётся декларативно)   |
+| `/etc/logrotate.d/amberguard`                        | Конфиг ротации логов (создаётся при первом старте)   |
 
 ## Автообновление сервера
 

@@ -80,13 +80,15 @@ Managed declaratively: enabling `auto_update_enabled` toggle in SETTINGS creates
 sudo ./agl --autoupdate
 ```
 
-### CLI keys
+### CLI Flags
 ```bash
-sudo ./agl --version      # Version and build timestamp
-sudo ./agl --info         # Interactive info panel (paths, statuses, rescue channel)
-sudo ./agl --info --plain # Plain text output for --info (no pseudo-graphics)
-sudo ./agl --autoupdate   # Oneshot OS update cycle (called by timer)
-sudo ./agl --lang ru|en   # Interface language for this launch (not saved)
+# During installation, the installer creates symbolic links.
+# CLI flags are invoked using the command `agl --FLAG`.
+agl --version      # Version and build timestamp
+agl --info         # Interactive info panel (paths, statuses, rescue channel)
+agl --info --plain # Plain text output for --info (no pseudo-graphics)
+agl --autoupdate   # Oneshot OS update cycle (called by timer)
+agl --lang ru|en   # Interface language for a one-time launch (not saved)
 ```
 
 ### Launch modes
