@@ -109,7 +109,7 @@ type Config struct {
 
 	// --- M4b (v8.3.0): Префикс для будущего веб-интерфейса ---
 	// Отдельный префикс для панели управления (пока заглушка).
-	// Пример: https://ip:55111/x7k2m9p4q1w8/panel
+	// Пример: https://ip:55111/x7k2m9p4q1w8/dashboard/overview
 	WebInterfaceHashPrefix string `json:"web_interface_hash_prefix,omitempty"`
 
 	// --- M5 (v8.4.0): Автообновления сервера ---
@@ -144,7 +144,7 @@ type Config struct {
 	SshIpWebKnock bool `json:"ssh_ip_web_knock"`
 
 	// --- v8.5.0: Веб-панель (уровень 3) ---
-	// Активирует доступность маршрута /panel на порту веб-сервера.
+	// Активирует доступность маршрута /dashboard/overview на порту веб-сервера.
 	// CONTRACT: требует WebServerEnabled; на SSH-доступ не влияет.
 	// Дефолт: false (fail-closed). Настраивается через SETTINGS.
 	WebHttpsPanelActive bool `json:"web_https_panel_active"`

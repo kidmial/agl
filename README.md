@@ -26,9 +26,9 @@ Amber Guard Lab. (AGL) — an autonomous defense complex for Linux hosts (Ubuntu
 - **Rescue Channel (Web Rescue)** — autonomous HTTPS web-knock server (web gateway) with TLS 1.2+ and bcrypt password: access even with a closed perimeter. Three protection levels:
   - Option A (`ssh_allow_in_from_ip`): permanent admin door — IP whitelist on the hidden port.
   - Option B (`ssh_ip_web_knock`): web-knock with incineration of temporary doors on admin idle timeout. Requires Option A.
-  - Option C (`web_https_panel_active`): web panel availability (route `/panel`).
+  - Option C (`web_https_panel_active`): web panel availability (route `/dashboard/overview`).
   - Channel is active only when matched: castling ∧ enabled HTTPS server ∧ enabled Option B.
-  - Cryptographic route prefixes (12 hex characters): `/hash/rescue`, `/hash/panel`.
+  - Cryptographic route prefixes (12 hex characters): `/hash/rescue`, `/hash/dashboard/overview`.
 - **Idle Watcher (Watcher)** — session detection via `/var/run/utmp` and "incineration" of temporary doors on admin idle. Lifecycle follows the physical server (`web_server_enabled`); when the server is disabled, the process terminates itself. Port castling does not affect the watcher lifecycle.
 - **Forensics** — SIEM chronicle of touches and exhaustion: countries (GeoIP), behavior, extended TCP fingerprints of scanners (30 columns: MSS, RTT, retransmits, IAT statistics, read size buckets, close reason).
 - **Server Auto-update (v8.4.0)** — autonomous daily OS update cycle (`apt-get dist-upgrade` in noninteractive mode), reboot necessity detection, and delayed reboot; scheduled via systemd timer, declaratively enabled from SETTINGS.

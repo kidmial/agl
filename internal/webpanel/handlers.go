@@ -136,11 +136,6 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		renderDashboard(w, "dashboard_overview", prefix, counters, profileCounters, hourStats, profiles, health, stolenTime)
 	})
 
-	// 1.1. Обратная совместимость: редирект со старого /panel
-	mux.HandleFunc(prefix+"panel", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, prefix+"dashboard/overview", http.StatusMovedPermanently)
-	})
-
 	// 1.2. Дашборд: Динамика атаки
 	mux.HandleFunc(prefix+"dashboard/vitals", func(w http.ResponseWriter, r *http.Request) {
 		if !config.C.WebHttpsPanelActive {

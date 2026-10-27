@@ -68,10 +68,10 @@ func startWebRescueServer(port int) *http.Server {
 	// 1 & 2. Делегируем регистрацию маршрутов стука в web_rescue.go
 	registerRescueRoutes(mux, knockPrefix)
 
-	// 3. Редирект с корня префикса интерфейса на /panel
+	// 3. Редирект с корня префикса интерфейса на /dashboard/overview
 	mux.HandleFunc(interfacePrefix, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == interfacePrefix || r.URL.Path == interfacePrefix+"/" {
-			http.Redirect(w, r, interfacePrefix+"panel", http.StatusFound)
+			http.Redirect(w, r, interfacePrefix+"dashboard/overview", http.StatusFound)
 			return
 		}
 		handle404Stub(w, r)
