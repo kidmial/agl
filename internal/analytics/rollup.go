@@ -14,6 +14,7 @@ package analytics
 
 import (
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -39,6 +40,7 @@ type CountryBucket struct {
 	DropSumSec uint64 // только FIN/RST
 	DropCount  uint64
 	UniqueIPs  map[string]struct{}
+	Traps      map[string]uint64 // порт -> количество событий
 }
 
 // IPBucket — агрегат IP-адреса внутри одного бакета.
@@ -54,6 +56,7 @@ type IPBucket struct {
 	CloseReasons map[string]uint64
 	FirstSeen    time.Time
 	LastSeen     time.Time
+	Trap         string // последняя ловушка, в которую попал этот IP
 }
 
 // HourBucket — часовая агрегация.
@@ -67,6 +70,7 @@ type HourAggBucket struct {
 	Behavior  map[string]uint64
 	Countries map[string]*CountryBucket
 	IPs       map[string]*IPBucket
+	Traps     map[string]*TrapBucket // "22", "2222", "8080" -> агрегаты
 }
 
 // DayBucket — суточная агрегация.
@@ -80,6 +84,17 @@ type DayAggBucket struct {
 	Behavior  map[string]uint64
 	Countries map[string]*CountryBucket
 	IPs       map[string]*IPBucket
+	Traps     map[string]*TrapBucket
+}
+
+type TrapBucket struct {
+	Port       string
+	Events     uint64
+	HoldSumSec uint64
+	DropSumSec uint64
+	DropCount  uint64
+	UniqueIPs  map[string]struct{}
+	Countries  map[string]uint64
 }
 
 // Rollup — глобальные кольца бакетов.
@@ -88,6 +103,77 @@ type Rollup struct {
 	loc   *time.Location
 	hours [HourBucketsDepth]*HourAggBucket
 	days  [DayBucketsDepth]*DayAggBucket
+}
+
+type TrapReport struct {
+	Port            string
+	Label           string // "CORE" для 22, "Порт 2222" для остальных
+	Events          uint64
+	HoldSumSec      uint64
+	UniqueIPs       int
+	UniqueCountries int
+	DropCount       uint64
+	Efficiency      float64 // HoldSumSec / Events (среднее удержание на событие)
+}
+
+// trapPort извлекает номер порта из идентификатора ловушки.
+// Поддерживает форматы: "TARPIT:22", "22", "agl_tarpit_listener_port.22".
+// Возвращает пустую строку, если цифры извлечь не удалось.
+func trapPort(tarpitID string) string {
+	s := strings.TrimSpace(tarpitID)
+	if s == "" {
+		return ""
+	}
+	// Хвост после последнего разделителя.
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == ':' || s[i] == '.' || s[i] == '_' {
+			s = s[i+1:]
+			break
+		}
+	}
+	digits := ""
+	for _, c := range s {
+		if c >= '0' && c <= '9' {
+			digits += string(c)
+		} else {
+			break
+		}
+	}
+	return digits
+}
+
+// TrapLabel — человекочитаемое имя ловушки по терминологии комплекса:
+// порт 22 — "CORE", остальные — "Порт N".
+// Если порт не извлекается, возвращаем сырой идентификатор:
+// честность важнее красивого ярлыка.
+func TrapLabel(tarpitID string) string {
+	port := trapPort(tarpitID)
+	switch {
+	case port == "":
+		if strings.TrimSpace(tarpitID) == "" {
+			return "UNKNOWN"
+		}
+		return tarpitID
+	case port == "22":
+		return "CORE"
+	default:
+		return "Порт " + port
+	}
+}
+
+// topCountKey возвращает ключ с наибольшим весом.
+// При равенстве — лексически меньший (детерминизм вывода).
+// Пустая карта — пустая строка.
+func topCountKey(m map[string]uint64) string {
+	best := ""
+	var bestCount uint64
+	for k, v := range m {
+		if v > bestCount || (v == bestCount && v > 0 && k < best) {
+			best = k
+			bestCount = v
+		}
+	}
+	return best
 }
 
 // SetTimezone устанавливает витринную таймзону для бакетов.
@@ -162,6 +248,7 @@ func newHourAggBucket(hour time.Time) *HourAggBucket {
 		Behavior:  make(map[string]uint64),
 		Countries: make(map[string]*CountryBucket),
 		IPs:       make(map[string]*IPBucket),
+		Traps:     make(map[string]*TrapBucket),
 	}
 }
 
@@ -171,6 +258,7 @@ func newDayAggBucket(day time.Time) *DayAggBucket {
 		Behavior:  make(map[string]uint64),
 		Countries: make(map[string]*CountryBucket),
 		IPs:       make(map[string]*IPBucket),
+		Traps:     make(map[string]*TrapBucket),
 	}
 }
 
@@ -192,6 +280,35 @@ func applyEventToHour(h *HourAggBucket, rec EventRecord) {
 	}
 	h.Behavior[behavior]++
 
+	// Измерение ловушек: агрегат по порту + дубли в срезы стран и IP.
+	if rec.TarpitIDValid {
+		if port := trapPort(rec.TarpitID); port != "" {
+			tb := h.Traps[port]
+			if tb == nil {
+				tb = &TrapBucket{
+					Port:      port,
+					UniqueIPs: make(map[string]struct{}),
+					Countries: make(map[string]uint64),
+				}
+				h.Traps[port] = tb
+			}
+			tb.Events++
+			if rec.ActualHoldValid {
+				tb.HoldSumSec += rec.ActualHoldSec
+			}
+			if isClientDrop(rec.CloseReason) && rec.ActualHoldValid {
+				tb.DropSumSec += rec.ActualHoldSec
+				tb.DropCount++
+			}
+			if rec.IPValid && rec.IP != "" {
+				tb.UniqueIPs[rec.IP] = struct{}{}
+			}
+			if rec.Country != "" {
+				tb.Countries[rec.Country]++
+			}
+		}
+	}
+
 	if rec.Country != "" {
 		c, ok := h.Countries[rec.Country]
 		if !ok {
@@ -204,6 +321,14 @@ func applyEventToHour(h *HourAggBucket, rec EventRecord) {
 		}
 		if c != nil {
 			c.Events++
+			if rec.TarpitIDValid {
+				if p := trapPort(rec.TarpitID); p != "" {
+					if c.Traps == nil {
+						c.Traps = make(map[string]uint64)
+					}
+					c.Traps[p]++
+				}
+			}
 			if rec.ActualHoldValid {
 				c.HoldSumSec += rec.ActualHoldSec
 			}
@@ -240,6 +365,12 @@ func applyEventToHour(h *HourAggBucket, rec EventRecord) {
 			ip.Country = rec.Country
 		}
 		ip.Events++
+		// Последняя ловушка бакета: для колонки «Ловушка» в отчёте IP.
+		if rec.TarpitIDValid {
+			if p := trapPort(rec.TarpitID); p != "" {
+				ip.Trap = p
+			}
+		}
 		if rec.ActualHoldValid {
 			ip.HoldSumSec += rec.ActualHoldSec
 		}
@@ -283,6 +414,37 @@ func applyEventToDay(d *DayAggBucket, rec EventRecord) {
 	}
 	d.Behavior[behavior]++
 
+	// Измерение ловушек: агрегат по порту для суточного бакета.
+	// Без этого блока недельный и месячный отчёты теряют эффективность ловушек:
+	// сутки и неделя живут на разных кольцах, и оба обязаны наполняться.
+	if rec.TarpitIDValid {
+		if port := trapPort(rec.TarpitID); port != "" {
+			tb := d.Traps[port]
+			if tb == nil {
+				tb = &TrapBucket{
+					Port:      port,
+					UniqueIPs: make(map[string]struct{}),
+					Countries: make(map[string]uint64),
+				}
+				d.Traps[port] = tb
+			}
+			tb.Events++
+			if rec.ActualHoldValid {
+				tb.HoldSumSec += rec.ActualHoldSec
+			}
+			if isClientDrop(rec.CloseReason) && rec.ActualHoldValid {
+				tb.DropSumSec += rec.ActualHoldSec
+				tb.DropCount++
+			}
+			if rec.IPValid && rec.IP != "" {
+				tb.UniqueIPs[rec.IP] = struct{}{}
+			}
+			if rec.Country != "" {
+				tb.Countries[rec.Country]++
+			}
+		}
+	}
+
 	if rec.Country != "" {
 		c, ok := d.Countries[rec.Country]
 		if !ok {
@@ -295,6 +457,14 @@ func applyEventToDay(d *DayAggBucket, rec EventRecord) {
 		}
 		if c != nil {
 			c.Events++
+			if rec.TarpitIDValid {
+				if p := trapPort(rec.TarpitID); p != "" {
+					if c.Traps == nil {
+						c.Traps = make(map[string]uint64)
+					}
+					c.Traps[p]++
+				}
+			}
 			if rec.ActualHoldValid {
 				c.HoldSumSec += rec.ActualHoldSec
 			}
@@ -330,6 +500,12 @@ func applyEventToDay(d *DayAggBucket, rec EventRecord) {
 			ip.Country = rec.Country
 		}
 		ip.Events++
+		// Последняя ловушка бакета: для колонки «Ловушка» в отчёте IP.
+		if rec.TarpitIDValid {
+			if p := trapPort(rec.TarpitID); p != "" {
+				ip.Trap = p
+			}
+		}
 		if rec.ActualHoldValid {
 			ip.HoldSumSec += rec.ActualHoldSec
 		}
@@ -383,6 +559,8 @@ type CountryReport struct {
 	DropSumSec uint64
 	DropCount  uint64
 	UniqueIPs  int
+	// TopTrap — ловушка с наибольшим числом событий страны.
+	TopTrap string
 
 	// Concentration — событий на один уникальный IP.
 	// Маркер ротации: низкая = много IP по чуть-чуть (ботнет),
@@ -400,6 +578,8 @@ type IPReport struct {
 	TopCloseReason string
 	DropCount      uint64
 	LastSeen       time.Time
+	// Trap — доминирующая ловушка по весу событий.
+	Trap string
 }
 
 // MacroReport — сводные цифры за период.
@@ -554,6 +734,7 @@ func (r *Rollup) BuildCountryReport(rng ReportRange, limit int) []CountryReport 
 	defer r.mu.RUnlock()
 
 	aggregated := make(map[string]*CountryReport)
+	trapVotes := make(map[string]map[string]uint64)
 	loc := time.UTC
 	if r.loc != nil {
 		loc = r.loc
@@ -573,6 +754,12 @@ func (r *Rollup) BuildCountryReport(rng ReportRange, limit int) []CountryReport 
 		cr.HoldSumSec += cb.HoldSumSec
 		cr.DropSumSec += cb.DropSumSec
 		cr.DropCount += cb.DropCount
+		for p, n := range cb.Traps {
+			if trapVotes[cb.Code] == nil {
+				trapVotes[cb.Code] = make(map[string]uint64)
+			}
+			trapVotes[cb.Code][p] += n
+		}
 		for ip := range cb.UniqueIPs {
 			_ = ip
 			// UniqueIPs per country — считаем через map на уровне агрегата,
@@ -660,6 +847,14 @@ func (r *Rollup) BuildCountryReport(rng ReportRange, limit int) []CountryReport 
 		}
 	}
 
+	for code, cr := range aggregated {
+		if key := topCountKey(trapVotes[code]); key != "" {
+			cr.TopTrap = TrapLabel(key)
+		} else {
+			cr.TopTrap = "—"
+		}
+	}
+
 	out := make([]CountryReport, 0, len(aggregated))
 	for _, cr := range aggregated {
 		out = append(out, *cr)
@@ -692,6 +887,7 @@ func (r *Rollup) BuildIPReport(rng ReportRange, limit int) []IPReport {
 		DropCount    uint64
 		CloseReasons map[string]uint64
 		CountryVotes map[string]uint64
+		TrapVotes    map[string]uint64
 		LastSeen     time.Time
 	}
 	aggregated := make(map[string]*ipAgg)
@@ -707,10 +903,16 @@ func (r *Rollup) BuildIPReport(rng ReportRange, limit int) []IPReport {
 		}
 		a := aggregated[ip.IP]
 		if a == nil {
-			a = &ipAgg{CloseReasons: make(map[string]uint64), CountryVotes: make(map[string]uint64)}
+			a = &ipAgg{CloseReasons: make(map[string]uint64), CountryVotes: make(map[string]uint64), TrapVotes: make(map[string]uint64)}
 			aggregated[ip.IP] = a
 		}
 		a.Events += ip.Events
+		if ip.Trap != "" {
+			if a.TrapVotes == nil {
+				a.TrapVotes = make(map[string]uint64)
+			}
+			a.TrapVotes[ip.Trap] += ip.Events
+		}
 		if ip.Country != "" {
 			// Голосуем событиями бакета: доминирует страна с наибольшим весом.
 			a.CountryVotes[ip.Country] += ip.Events
@@ -764,6 +966,10 @@ func (r *Rollup) BuildIPReport(rng ReportRange, limit int) []IPReport {
 			avgRTT = float64(a.RTTSumMs) / float64(a.RTTCount)
 		}
 		topCR := topCloseReason(a.CloseReasons)
+		trapLabel := "—"
+		if key := topCountKey(a.TrapVotes); key != "" {
+			trapLabel = TrapLabel(key)
+		}
 		out = append(out, IPReport{
 			IP:             ipStr,
 			Country:        dominantCountry(a.CountryVotes),
@@ -773,6 +979,7 @@ func (r *Rollup) BuildIPReport(rng ReportRange, limit int) []IPReport {
 			TopCloseReason: topCR,
 			DropCount:      a.DropCount,
 			LastSeen:       a.LastSeen,
+			Trap:           trapLabel,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -780,6 +987,102 @@ func (r *Rollup) BuildIPReport(rng ReportRange, limit int) []IPReport {
 			return out[i].Events > out[j].Events
 		}
 		return out[i].IP < out[j].IP
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out
+}
+
+// BuildTarpitReport возвращает эффективность ловушек за период.
+// Сортировка по утилизированному времени: философия комплекса —
+// мы измеряем ловушки не числом атак, а временем, которое они сожгли.
+func (r *Rollup) BuildTarpitReport(rng ReportRange, limit int) []TrapReport {
+	if r == nil {
+		return nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	aggregated := make(map[string]*TrapBucket)
+	loc := time.UTC
+	if r.loc != nil {
+		loc = r.loc
+	}
+	now := time.Now().In(loc)
+
+	addTrap := func(tb *TrapBucket) {
+		if tb == nil || tb.Port == "" {
+			return
+		}
+		a := aggregated[tb.Port]
+		if a == nil {
+			a = &TrapBucket{
+				Port:      tb.Port,
+				UniqueIPs: make(map[string]struct{}),
+				Countries: make(map[string]uint64),
+			}
+			aggregated[tb.Port] = a
+		}
+		a.Events += tb.Events
+		a.HoldSumSec += tb.HoldSumSec
+		a.DropSumSec += tb.DropSumSec
+		a.DropCount += tb.DropCount
+		for ip := range tb.UniqueIPs {
+			a.UniqueIPs[ip] = struct{}{}
+		}
+		for country, n := range tb.Countries {
+			a.Countries[country] += n
+		}
+	}
+
+	switch rng {
+	case Range24h:
+		for _, h := range r.hours {
+			if h == nil || h.Hour.After(now) || h.Hour.Before(now.Add(-24*time.Hour)) {
+				continue
+			}
+			for _, tb := range h.Traps {
+				addTrap(tb)
+			}
+		}
+	case Range7d, Range30d:
+		days := 7
+		if rng == Range30d {
+			days = 30
+		}
+		for _, d := range r.days {
+			if d == nil || d.Day.After(now) || d.Day.Before(now.Add(-time.Duration(days)*24*time.Hour)) {
+				continue
+			}
+			for _, tb := range d.Traps {
+				addTrap(tb)
+			}
+		}
+	}
+
+	out := make([]TrapReport, 0, len(aggregated))
+	for port, tb := range aggregated {
+		efficiency := float64(0)
+		if tb.Events > 0 {
+			efficiency = float64(tb.HoldSumSec) / float64(tb.Events)
+		}
+		out = append(out, TrapReport{
+			Port:            port,
+			Label:           TrapLabel(port),
+			Events:          tb.Events,
+			HoldSumSec:      tb.HoldSumSec,
+			UniqueIPs:       len(tb.UniqueIPs),
+			UniqueCountries: len(tb.Countries),
+			DropCount:       tb.DropCount,
+			Efficiency:      efficiency,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].HoldSumSec != out[j].HoldSumSec {
+			return out[i].HoldSumSec > out[j].HoldSumSec
+		}
+		return out[i].Port < out[j].Port
 	})
 	if limit > 0 && len(out) > limit {
 		out = out[:limit]

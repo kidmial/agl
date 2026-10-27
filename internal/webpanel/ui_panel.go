@@ -318,7 +318,7 @@ func renderDashboardVitals(w http.ResponseWriter, templateName string, prefix st
 }
 
 // renderDashboardReports рендерит страницу отчётов.
-func renderDashboardReports(w http.ResponseWriter, templateName string, prefix string, rng string, countries []analytics.CountryReport, ips []analytics.IPReport, macro analytics.MacroReport) {
+func renderDashboardReports(w http.ResponseWriter, templateName string, prefix string, rng string, countries []analytics.CountryReport, ips []analytics.IPReport, macro analytics.MacroReport, traps []analytics.TrapReport) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	data := map[string]interface{}{
 		"Prefix":    prefix,
@@ -326,6 +326,7 @@ func renderDashboardReports(w http.ResponseWriter, templateName string, prefix s
 		"Countries": countries,
 		"IPs":       ips,
 		"Macro":     macro,
+		"Traps":     traps,
 	}
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
 		http.Error(w, "Template execution error", http.StatusInternalServerError)
