@@ -36,3 +36,21 @@ func TestRollupTrapReportCoversWeek(t *testing.T) {
 		}
 	}
 }
+
+// TestRollupStolenTime проверяет утилизированное время из бакетов по всем периодам.
+// Главный источник плашек главной страницы обязан видеть каждое событие.
+func TestRollupStolenTime(t *testing.T) {
+	r := &Rollup{}
+	rec := EventRecord{
+		StartTime:       time.Now().UTC(),
+		StartTimeValid:  true,
+		ActualHoldSec:   42,
+		ActualHoldValid: true,
+	}
+	r.Ingest(rec)
+
+	st := r.BuildStolenTime()
+	if st.HourSec != 42 || st.DaySec != 42 || st.WeekSec != 42 || st.MonthSec != 42 {
+		t.Fatalf("stolen time mismatch across periods: %+v", st)
+	}
+}

@@ -1056,58 +1056,6 @@ type StolenTimeStats struct {
 	MonthSec uint64 `json:"month_sec"`
 }
 
-// BuildStolenTimeStats вычисляет суммарное время удержания ботов за разные периоды.
-//
-// Алгоритм:
-//   - берём снапшот событий из Store;
-//   - фильтруем по времени (час/день/неделя/месяц);
-//   - суммируем ActualHoldSec для событий с валидным фактом удержания.
-//
-// Сложность O(E): один проход по снапшоту.
-func BuildStolenTimeStats(s *Store) StolenTimeStats {
-	if s == nil {
-		return StolenTimeStats{}
-	}
-
-	events := s.SnapshotChronological()
-	if len(events) == 0 {
-		return StolenTimeStats{}
-	}
-
-	now := time.Now().UTC()
-	hourAgo := now.Add(-1 * time.Hour)
-	dayAgo := now.Add(-24 * time.Hour)
-	weekAgo := now.Add(-7 * 24 * time.Hour)
-	monthAgo := now.Add(-30 * 24 * time.Hour)
-
-	var stats StolenTimeStats
-
-	for _, event := range events {
-		if !event.StartTimeValid {
-			continue
-		}
-		if !event.ActualHoldValid {
-			continue
-		}
-
-		// Суммируем для каждого периода, если событие попадает в окно.
-		if event.StartTime.After(hourAgo) {
-			stats.HourSec += event.ActualHoldSec
-		}
-		if event.StartTime.After(dayAgo) {
-			stats.DaySec += event.ActualHoldSec
-		}
-		if event.StartTime.After(weekAgo) {
-			stats.WeekSec += event.ActualHoldSec
-		}
-		if event.StartTime.After(monthAgo) {
-			stats.MonthSec += event.ActualHoldSec
-		}
-	}
-
-	return stats
-}
-
 // FormatDuration форматирует секунды в человекочитаемый вид.
 //
 // Примеры:

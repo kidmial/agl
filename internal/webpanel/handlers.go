@@ -131,7 +131,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		}
 
 		// Вычисляем утилизированное время ботнет сетей
-		stolenTime := analytics.BuildStolenTimeStats(store)
+		stolenTime := analytics.GlobalRollup.BuildStolenTime()
 
 		renderDashboard(w, "dashboard_overview", prefix, counters, profileCounters, hourStats, profiles, health, stolenTime)
 	})
@@ -164,7 +164,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			MaxConnWriteLatencyMs:   maxConnLatency,
 			MaxReportWriteLatencyMs: maxReportLatency,
 		}
-		stolenTime := analytics.BuildStolenTimeStats(store)
+		stolenTime := analytics.GlobalRollup.BuildStolenTime()
 		burst := analytics.BuildBurstSeries(store, analytics.Window1Hour)
 		renderDashboardVitals(w, "dashboard_vitals", prefix, counters, profileCounters, hourStats, profiles, health, stolenTime, burst)
 	})
@@ -192,7 +192,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			MaxConnWriteLatencyMs:   maxConnLatency,
 			MaxReportWriteLatencyMs: maxReportLatency,
 		}
-		stolenTime := analytics.BuildStolenTimeStats(store)
+		stolenTime := analytics.GlobalRollup.BuildStolenTime()
 		renderDashboard(w, "dashboard_fingerprints", prefix, counters, profileCounters, hourStats, profiles, health, stolenTime)
 	})
 
@@ -219,7 +219,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			MaxConnWriteLatencyMs:   maxConnLatency,
 			MaxReportWriteLatencyMs: maxReportLatency,
 		}
-		stolenTime := analytics.BuildStolenTimeStats(store)
+		stolenTime := analytics.GlobalRollup.BuildStolenTime()
 		renderDashboard(w, "dashboard_tarpit", prefix, counters, profileCounters, hourStats, profiles, health, stolenTime)
 	})
 

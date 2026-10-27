@@ -1121,3 +1121,52 @@ func topCloseReason(cr map[string]uint64) string {
 	}
 	return top
 }
+
+// BuildStolenTime возвращает утилизированное время ботнета по периодам.
+//
+// Единый источник правды для главной страницы и отчётов: суммы бакетов.
+// Периоды совпадают с методологией BuildMacroReport, поэтому цифры
+// на разных страницах обязаны сходиться:
+//   - HourSec — текущий календарный час;
+//   - DaySec — часовые бакеты за последние 24 часа;
+//   - WeekSec — суточные бакеты за 7 дней;
+//   - MonthSec — суточные бакеты за 30 дней.
+func (r *Rollup) BuildStolenTime() StolenTimeStats {
+	if r == nil {
+		return StolenTimeStats{}
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	loc := time.UTC
+	if r.loc != nil {
+		loc = r.loc
+	}
+	now := time.Now().In(loc)
+	hourStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, loc)
+
+	var out StolenTimeStats
+	for _, h := range r.hours {
+		if h == nil {
+			continue
+		}
+		if h.Hour.Equal(hourStart) {
+			out.HourSec += h.HoldSum
+		}
+		if !h.Hour.Before(now.Add(-24 * time.Hour)) {
+			out.DaySec += h.HoldSum
+		}
+	}
+	for _, d := range r.days {
+		if d == nil {
+			continue
+		}
+		if !d.Day.Before(now.Add(-7 * 24 * time.Hour)) {
+			out.WeekSec += d.HoldSum
+		}
+		if !d.Day.Before(now.Add(-30 * 24 * time.Hour)) {
+			out.MonthSec += d.HoldSum
+		}
+	}
+	return out
+}
