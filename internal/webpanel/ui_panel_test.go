@@ -146,3 +146,34 @@ func TestRenderReportsTemplate(t *testing.T) {
 		}
 	}
 }
+
+// TestRenderSIEMTemplate исполняет страницу SIEM с детекцией, несущей страну.
+// Гарантирует, что предупреждения рендерятся вместе с фактами (субъект + основание).
+func TestRenderSIEMTemplate(t *testing.T) {
+	var buf bytes.Buffer
+	dets := []analytics.BotnetDetection{{
+		Pattern:     analytics.BotnetPatternProxyTunnel,
+		Label:       "PROXY/TUNNEL: Аномальная прикладная задержка при низком RTT",
+		Confidence:  analytics.BotnetConfidenceHigh,
+		IPsInvolved: []string{"1.2.3.4"},
+		CountryByIP: map[string]string{"1.2.3.4": "Indonesia"},
+		Evidence:    []string{"событий с аномалией: 12", "средний RTT: 48 мс"},
+	}}
+	data := map[string]interface{}{
+		"Prefix":       "test/",
+		"Detections":   dets,
+		"ProxyCount":   1,
+		"SpoofCount":   0,
+		"ProxyDetails": []warningLine{{Subject: "1.2.3.4 (Indonesia)", Facts: "событий с аномалией: 12; средний RTT: 48 мс"}},
+		"SpoofDetails": nil,
+	}
+	if err := panelTmpl.ExecuteTemplate(&buf, "dashboard_siem_core", data); err != nil {
+		t.Fatalf("execute dashboard_siem_core: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{"1.2.3.4", "Indonesia", "событий с аномалией: 12"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("siem output missing %q (warning without facts?)", want)
+		}
+	}
+}

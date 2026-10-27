@@ -251,19 +251,19 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		detector := analytics.NewBotnetDetector(store, manager)
 		detections := detector.DetectAll(analytics.Window1Hour)
 
-		// Подсчитываем специфические предупреждения для карточек SIEM
-		proxyCount := 0
-		spoofCount := 0
+		// Разделяем детекции по карточкам предупреждений:
+		// карточка обязана нести факты, а не только счётчик.
+		var proxyDets, spoofDets []analytics.BotnetDetection
 		for _, det := range detections {
-			if det.Pattern == analytics.BotnetPatternProxyTunnel {
-				proxyCount++
-			}
-			if det.Pattern == analytics.BotnetPatternOSSpoofing {
-				spoofCount++
+			switch det.Pattern {
+			case analytics.BotnetPatternProxyTunnel:
+				proxyDets = append(proxyDets, det)
+			case analytics.BotnetPatternOSSpoofing:
+				spoofDets = append(spoofDets, det)
 			}
 		}
 
-		renderDashboardSIEM(w, "dashboard_siem_core", prefix, counters, profileCounters, hourStats, profiles, health, detections, proxyCount, spoofCount)
+		renderDashboardSIEM(w, "dashboard_siem_core", prefix, counters, profileCounters, hourStats, profiles, health, detections, proxyDets, spoofDets)
 	})
 
 	// 1.6. Дашборд: Детализация профиля

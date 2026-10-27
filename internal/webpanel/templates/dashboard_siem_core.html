@@ -35,10 +35,14 @@
                 <td>{{ len .IPsInvolved }}</td>
                 <td>{{ .StartTime.Format "15:04:05" }}</td>
                 <td>
+                    {{ $det := . }}
                     <details>
-                        <summary>Показать ({{ len .Evidence }})</summary>
+                        <summary>Показать ({{ add (len $det.IPsInvolved) (len $det.Evidence) }})</summary>
                         <ul style="margin: 10px 0; padding-left: 20px;">
-                            {{ range .Evidence }}
+                            {{ range $ip := $det.IPsInvolved }}
+                            <li><code>{{ $ip }}</code>{{ with index $det.CountryByIP $ip }} — {{ . }}{{ end }}</li>
+                            {{ end }}
+                            {{ range $det.Evidence }}
                             <li>{{ . }}</li>
                             {{ end }}
                         </ul>
@@ -71,6 +75,16 @@
                 {{ .ProxyCount }} {{ if eq .ProxyCount 1 }}обнаружение{{ else if and (ge .ProxyCount 2) (le .ProxyCount
                 4) }}обнаружения{{ else }}обнаружений{{ end }}
             </p>
+            {{ if .ProxyDetails }}
+            <ul style="margin: 12px 0 0 0; padding: 0; list-style: none;">
+                {{ range .ProxyDetails }}
+                <li style="margin-bottom: 8px; font-size: 12px;">
+                    <code style="color: #fff;">{{ .Subject }}</code>
+                    <div class="text-muted" style="font-size: 11px; margin-top: 2px;">{{ .Facts }}</div>
+                </li>
+                {{ end }}
+            </ul>
+            {{ end }}
         </div>
 
         <!-- OS Spoofing -->

@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"strings"
 	"time"
 
 	"agl/config"
@@ -180,7 +181,7 @@ func renderStub(w http.ResponseWriter, templateName string, prefix string) {
 }
 
 // renderDashboardSIEM рендерит страницу SIEM Core с данными детекций ботнет-паттернов.
-func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, health PipelineHealth, detections []analytics.BotnetDetection, proxyCount int, spoofCount int) {
+func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, health PipelineHealth, detections []analytics.BotnetDetection, proxyDets []analytics.BotnetDetection, spoofDets []analytics.BotnetDetection) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// 1. Определяем витринную локацию для отображения времени.
@@ -240,8 +241,10 @@ func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix stri
 		"StoreTotal":      counters.TotalEvents,
 		"PipelineHealth":  health,
 		"Detections":      detections,
-		"ProxyCount":      proxyCount,
-		"SpoofCount":      spoofCount,
+		"ProxyCount":      len(proxyDets),
+		"SpoofCount":      len(spoofDets),
+		"ProxyDetails":    buildWarningLines(proxyDets, 5),
+		"SpoofDetails":    buildWarningLines(spoofDets, 5),
 	}
 
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
@@ -327,4 +330,34 @@ func renderDashboardReports(w http.ResponseWriter, templateName string, prefix s
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
 		http.Error(w, "Template execution error", http.StatusInternalServerError)
 	}
+}
+
+// warningLine — одна строка фактической нагрузки предупреждения:
+// субъект (адрес со страной) и основание (доказательства детекции).
+type warningLine struct {
+	Subject string
+	Facts   string
+}
+
+// buildWarningLines собирает факты для карточки предупреждения.
+// Принцип: предупреждение без субъекта и основания — шум.
+// limit ограничивает число строк, чтобы карточка не раздувалась при массовых детекциях.
+func buildWarningLines(dets []analytics.BotnetDetection, limit int) []warningLine {
+	var out []warningLine
+	for _, d := range dets {
+		for _, ip := range d.IPsInvolved {
+			if len(out) >= limit {
+				return out
+			}
+			subj := ip
+			if c, ok := d.CountryByIP[ip]; ok && c != "" {
+				subj += " (" + c + ")"
+			}
+			out = append(out, warningLine{
+				Subject: subj,
+				Facts:   strings.Join(d.Evidence, "; "),
+			})
+		}
+	}
+	return out
 }

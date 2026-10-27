@@ -44,6 +44,11 @@ const (
 	// SyncWaveStackHomogeneity — процент однородности стека (80%).
 	SyncWaveStackHomogeneity = 0.80
 
+	// CarouselMinIPs — минимум уникальных IP для карусели.
+	// Карусель по смыслу является ротацией адресов; одиночный актор
+	// на жёстком расписании — не эстафета, а таймер-бот.
+	CarouselMinIPs = 2
+
 	// CarouselMinCycles — минимум циклов для детекции карусели.
 	CarouselMinCycles = 3
 
@@ -69,14 +74,19 @@ var (
 
 // BotnetDetection описывает результат детекции одного паттерна.
 type BotnetDetection struct {
-	Pattern     string    `json:"pattern"`
-	Label       string    `json:"label"`
-	Confidence  string    `json:"confidence"`
-	IPsInvolved []string  `json:"ips_involved"`
-	StartTime   time.Time `json:"start_time"`
-	EndTime     time.Time `json:"end_time"`
-	Evidence    []string  `json:"evidence"`
-	Reasons     []string  `json:"reasons"`
+	Pattern     string   `json:"pattern"`
+	Label       string   `json:"label"`
+	Confidence  string   `json:"confidence"`
+	IPsInvolved []string `json:"ips_involved"`
+
+	// CountryByIP — страна для каждого вовлечённого IP.
+	// Предупреждение без привязки к субъекту и географии — шум:
+	// админ должен видеть, кого именно и откуда детектировали.
+	CountryByIP map[string]string `json:"country_by_ip"`
+	StartTime   time.Time         `json:"start_time"`
+	EndTime     time.Time         `json:"end_time"`
+	Evidence    []string          `json:"evidence"`
+	Reasons     []string          `json:"reasons"`
 }
 
 // BotnetDetector выполняет детекцию ботнет-паттернов.
@@ -204,6 +214,7 @@ func (d *BotnetDetector) DetectSynchronousWave(window time.Duration) []BotnetDet
 			IPsInvolved: ips,
 			StartTime:   startTime,
 			EndTime:     endTime,
+			CountryByIP: countriesByIP(secondEvents),
 			Evidence: []string{
 				formatString("%d уникальных IP в одну секунду", len(uniqueIPs)),
 				formatString("однородность стека %.0f%%", homogeneity*100),
@@ -277,6 +288,11 @@ func (d *BotnetDetector) DetectCarousel(window time.Duration) []BotnetDetection 
 			}
 			sort.Strings(ips)
 
+			// Калибровка v8.6.2: карусель без ротации адресов — не карусель.
+			if len(ips) < CarouselMinIPs {
+				continue
+			}
+
 			avgInterval := d.averageInterval(intervals)
 
 			detection := BotnetDetection{
@@ -286,9 +302,10 @@ func (d *BotnetDetector) DetectCarousel(window time.Duration) []BotnetDetection 
 				IPsInvolved: ips,
 				StartTime:   events[0].StartTime,
 				EndTime:     events[len(events)-1].StartTime,
+				CountryByIP: countriesByIP(events),
 				Evidence: []string{
 					formatString("%d событий с циклическими интервалами", len(events)),
-					formatString("средний интервал %v", avgInterval),
+					formatString("средний интервал %s", formatIntervalHuman(avgInterval)),
 					formatString("%d уникальных IP", len(ips)),
 				},
 				Reasons: []string{
@@ -507,6 +524,7 @@ func (d *BotnetDetector) DetectCellProbe(window time.Duration) []BotnetDetection
 				IPsInvolved: ips,
 				StartTime:   events[0].StartTime,
 				EndTime:     events[len(events)-1].StartTime,
+				CountryByIP: countriesByIP(events),
 				Evidence: []string{
 					formatString("рост числа ячеек: %d → %d", firstCells, lastCells),
 					formatString("%d уникальных IP", len(ips)),
@@ -612,6 +630,7 @@ func (d *BotnetDetector) DetectProxyTunnel(window time.Duration) []BotnetDetecti
 		maxLatency uint64
 		firstSeen  time.Time
 		lastSeen   time.Time
+		country    string
 	}
 	ipData := make(map[string]*proxyEvidence)
 
@@ -629,6 +648,9 @@ func (d *BotnetDetector) DetectProxyTunnel(window time.Duration) []BotnetDetecti
 				ipData[event.IP] = &proxyEvidence{firstSeen: event.StartTime, lastSeen: event.StartTime}
 			}
 			e := ipData[event.IP]
+			if event.Country != "" {
+				e.country = event.Country
+			}
 			e.count++
 			e.avgRTT += float64(event.RTTMs)
 			if event.WriteLatencyMs > e.maxLatency {
@@ -654,6 +676,7 @@ func (d *BotnetDetector) DetectProxyTunnel(window time.Duration) []BotnetDetecti
 				IPsInvolved: []string{ip},
 				StartTime:   data.firstSeen,
 				EndTime:     data.lastSeen,
+				CountryByIP: map[string]string{ip: data.country},
 				Evidence: []string{
 					formatString("событий с аномалией: %d", data.count),
 					formatString("средний RTT: %.0f мс", avgRTT),
@@ -692,6 +715,7 @@ func (d *BotnetDetector) DetectOSSpoofing(window time.Duration) []BotnetDetectio
 		totalReadLarge uint64
 		firstSeen      time.Time
 		lastSeen       time.Time
+		Country        string
 	}
 	ipData := make(map[string]*spoofEvidence)
 
@@ -709,6 +733,9 @@ func (d *BotnetDetector) DetectOSSpoofing(window time.Duration) []BotnetDetectio
 				ipData[event.IP] = &spoofEvidence{firstSeen: event.StartTime, lastSeen: event.StartTime}
 			}
 			e := ipData[event.IP]
+			if event.Country != "" {
+				e.Country = event.Country
+			}
 			e.count++
 			e.avgRcvSpace += float64(event.RcvSpace)
 			e.totalReadLarge += event.ReadLarge
@@ -732,6 +759,7 @@ func (d *BotnetDetector) DetectOSSpoofing(window time.Duration) []BotnetDetectio
 				IPsInvolved: []string{ip},
 				StartTime:   data.firstSeen,
 				EndTime:     data.lastSeen,
+				CountryByIP: map[string]string{ip: data.Country},
 				Evidence: []string{
 					formatString("событий с аномалией: %d", data.count),
 					formatString("средний RcvSpace: %.0f байт (характерно для IoT)", avgRcvSpace),
@@ -784,7 +812,30 @@ func (d *BotnetDetector) averageInterval(intervals []time.Duration) time.Duratio
 	return sum / time.Duration(len(intervals))
 }
 
+// formatIntervalHuman форматирует интервал без дробного шума наносекунд:
+// 76s -> "1m 16s", 1620s -> "27m 00s", 45s -> "45s".
+func formatIntervalHuman(d time.Duration) string {
+	total := int(d.Round(time.Second).Seconds())
+	m, s := total/60, total%60
+	if m == 0 {
+		return formatString("%ds", s)
+	}
+	return formatString("%dm %02ds", m, s)
+}
+
 // formatString — вспомогательная функция для форматирования.
 func formatString(format string, args ...interface{}) string {
 	return fmt.Sprintf(format, args...)
+}
+
+// countriesByIP собирает страну для каждого IP из событий.
+// При нескольких странах для одного IP побеждает последнее наблюдение.
+func countriesByIP(events []EventRecord) map[string]string {
+	out := make(map[string]string)
+	for _, e := range events {
+		if e.IPValid && e.IP != "" && e.Country != "" {
+			out[e.IP] = e.Country
+		}
+	}
+	return out
 }
