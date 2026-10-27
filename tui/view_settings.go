@@ -77,6 +77,13 @@ func InitSettingsRegistry() {
 			}
 			return "0"
 		}},
+		// --- v8.6.2: Пароль веб-панели статистики ---
+		{Key: "web_panel_password", Label: func() string { return i18n.T.SettingsLabelWebPanelPassword }, Group: "LIMITS", ValueGetter: func() string {
+			if config.C.WebPanelPasswordHash != "" {
+				return i18n.T.ViewSettingsPasswordSet
+			}
+			return i18n.T.ViewSettingsPasswordNotSet
+		}},
 		// v8.4.7 (G1): уровень 1 — физический слушатель. Строка возвращена: изъят был только web_rescue_enabled.
 		{Key: "web_server_enabled", Label: func() string { return i18n.T.SettingsLabelWebServerEnabled }, Group: "LIMITS", ValueGetter: func() string {
 			if config.C.WebServerEnabled {
@@ -158,7 +165,7 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	header := widgets.NewList()
 	// header.Title = i18n.T.SettingsUiTitleBox
 	header.Title = fmt.Sprintf(" Amber Guard Laboratory - %s ", buildinfo.Version)
-	header.Rows = []string{"                           " + i18n.T.SettingsUiHeaderDesc}
+	header.Rows = []string{" " + i18n.T.SettingsUiHeaderDesc}
 	// ЖЕСТКАЯ ФИКСАЦИЯ КООРДИНАТ
 	header.SetRect(2, 1, 102, 4)
 	header.BorderStyle.Fg = ui.ColorCyan
@@ -354,14 +361,14 @@ func HandleSettingsNavigation(key string) (bool, string) {
 		if currentItem.Key == "BACK" {
 			return true, ""
 		}
-		// ПРЕДОХРАНИТЕЛЬ: Запрещаем провал в режим ручного ввода (IsEditMode) для языка!
+		// ПРЕДОХРАНИТЕЛЬ: Запрещаем провал в режим ручкого ввода (IsEditMode) для языка!
 		if currentItem.Key == "lang" {
 			return false, ""
 		}
 		// Для всех остальных числовых параметров — штатно открываем окно транзакции ввода
 		IsEditMode = true
-		if currentItem.Key == "web_rescue_password" {
-			CurrentInputBuf = "" // M3g: не подставляем старый пароль/хэш в буфер
+		if currentItem.Key == "web_rescue_password" || currentItem.Key == "web_panel_password" {
+			CurrentInputBuf = "" // v8.6.2: не подставляем старый пароль/хэш в буфер
 		} else {
 			CurrentInputBuf = currentItem.ValueGetter()
 		}
@@ -388,7 +395,7 @@ func SaveSettingValueToDisk(key, value string) string {
 	var updateErr error
 	if key == "web_rescue_password" {
 		// M3g (v8.1.3): минимум 8, технический потолок 128.
-		// Храним ТОЛЬКО SHA-256 хэш; plaintext в синглтоне не задерживается.
+		// Храним ТОЛЬКО bcrypt хэш; plaintext в синглтоне не задерживается.
 		if len(value) < 8 {
 			return i18n.T.ViewSettingsErrPasswordTooShort
 		}
@@ -403,6 +410,21 @@ func SaveSettingValueToDisk(key, value string) string {
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
 			c.WebRescuePasswordHash = string(hash)
 			c.WebRescuePassword = ""
+		})
+	} else if key == "web_panel_password" {
+		// v8.6.2: пароль веб-панели статистики — отдельный от rescue password.
+		if len(value) < 8 {
+			return i18n.T.ViewSettingsErrPasswordTooShort
+		}
+		if len(value) > 128 {
+			return i18n.T.ViewSettingsErrPasswordTooLong
+		}
+		hash, errB := bcrypt.GenerateFromPassword([]byte(value), bcrypt.DefaultCost)
+		if errB != nil {
+			return i18n.T.ViewSettingsErrHashGenerationFail
+		}
+		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
+			c.WebPanelPasswordHash = string(hash)
 		})
 	} else if key != "lang" {
 		if !digitOnlyRegex.MatchString(value) {

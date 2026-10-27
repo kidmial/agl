@@ -149,6 +149,13 @@ type Config struct {
 	// Дефолт: false (fail-closed). Настраивается через SETTINGS.
 	WebHttpsPanelActive bool `json:"web_https_panel_active"`
 
+	// --- v8.6.2: Пароль веб-панели статистики ---
+	// bcrypt-хеш пароля для HTTP Basic Auth на маршрутах /dashboard/*.
+	// Отдельный от WebRescuePasswordHash: панель и rescue channel — разные сущности.
+	// CONTRACT: если WebHttpsPanelActive=true, но хеш пуст → панель принудительно выключается (fail-closed).
+	// Дефолт: "" (пароль не задан). Настраивается через SETTINGS.
+	WebPanelPasswordHash string `json:"web_panel_password_hash,omitempty"`
+
 	// --- v8.6.2: Витринная таймзона веб-панели ---
 	// Таймзона для отображения времени в панели аналитики.
 	//
@@ -304,6 +311,10 @@ func LoadConfig(filePath string) error {
 	}
 	if !local.WebServerEnabled {
 		local.SshIpWebKnock = false
+		local.WebHttpsPanelActive = false
+	}
+	// v8.6.2: fail-closed для веб-панели — активная панель без пароля невозможна.
+	if local.WebHttpsPanelActive && local.WebPanelPasswordHash == "" {
 		local.WebHttpsPanelActive = false
 	}
 	// v8.2.0 (1.2): есть хэш — plaintext в ОЗУ обязан быть пустым.

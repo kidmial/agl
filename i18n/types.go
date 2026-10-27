@@ -557,6 +557,7 @@ type UITranslation struct {
 	SettingsLabelSshAllowInFromIp    string // Тумблер постоянного whitelist IP админа
 	SettingsLabelSshIpWebKnock       string // Тумблер временного whitelist через веб-стук
 	SettingsLabelWebHttpsPanelActive string // Тумблер доступности веб-панели
+	SettingsLabelWebPanelPassword    string // Пароль веб-панели статистики
 	SettingsLabelBack                string
 	SettingsUiTitleBox               string
 	SettingsUiHeaderDesc             string
@@ -810,6 +811,9 @@ func InitLanguage(currentLang string) {
 	}
 	if T.SettingsLabelWebHttpsPanelActive == "" {
 		T.SettingsLabelWebHttpsPanelActive = "Web panel: availability (0=off / 1=on)"
+	}
+	if T.SettingsLabelWebPanelPassword == "" {
+		T.SettingsLabelWebPanelPassword = "Statistics web panel password"
 	}
 	if T.ViewSettingsErrKnockRequiresAllow == "" {
 		T.ViewSettingsErrKnockRequiresAllow = "Write rejected: web-knock requires the admin-IP whitelist option enabled!"
