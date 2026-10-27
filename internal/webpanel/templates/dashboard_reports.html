@@ -125,11 +125,13 @@
             <tr>
                 <td>{{ add $i 1 }}</td>
                 <td style="color: #fff;">{{ $c.Code }}</td>
+                <td>{{ $c.TopTrap }}</td>
                 <td>{{ $c.Events }}</td>
                 <td>{{ $c.UniqueIPs }}</td>
                 <td class="amber">{{ $c.HoldSumSec | formatDuration }}</td>
                 <td class="text-muted">{{ if gt $c.UniqueIPs 0 }}{{ printf "%.1f" $c.Concentration }}{{ else }}—{{ end
-                    }}</td>
+                    }}
+                </td>
             </tr>
             {{ else }}
             <tr>
@@ -165,6 +167,7 @@
                 <td>{{ add $i 1 }}</td>
                 <td><code style="color: #fff;">{{ $ip.IP }}</code></td>
                 <td>{{ if $ip.Country }}{{ $ip.Country }}{{ else }}—{{ end }}</td>
+                <td>{{ $ip.Trap }}</td>
                 <td>{{ $ip.Events }}</td>
                 <td class="amber">{{ $ip.HoldSumSec | formatDuration }}</td>
                 <td>{{ if gt $ip.AvgRTTMs 0.0 }}{{ printf "%.0f" $ip.AvgRTTMs }} мс{{ else }}—{{ end }}</td>

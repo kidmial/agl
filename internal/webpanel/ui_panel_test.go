@@ -118,12 +118,12 @@ func TestRenderProfileDetailTemplate(t *testing.T) {
 func TestRenderReportsTemplate(t *testing.T) {
 	var buf bytes.Buffer
 	countries := []analytics.CountryReport{
-		{Code: "France", Events: 100, UniqueIPs: 10, Concentration: 10},
-		{Code: "Indonesia", Events: 80, UniqueIPs: 8, Concentration: 10},
+		{Code: "France", Events: 100, UniqueIPs: 10, Concentration: 10, TopTrap: "CORE"},
+		{Code: "Indonesia", Events: 80, UniqueIPs: 8, Concentration: 10, TopTrap: "Порт 2222"},
 	}
 	ips := []analytics.IPReport{
-		{IP: "1.2.3.4", Country: "France", Events: 50, TopCloseReason: "TIMEOUT"},
-		{IP: "5.6.7.8", Country: "Indonesia", Events: 40, TopCloseReason: "RST"},
+		{IP: "1.2.3.4", Country: "France", Trap: "Порт 3333", Events: 50, TopCloseReason: "TIMEOUT"},
+		{IP: "5.6.7.8", Country: "Indonesia", Trap: "Порт 4444", Events: 40, TopCloseReason: "RST"},
 	}
 	macro := analytics.MacroReport{
 		Events:   180,
@@ -140,7 +140,13 @@ func TestRenderReportsTemplate(t *testing.T) {
 		t.Fatalf("execute dashboard_reports: %v", err)
 	}
 	out := buf.String()
-	for _, want := range []string{"France", "Indonesia", "1.2.3.4", "5.6.7.8"} {
+	// У каждой сторожимой ячейки — уникальный маркер: иначе удаление ячейки IP
+	// маскируется тем же значением в ячейке страны (поймано mutation-проверкой).
+	for _, want := range []string{
+		"France", "Indonesia", "1.2.3.4", "5.6.7.8",
+		"<td>CORE</td>", "<td>Порт 2222</td>", // ячейки топ-ловушки стран
+		"<td>Порт 3333</td>", "<td>Порт 4444</td>", // ячейки ловушки IP
+	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("report output missing %q (template truncated?)", want)
 		}
