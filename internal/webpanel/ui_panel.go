@@ -21,6 +21,7 @@ import (
 
 	"agl/config"
 	"agl/internal/analytics"
+	"agl/internal/buildinfo"
 )
 
 //go:embed templates/*.html
@@ -159,6 +160,7 @@ func renderDashboard(w http.ResponseWriter, templateName string, prefix string, 
 		"StoreTotal":      counters.TotalEvents,
 		"PipelineHealth":  health,
 		"StolenTime":      stolenTime,
+		"Version":         buildinfo.Version,
 	}
 
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
@@ -245,6 +247,7 @@ func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix stri
 		"SpoofCount":      len(spoofDets),
 		"ProxyDetails":    buildWarningLines(proxyDets, 5),
 		"SpoofDetails":    buildWarningLines(spoofDets, 5),
+		"Version":         buildinfo.Version,
 	}
 
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
@@ -310,6 +313,7 @@ func renderDashboardVitals(w http.ResponseWriter, templateName string, prefix st
 		"PipelineHealth":  health,
 		"StolenTime":      stolenTime,
 		"BurstSeries":     burst,
+		"Version":         buildinfo.Version,
 	}
 
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
@@ -327,6 +331,7 @@ func renderDashboardReports(w http.ResponseWriter, templateName string, prefix s
 		"IPs":       ips,
 		"Macro":     macro,
 		"Traps":     traps,
+		"Version":   buildinfo.Version,
 	}
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
 		http.Error(w, "Template execution error", http.StatusInternalServerError)

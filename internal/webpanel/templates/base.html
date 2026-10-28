@@ -9,22 +9,136 @@
     <title>AGL Analytics</title>
     <link rel="icon"
         href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;path fill='%23f4a261' d='M50 5 L90 27.5 L90 72.5 L50 95 L10 72.5 L10 27.5 Z'/&gt;&lt;/svg&gt;">
+
     <style>
-        body {
-            background: #0f141c;
-            color: #a5b4fc;
-            font-family: 'Courier New', Courier, monospace;
-            margin: 0;
-            font-size: 14px;
+        /* ==========================================================================
+           1. RESET & BASE
+           ========================================================================== */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
         }
 
+        body {
+            margin: 0;
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        /* ==========================================================================
+           2. THEME VARIABLES
+           ========================================================================== */
+        /* Тёмная тема (по умолчанию) */
+        :root,
+        body[data-theme="dark"] {
+            --bg-primary: #0f141c;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1e293b;
+            --bg-elevated: #1a1f2e;
+
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --text-selection: #8ab4f8;
+            --text-inverse: #0f141c;
+
+            --border-primary: #1e293b;
+            --border-secondary: #2a3040;
+            --border-light: #334155;
+
+            --accent-amber: #f4a261;
+            --accent-amber-hover: #fb923c;
+            --accent-green: #10b981;
+            --accent-green-hover: #059669;
+            --accent-red: #ef4444;
+            --accent-red-hover: #dc2626;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+
+            /* высота неподвижного хедера (детерминирована) */
+            --header-h: 67px;
+        }
+
+        /* Светлая тема (активируется через чекбокс или атрибут) */
+        body:has(#theme-switch:checked),
+        body[data-theme="light"] {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --bg-elevated: #ffffff;
+
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --text-selection: #c3d9fb;
+            --text-inverse: #0f172a;
+            ;
+
+            --border-primary: #e2e8f0;
+            --border-secondary: #cbd5e1;
+            --border-light: #94a3b8;
+
+            --accent-amber: #d97706;
+            --accent-amber-hover: #b45309;
+            --accent-green: #059669;
+            --accent-green-hover: #047857;
+            --accent-red: #dc2626;
+            --accent-red-hover: #b91c1c;
+            --accent-blue: #2563eb;
+            --accent-purple: #7c3aed;
+
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* ==========================================================================
+           3. TYPOGRAPHY
+           ========================================================================== */
         h1,
         h2,
         h3 {
-            color: #00ff66;
-            font-weight: normal;
-            border-bottom: 1px solid #1e293b;
-            padding-bottom: 10px;
+            color: var(--accent-green);
+            font-weight: 600;
+            margin: 0 0 16px 0;
+        }
+
+        h2 {
+            font-size: 18px;
+            border-bottom: 1px solid var(--border-primary);
+            padding-bottom: 12px;
+        }
+
+        h3 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        a {
+            color: var(--accent-blue);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: var(--accent-amber);
+        }
+
+        /* ==========================================================================
+           4. LAYOUT
+           ========================================================================== */
+        .wrap {
+            padding: 24px;
+            max-width: 1600px;
+            margin: 0 auto;
         }
 
         .grid {
@@ -34,208 +148,759 @@
             margin-bottom: 30px;
         }
 
-        .card {
-            background: #111827;
-            border: 1px solid #1e293b;
-            border-radius: 4px;
-            padding: 20px;
-        }
-
-        .metric {
-            font-size: 24px;
-            color: #ffffff;
-            margin: 10px 0;
-        }
-
-        .metric-label {
-            font-size: 12px;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-
-        th,
-        td {
-            text-align: left;
-            padding: 10px;
-            border-bottom: 1px solid #1e293b;
-        }
-
-        th {
-            color: #64748b;
-            font-weight: normal;
-            text-transform: uppercase;
-            font-size: 12px;
-        }
-
-        tr:hover {
-            background: #1e293b;
-        }
-
-        .text-muted {
-            color: #64748b;
-        }
-
-        .wrap {
-            padding: 20px;
-        }
-
+        /* ==========================================================================
+           4.1. HEADER (с горизонтально прокручиваемым меню)
+           ========================================================================== */
         .header {
             position: sticky;
             top: 0;
-            padding: 20px;
+            z-index: 100;
+            padding: 16px 24px;
             display: flex;
-            flex-wrap: nowrap;
-            justify-content: space-between;
-            align-items: center;
-            background: rgb(10 10 11 / 69%);
-            border-bottom: 1px solid #2a3040;
+            flex-direction: column;
+            gap: 12px;
+            align-items: stretch;
+            background: color-mix(in srgb, var(--bg-primary) 85%, transparent);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-            z-index: 100;
+            border-bottom: 1px solid var(--border-secondary);
+            box-shadow: var(--shadow-md);
+            transition: background-color 0.2s ease;
         }
 
-        /* header на узких экранах */
-        @media (max-width: 930px) {
+        /* На широких экранах: логотип слева, меню справа (в одну линию) */
+        @media (min-width: 1000px) {
             .header {
-                position: sticky;
-                top: 0;
-                display: flex;
-                flex-direction: column;
+                flex-direction: row;
+                justify-content: space-between;
                 align-items: center;
-                padding: 5px 5px 10px 0;
-                border-bottom: 1px solid #1e293b;
-            }
-
-            .logo {
-                padding: 10px 0 0 0;
-            }
-
-            .nav {
-                margin: 10px 0 0 0;
             }
         }
 
-        .logo {
-            font-family: "JetBrains Mono", "Fira Code", monospace;
-            letter-spacing: 0.08em;
-            color: #d8d8dc;
-            font-size: 16px;
-            text-transform: uppercase;
-            font-weight: normal;
-        }
-
-        .amber {
-            color: #f4a261;
+        .header-brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
 
         .nav {
             display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: center;
+            gap: 12px;
+            flex-wrap: nowrap;
+            align-items: center;
+            justify-content: space-evenly;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            /* Плавный свайп на iOS */
+            width: 100%;
+            padding-bottom: 4px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-light) var(--bg-secondary);
+        }
+
+        /* На широких экранах меню не нуждается в скролле */
+        @media (min-width: 1000px) {
+            .nav {
+                width: auto;
+                overflow-x: visible;
+                padding-bottom: 0;
+            }
+        }
+
+        /* Стилизованный скроллбар для меню */
+        .nav::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .nav::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+            border-radius: 2px;
+        }
+
+        .nav::-webkit-scrollbar-thumb {
+            background: var(--border-light);
+            border-radius: 2px;
+        }
+
+        .nav::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* ==========================================================================
+           5. COMPONENTS
+           ========================================================================== */
+        /* --- Заголовок раздела страницы --- */
+        .page-section-header {
+            margin-bottom: 24px;
+        }
+
+        .page-section-header h1 {
+            margin: 0 0 6px 0;
+            font-size: 24px;
+            line-height: 1.3;
+            letter-spacing: 0.08em;
+        }
+
+        .page-section-header p {
+            margin: 0;
+            letter-spacing: 0.05em;
+        }
+
+        /* --- Cards --- */
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            border-color: var(--border-secondary);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* --- Metrics --- */
+        .metric {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 8px 0;
+        }
+
+        .metric-value {
+            color: var(--accent-amber);
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        /* --- Tables --- */
+        table {
+            width: 100%;
+            border-collapse: separate;
+            /* обязательно для sticky-шапки */
+            border-spacing: 0;
+            font-size: 13px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            /* overflow: hidden НАМЕРЕННО отсутствует: он ломает position: sticky */
+        }
+
+        /* Скругления углов через угловые ячейки (компенсация за overflow) */
+        thead th:first-child {
+            border-top-left-radius: 7px;
+        }
+
+        thead th:last-child {
+            border-top-right-radius: 7px;
+        }
+
+        tbody tr:last-child td:first-child {
+            border-bottom-left-radius: 7px;
+        }
+
+        tbody tr:last-child td:last-child {
+            border-bottom-right-radius: 7px;
+        }
+
+        th {
+            position: sticky;
+            top: var(--header-h);
+            /* прилипает точно под неподвижным хедером */
+            z-index: 10;
+            /* выше строк, но ниже хедера (z-index: 100) */
+            background: var(--bg-tertiary);
+            /* непрозрачный фон обязателен для sticky */
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        td {
+            padding: 5px 16px;
+            /* единый ритм с th — колонки не съезжают */
+            border-bottom: 1px solid var(--border-primary);
+            color: var(--text-secondary);
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Подсветка строки при наведении — темонезависимая */
+        tbody tr:hover td {
+            background: var(--bg-tertiary);
+        }
+
+        /* --- Navigation --- */
+        .logo {
+            font-family: "JetBrains Mono", monospace;
+            letter-spacing: 0.08em;
+            color: var(--text-primary);
+            font-size: 16px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .amber {
+            color: var(--accent-amber);
+        }
+
+        .gl {
+            color: #ffffff;
         }
 
         .nav-link {
-            color: #a5b4fc;
+            color: var(--text-secondary);
             text-decoration: none;
-            padding: 6px 10px;
-            border: 1px solid #1e293b;
-            border-radius: 10px;
-            font-size: 13px;
-            transition: all 0.2s;
+            padding: 6px 12px;
+            border: 1px solid var(--border-primary);
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            transition: all 0.2s ease;
+            background: transparent;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            white-space: nowrap;
+            min-height: 34px;
         }
 
         .nav-link:hover {
-            background: #1e293b;
-            color: #00ff66;
+            background: var(--bg-tertiary);
+            border-color: var(--border-secondary);
+            color: var(--text-primary);
         }
 
-        /* Блок управления */
+        .nav-link.active {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-amber);
+            color: var(--accent-amber);
+        }
+
+        .nav-link.accent {
+            color: var(--accent-amber);
+        }
+
+        .nav-link.accent:hover {
+            background: var(--accent-amber);
+            color: var(--text-inverse);
+        }
+
+        .nav-link.danger {
+            color: var(--accent-red);
+            border-color: var(--accent-red);
+        }
+
+        .nav-link.danger:hover {
+            background: var(--accent-red);
+            color: var(--text-inverse);
+        }
+
+        .nav-link.active-green {
+            background: color-mix(in srgb, var(--accent-green) 15%, transparent);
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .nav-link.active-green:hover {
+            background: var(--accent-green);
+            color: var(--text-inverse);
+        }
+
+        /* --- Control Panel --- */
         .control-panel {
-            margin: 20px 0;
-            padding: 16px;
-            background: #1a1f2e;
-            border: 1px solid #2a3040;
+            margin: 0 0 24px 0;
+            padding: 20px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-secondary);
             border-radius: 8px;
         }
 
-        .control-panel h3 {
-            margin: 0 0 12px 0;
-            font-size: 14px;
-            color: #00ff66;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
         .control-btn {
-            padding: 8px 16px;
-            background: #2a3040;
-            border: 1px solid #00ff66;
-            color: #00ff66;
-            font-family: 'Courier New', monospace;
+            padding: 10px 20px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--accent-green);
+            color: var(--accent-green);
+            font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
             cursor: pointer;
             border-radius: 4px;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
 
         .control-btn:hover:not(:disabled) {
-            background: #00ff66;
-            color: #0f141c;
+            background: var(--accent-green);
+            color: var(--text-inverse);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
         }
 
         .control-btn:disabled {
-            border-color: #555;
-            color: #555;
+            border-color: var(--border-light);
+            color: var(--text-muted);
             cursor: not-allowed;
+            opacity: 0.6;
         }
 
         .control-status {
             margin-left: 12px;
             font-size: 12px;
-            color: #a5b4fc;
+            color: var(--text-secondary);
         }
 
         .control-status.success {
-            color: #00ff66;
+            color: var(--accent-green);
         }
 
         .control-status.error {
-            color: #ff4444;
+            color: var(--accent-red);
+        }
+
+        /* --- Charts --- */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        /* ==========================================================================
+           6. THEME SWITCHER
+           ========================================================================== */
+        .theme-switch {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            padding: 0;
+            border: 0;
+            clip: rect(0 0 0 0);
+            clip-path: inset(50%);
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .theme-toggle {
+            cursor: pointer;
+            min-width: 40px;
+            justify-content: center;
+        }
+
+        /* SVG-иконки в кнопках: убираем inline-baseline и "хвост" строки */
+        .nav-link svg {
+            display: block;
+            width: 16px;
+            height: 16px;
+        }
+
+        .theme-icon-light,
+        .theme-text-light {
+            display: none;
+        }
+
+        body:has(#theme-switch:checked) .theme-icon-dark,
+        body:has(#theme-switch:checked) .theme-text-dark {
+            display: none;
+        }
+
+        body:has(#theme-switch:checked) .theme-icon-light,
+        body:has(#theme-switch:checked) .theme-text-light {
+            display: inline;
+        }
+
+        /* ==========================================================================
+           7. UTILITIES & STATES
+           ========================================================================== */
+        .text-muted {
+            color: var(--text-muted);
+        }
+
+        .text-primary {
+            color: var(--text-primary);
+        }
+
+        .status-aggr {
+            color: var(--accent-red);
+            font-weight: bold;
+        }
+
+        .status-pass {
+            color: var(--accent-green);
+            font-weight: bold;
+        }
+
+        .status-mixed {
+            color: var(--accent-amber);
+            font-weight: bold;
+        }
+
+        .profile-link {
+            color: var(--accent-green);
+            text-decoration: none;
+            font-family: monospace;
+            border-bottom: 1px dashed var(--accent-green);
+        }
+
+        .phase-text {
+            color: var(--accent-amber);
+        }
+
+        .prediction-text {
+            color: var(--accent-green);
+        }
+
+        .card-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .metric-md {
+            font-size: 20px;
+        }
+
+        .metric-sm {
+            font-size: 18px;
+        }
+
+        .mb-0 {
+            margin-bottom: 0;
+        }
+
+        .text-blue {
+            color: var(--accent-blue);
+        }
+
+        .link-green {
+            color: var(--accent-green);
+            text-decoration: none;
+        }
+
+        .link-green:hover {
+            color: var(--accent-green-hover);
+            text-decoration: underline;
+        }
+
+        /* ==========================================================================
+           8. CUSTOM UI ELEMENTS
+           ========================================================================== */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-light);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        ::selection {
+            background: var(--text-selection);
+            color: var(--text-inverse);
+        }
+
+        /* ==========================================================================
+           9. RESPONSIVE DESIGN
+           ========================================================================== */
+        @media (max-width: 1000px) {
+            .header {
+                padding: 12px 16px;
+            }
+
+            .wrap {
+                padding: 16px;
+            }
+
+            :root {
+                --header-h: 100px;
+            }
+        }
+
+        @media (max-width: 640px) {
+
+            .theme-toggle .theme-text-dark,
+            .theme-toggle .theme-text-light {
+                display: none;
+            }
+
+            .nav-link {
+                padding: 6px 8px;
+                font-size: 11px;
+            }
+
+            .metric {
+                font-size: 24px;
+            }
+        }
+
+        /* --- Дополнительные утилиты для SIEM и алертов --- */
+        .text-red {
+            color: var(--accent-red);
+        }
+
+        .text-amber {
+            color: var(--accent-amber);
+        }
+
+        .text-green {
+            color: var(--accent-green);
+        }
+
+        .border-red {
+            border-color: var(--accent-red) !important;
+        }
+
+        .border-amber {
+            border-color: var(--accent-amber) !important;
+        }
+
+        .metric-large {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .list-unstyled {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .list-item-sm {
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        code {
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+        }
+
+        .details-list {
+            margin: 10px 0 0 0;
+            padding-left: 20px;
+            color: var(--text-secondary);
+        }
+
+        .details-list li {
+            margin-bottom: 4px;
+        }
+
+        /* Низ страницы */
+        .status-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+            gap: 8px 20px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .status-bar a {
+            color: var(--text-muted);
+            text-decoration: none;
+            border-bottom: 1px dashed var(--border-light);
+        }
+
+        .status-bar a:hover {
+            color: var(--accent-amber);
+            border-bottom-color: var(--accent-amber);
+        }
+
+        .version-signature {
+            letter-spacing: 0.5px;
+            font-weight: 700;
         }
     </style>
     <script src="{{.Prefix}}assets/js/chart.min.js"></script>
 </head>
 
 <body>
+    <!-- Скрытый чекбокс для управления темой -->
+    <input type="checkbox" id="theme-switch" class="theme-switch" aria-label="Переключить тему">
+
     <div class="header">
-        <span class="logo"><span class="amber">Amber</span> Guard Laboratory</span>
+        <div class="header-brand">
+            <span class="logo"><span class="amber">Amber</span> Guard Laboratory</span>
+        </div>
         <nav class="nav">
             <a href="{{.Prefix}}dashboard/overview" class="nav-link">Обзор</a>
             <a href="{{.Prefix}}dashboard/vitals" class="nav-link">Динамика</a>
             <a href="{{.Prefix}}dashboard/fingerprints" class="nav-link">Отпечатки</a>
-            <a href="{{.Prefix}}dashboard/tarpit" class="nav-link">Удержание</a>
+            <a href="{{.Prefix}}dashboard/tarpit" class="nav-link">Алгоритмы</a>
             <a href="{{.Prefix}}dashboard/siem" class="nav-link">SIEM</a>
-            <a href="{{.Prefix}}dashboard/reports" class="nav-link" style="color: #f4a261;">Отчёты</a>
-            <a href="{{.Prefix}}logout" class="nav-link" style="color: #ef4444;">Выход</a>
+            <a href="{{.Prefix}}dashboard/reports" class="nav-link accent">Отчёты</a>
+
+            <label for="theme-switch" class="nav-link theme-toggle" title="Переключить тему">
+                <!-- Активна тёмная тема -> показываем солнце (чтобы переключить на светлую) -->
+                <span class="theme-icon-dark" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4" />
+                        <path
+                            d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                    </svg>
+                </span>
+                <!-- Активна светлая тема -> показываем луну (чтобы переключить на тёмную) -->
+                <span class="theme-icon-light" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                </span>
+            </label>
+
+            <a href="{{.Prefix}}logout" class="nav-link danger">Выход</a>
         </nav>
     </div>
     <div class="wrap">
         {{end}}
 
         {{define "footer"}}
+        <div class="status-bar">
+            <div class="version-signature"><span class="amber">A</span><span class="gl">GL</span> {{.Version}}</div>
+        </div>
         <script>
+            // ==========================================================================
+            // 1. GLOBAL CHART MANAGER (AGLCharts)
+            // ==========================================================================
+            window.AGLCharts = {
+                instances: {},
+
+                getThemeColors() {
+                    const s = getComputedStyle(document.body);
+
+                    const hexToRgba = (hex, opacity) => {
+                        hex = hex.replace(/^#/, '');
+                        const r = parseInt(hex.substring(0, 2), 16);
+                        const g = parseInt(hex.substring(2, 4), 16);
+                        const b = parseInt(hex.substring(4, 6), 16);
+                        return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                    };
+
+                    const borderPrimary = s.getPropertyValue('--border-primary').trim();
+                    const textMuted = s.getPropertyValue('--text-muted').trim();
+
+                    return {
+                        grid: borderPrimary,
+                        gridLight: hexToRgba(borderPrimary, 0.9),
+                        gridMedium: hexToRgba(borderPrimary, 0.9),
+
+                        text: textMuted,
+                        red: s.getPropertyValue('--accent-red').trim(),
+                        green: s.getPropertyValue('--accent-green').trim(),
+                        blue: s.getPropertyValue('--accent-blue').trim(),
+                        amber: s.getPropertyValue('--accent-amber').trim(),
+                        purple: s.getPropertyValue('--accent-purple').trim(),
+                    };
+                },
+
+                createChart(canvasId, type, data, customOptions = {}) {
+                    const ctx = document.getElementById(canvasId);
+                    if (!ctx) return null;
+
+                    const colors = this.getThemeColors();
+                    const defaultOptions = {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { grid: { color: colors.gridLight, drawBorder: false }, ticks: { color: colors.text } },
+                            y: { grid: { color: colors.gridLight, drawBorder: false }, ticks: { color: colors.text } }
+                        },
+                        plugins: { legend: { labels: { color: colors.text } } }
+                    };
+
+                    const mergedOptions = {
+                        ...defaultOptions,
+                        ...customOptions,
+                        scales: {
+                            x: { ...defaultOptions.scales.x, ...(customOptions.scales?.x || {}) },
+                            y: { ...defaultOptions.scales.y, ...(customOptions.scales?.y || {}) }
+                        },
+                        plugins: {
+                            legend: { ...defaultOptions.plugins.legend, ...(customOptions.plugins?.legend || {}) }
+                        }
+                    };
+
+                    this.instances[canvasId] = new Chart(ctx, { type, data, options: mergedOptions });
+                    return this.instances[canvasId];
+                },
+
+                updateAllThemes() {
+                    const colors = this.getThemeColors();
+                    Object.values(this.instances).forEach(chart => {
+                        chart.options.scales.x.grid.color = colors.gridLight;
+                        chart.options.scales.y.grid.color = colors.gridLight;
+                        chart.options.scales.x.ticks.color = colors.text;
+                        chart.options.scales.y.ticks.color = colors.text;
+                        chart.options.plugins.legend.labels.color = colors.text;
+                        chart.update('none');
+                    });
+                },
+
+                init() {
+                    document.getElementById('theme-switch')?.addEventListener('change', () => {
+                        this.updateAllThemes();
+                    });
+                }
+            };
+
+            document.addEventListener('DOMContentLoaded', () => {
+                window.AGLCharts.init();
+            });
+
+            // ==========================================================================
+            // 2. THEME PERSISTENCE
+            // ==========================================================================
+            (function () {
+                const checkbox = document.getElementById('theme-switch');
+                const savedTheme = localStorage.getItem('agl_theme');
+                if (savedTheme === 'light') checkbox.checked = true;
+
+                checkbox.addEventListener('change', function () {
+                    localStorage.setItem('agl_theme', this.checked ? 'light' : 'dark');
+                });
+            })();
+
+            // ==========================================================================
+            // 3. UTILITY FUNCTIONS
+            // ==========================================================================
             function rebuildHistory() {
-                var btn = document.getElementById('rebuildBtn');
-                var status = document.getElementById('rebuildStatus');
+                const btn = document.getElementById('rebuildBtn');
+                const status = document.getElementById('rebuildStatus');
                 if (!btn || !status) return;
 
                 btn.disabled = true;
@@ -243,17 +908,17 @@
                 status.textContent = 'Чтение файла лога...';
                 status.className = 'control-status';
 
-                var pathParts = window.location.pathname.split('/');
-                var prefix = pathParts[1] ? pathParts[1] + '/' : '';
+                const pathParts = window.location.pathname.split('/');
+                const prefix = pathParts[1] ? pathParts[1] + '/' : '';
 
                 fetch('/' + prefix + 'api/rebuild', { method: 'POST' })
-                    .then(function (res) { return res.json(); })
-                    .then(function (data) {
+                    .then(res => res.json())
+                    .then(data => {
                         if (data.success) {
                             btn.textContent = 'История загружена';
-                            status.textContent = data.valid + ' событий загружено (' + data.broken + ' битых строк пропущено). Перезапустите сервис для повторной загрузки.';
+                            status.textContent = `${data.valid} событий загружено (${data.broken} битых строк пропущено). Перезапустите сервис.`;
                             status.className = 'control-status success';
-                            setTimeout(function () { window.location.reload(); }, 2000);
+                            setTimeout(() => window.location.reload(), 2000);
                         } else {
                             btn.disabled = false;
                             btn.textContent = 'Загрузить историю из лога';
@@ -261,7 +926,7 @@
                             status.className = 'control-status error';
                         }
                     })
-                    .catch(function (err) {
+                    .catch(err => {
                         btn.disabled = false;
                         btn.textContent = 'Загрузить историю из лога';
                         status.textContent = 'Ошибка сети: ' + err.message;

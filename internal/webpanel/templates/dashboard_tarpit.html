@@ -2,104 +2,105 @@
 {{define "dashboard_tarpit"}}
 {{template "header" .}}
 
-<div class="card">
-    <h2>Анализ удержания и математические корреляторы</h2>
-    <p class="text-muted">Анализ прочности удержания сессий, метрик деградации сетевых каналов.</p>
+<div class="page-section-header">
+    <h1>Анализ поведения и определение алгоритма Акторов</h1>
+    <p>Исследование метрик динамики удержания, алгоритма прекращения сессий, анализа сетевой телеметрии и агрессивности
+        атакующих.</p>
 </div>
 
-<!-- План vs Факт удержания -->
+<!-- 1. План vs Факт удержания -->
 <div class="card" style="margin-top: 20px;">
     <h3>Среднее удержание: План vs Факт (сек)</h3>
     <p class="text-muted">Сравнение запланированного и фактического времени удержания по часам.</p>
-    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
+    <div class="chart-container">
         <canvas id="holdChart"></canvas>
     </div>
 </div>
 
-<!-- Распределение CloseReason -->
+<!-- 2. Распределение CloseReason -->
 <div class="card" style="margin-top: 20px;">
     <h3>Распределение причин закрытия сессий</h3>
     <p class="text-muted">FIN (корректное закрытие), RST (сброс), TIMEOUT (таймер AGL), OUR_CLOSE (принудительно).</p>
-    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
+    <div class="chart-container">
         <canvas id="closeReasonChart"></canvas>
     </div>
 </div>
 
-<!-- RTT динамика -->
+<!-- 3. RTT динамика -->
 <div class="card" style="margin-top: 20px;">
     <h3>Средний RTT по часам (мс)</h3>
     <p class="text-muted">Динамика сетевой задержки (Round Trip Time).</p>
-    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
+    <div class="chart-container">
         <canvas id="rttChart"></canvas>
     </div>
 </div>
 
-<!-- Агрессивность vs Пассивность -->
+<!-- 4. Агрессивность vs Пассивность -->
 <div class="card" style="margin-top: 20px;">
     <h3>Агрессивность vs Пассивность</h3>
     <p class="text-muted">Соотношение агрессивных и пассивных событий по часам.</p>
-    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
+    <div class="chart-container">
         <canvas id="behaviorChart"></canvas>
     </div>
 </div>
 
 <script>
-    const hourStats = {{ .HourStats | json }};
+    // Вспомогательная функция для честной прозрачности (rgba)
+    function hexToRgba(hex, alpha) {
+        hex = hex.replace(/^#/, '');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const colors = AGLCharts.getThemeColors();
+        const hourStats = {{ .HourStats | json
+    }};
+
     const labels = hourStats.map(hs => {
         const date = new Date(hs.hour);
         return date.getHours().toString().padStart(2, '0') + ':00';
     });
 
-    // --- План vs Факт удержания ---
-    const avgPlanned = hourStats.map(hs => {
-        return hs.hold_count > 0 ? (hs.planned_hold_sum_sec / hs.hold_count) : 0;
-    });
-    const avgActual = hourStats.map(hs => {
-        return hs.hold_count > 0 ? (hs.actual_hold_sum_sec / hs.hold_count) : 0;
-    });
+    // ==========================================================================
+    // 1. ПЛАН VS ФАКТ УДЕРЖАНИЯ
+    // ==========================================================================
+    const avgPlanned = hourStats.map(hs => hs.hold_count > 0 ? (hs.planned_hold_sum_sec / hs.hold_count) : 0);
+    const avgActual = hourStats.map(hs => hs.hold_count > 0 ? (hs.actual_hold_sum_sec / hs.hold_count) : 0);
 
-    const holdCtx = document.getElementById('holdChart').getContext('2d');
-    new Chart(holdCtx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Средний план (сек)',
-                    data: avgPlanned,
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    fill: false,
-                    tension: 0.3
-                },
-                {
-                    label: 'Средний факт (сек)',
-                    data: avgActual,
-                    borderColor: 'rgb(239, 68, 68)',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    fill: false,
-                    tension: 0.3
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#a5b4fc' } },
-                y: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#a5b4fc' }, beginAtZero: true }
+    AGLCharts.createChart('holdChart', 'line', {
+        labels: labels,
+        datasets: [
+            {
+                label: 'Средний план (сек)',
+                data: avgPlanned,
+                borderColor: colors.blue,
+                backgroundColor: hexToRgba(colors.blue, 0.1),
+                fill: false,
+                tension: 0.3
             },
-            plugins: { legend: { labels: { color: '#a5b4fc' } } }
-        }
+            {
+                label: 'Средний факт (сек)',
+                data: avgActual,
+                borderColor: colors.red,
+                backgroundColor: hexToRgba(colors.red, 0.1),
+                fill: false,
+                tension: 0.3
+            }
+        ]
     });
 
-    // --- Распределение CloseReason ---
+    // ==========================================================================
+    // 2. РАСПРЕДЕЛЕНИЕ ПРИЧИН ЗАКРЫТИЯ (CloseReason)
+    // ==========================================================================
     const closeReasonConfig = {
-        'FIN': { label: 'FIN (корректное)', color: 'rgba(34, 197, 94, 0.7)' },
-        'RST': { label: 'RST (сброс)', color: 'rgba(239, 68, 68, 0.7)' },
-        'TIMEOUT': { label: 'TIMEOUT (таймер AGL)', color: 'rgba(251, 191, 36, 0.7)' },
-        'OUR_CLOSE': { label: 'OUR_CLOSE (принудительно)', color: 'rgba(168, 85, 247, 0.7)' },
-        'UNKNOWN': { label: 'UNKNOWN', color: 'rgba(128, 128, 128, 0.5)' }
+        'FIN': { label: 'FIN (корректное)', color: hexToRgba(colors.green, 0.7) },
+        'RST': { label: 'RST (сброс)', color: hexToRgba(colors.red, 0.7) },
+        'TIMEOUT': { label: 'TIMEOUT (таймер AGL)', color: hexToRgba(colors.amber, 0.7) },
+        'OUR_CLOSE': { label: 'OUR_CLOSE (принудительно)', color: hexToRgba(colors.purple, 0.7) },
+        'UNKNOWN': { label: 'UNKNOWN', color: hexToRgba(colors.text, 0.5) }
     };
 
     const closeReasonDatasets = Object.keys(closeReasonConfig).map(code => ({
@@ -111,84 +112,49 @@
         backgroundColor: closeReasonConfig[code].color
     }));
 
-    const closeReasonCtx = document.getElementById('closeReasonChart').getContext('2d');
-    new Chart(closeReasonCtx, {
-        type: 'bar',
-        data: { labels: labels, datasets: closeReasonDatasets },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    stacked: true,
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: { color: '#a5b4fc' }
-                },
-                y: {
-                    stacked: true,
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: { color: '#a5b4fc' },
-                    beginAtZero: true
-                }
-            },
-            plugins: { legend: { labels: { color: '#a5b4fc' } } }
+    AGLCharts.createChart('closeReasonChart', 'bar', {
+        labels: labels,
+        datasets: closeReasonDatasets
+    }, {
+        scales: {
+            x: { stacked: true },
+            y: { stacked: true }
         }
     });
 
-    // --- RTT динамика ---
-    const rttCtx = document.getElementById('rttChart').getContext('2d');
-    new Chart(rttCtx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Средний RTT (мс)',
-                data: hourStats.map(hs => hs.rtt_avg_ms || 0),
-                borderColor: 'rgb(16, 185, 129)',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                fill: true,
-                tension: 0.3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#a5b4fc' } },
-                y: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#a5b4fc' }, beginAtZero: true }
-            },
-            plugins: { legend: { labels: { color: '#a5b4fc' } } }
-        }
+    // ==========================================================================
+    // 3. RTT ДИНАМИКА
+    // ==========================================================================
+    AGLCharts.createChart('rttChart', 'line', {
+        labels: labels,
+        datasets: [{
+            label: 'Средний RTT (мс)',
+            data: hourStats.map(hs => hs.rtt_avg_ms || 0),
+            borderColor: colors.green,
+            backgroundColor: hexToRgba(colors.green, 0.1),
+            fill: true,
+            tension: 0.3
+        }]
     });
 
-    // --- Агрессивность vs Пассивность ---
-    const behaviorCtx = document.getElementById('behaviorChart').getContext('2d');
-    new Chart(behaviorCtx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Агрессивные события',
-                    data: hourStats.map(hs => hs.aggressive_events || 0),
-                    backgroundColor: 'rgba(239, 68, 68, 0.7)'
-                },
-                {
-                    label: 'Пассивные события',
-                    data: hourStats.map(hs => hs.passive_events || 0),
-                    backgroundColor: 'rgba(251, 191, 36, 0.7)'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#a5b4fc' } },
-                y: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#a5b4fc' }, beginAtZero: true }
+    // ==========================================================================
+    // 4. АГРЕССИВНОСТЬ VS ПАССИВНОСТЬ
+    // ==========================================================================
+    AGLCharts.createChart('behaviorChart', 'bar', {
+        labels: labels,
+        datasets: [
+            {
+                label: 'Агрессивные события',
+                data: hourStats.map(hs => hs.aggressive_events || 0),
+                backgroundColor: hexToRgba(colors.red, 0.7)
             },
-            plugins: { legend: { labels: { color: '#a5b4fc' } } }
-        }
+            {
+                label: 'Пассивные события',
+                data: hourStats.map(hs => hs.passive_events || 0),
+                backgroundColor: hexToRgba(colors.amber, 0.7)
+            }
+        ]
+    });
     });
 </script>
 

@@ -2,29 +2,29 @@
 {{define "dashboard_reports"}}
 {{template "header" .}}
 
+<div class="page-section-header">
+    <h1>Криминалистические отчёты</h1>
+    <p>Инструмент для принятия обоснованных решений на основе актуальных, агрегированных данных.
+        Данные обновляются инкрементально, гарантируя отсутствие искажений в расчетах.</p>
+</div>
+
 <div class="card">
-    <h2>Криминалистические отчёты</h2>
-    <p class="text-muted">Сухая агрегированная выжимка для принятия решений. Данные инкрементальные, без пересчётов.</p>
+    {{/* Классы активных кнопок: условия на коротких строках — форматтер их не рвёт */}}
+    {{ $c24 := "" }}
+    {{ $c7 := "" }}
+    {{ $c30 := "" }}
+    {{ if eq .Range "24h" }}{{ $c24 = "active-green" }}{{ end }}
+    {{ if eq .Range "7d" }}{{ $c7 = "active-green" }}{{ end }}
+    {{ if eq .Range "30d" }}{{ $c30 = "active-green" }}{{ end }}
 
     <!-- Переключатель периода -->
-    <div style="margin-top: 20px; display: flex; gap: 10px;">
-        <a href="{{.Prefix}}dashboard/reports?range=24h" class="nav-link" style="background: {{ if eq .Range " 24h"
-            }}#1e293b{{ end }}; color: {{ if eq .Range "24h" }}#00ff66{{ else }}#a5b4fc{{ end }}; border: 1px solid
-            #1e293b;">
-            Сутки (24 ч)
-        </a>
-        <a href="{{.Prefix}}dashboard/reports?range=7d" class="nav-link" style="background: {{ if eq .Range " 7d"
-            }}#1e293b{{ end }}; color: {{ if eq .Range "7d" }}#00ff66{{ else }}#a5b4fc{{ end }}; border: 1px solid
-            #1e293b;">
-            Неделя (7 д)
-        </a>
-        <a href="{{.Prefix}}dashboard/reports?range=30d" class="nav-link" style="background: {{ if eq .Range " 30d"
-            }}#1e293b{{ end }}; color: {{ if eq .Range "30d" }}#00ff66{{ else }}#a5b4fc{{ end }}; border: 1px solid
-            #1e293b;">
-            Месяц (30 д)
-        </a>
+    <div style="display: flex; gap: 10px;">
+        <a href="{{.Prefix}}dashboard/reports?range=24h" class="nav-link {{ $c24 }}">Сутки (24 ч)</a>
+        <a href="{{.Prefix}}dashboard/reports?range=7d" class="nav-link {{ $c7 }}">Неделя (7 д)</a>
+        <a href="{{.Prefix}}dashboard/reports?range=30d" class="nav-link {{ $c30 }}">Месяц (30 д)</a>
     </div>
 </div>
+
 <!-- Блок - Макро-статистика -->
 <div class="card" style="margin-top: 20px;">
     <h3>Макро-статистика за период</h3>
@@ -36,7 +36,7 @@
         </div>
         <div class="card">
             <div class="metric-label">Утилизировано времени</div>
-            <div class="metric amber">{{ .Macro.HoldSumSec | formatDuration }}</div>
+            <div class="metric text-amber">{{ .Macro.HoldSumSec | formatDuration }}</div>
             <div class="text-muted">Сумма фактического удержания</div>
         </div>
         <div class="card">
@@ -46,30 +46,33 @@
         </div>
         <div class="card">
             <div class="metric-label">Avg Drop Second</div>
-            <div class="metric" style="color: #00ff66;">{{ if gt .Macro.DropCount 0 }}{{ printf "%.1f" .Macro.AvgDropSec
-                }} сек{{ else }}—{{ end }}</div>
+            <div class="metric text-green">{{ if gt .Macro.DropCount 0 }}{{ printf "%.1f" .Macro.AvgDropSec }} сек{{
+                else }}—{{ end }}</div>
             <div class="text-muted">Средняя секунда сброса клиентом (FIN/RST). Дроп-сессий: {{ .Macro.DropCount }}</div>
         </div>
     </div>
+
     {{ if .Macro.BehaviorDisplay }}
     <div style="margin-top: 20px;">
         <div class="metric-label">Распределение тактик</div>
-        <div style="display: flex; gap: 20px; margin-top: 10px;">
+        <div style="display: flex; gap: 20px; margin-top: 10px; flex-wrap: wrap;">
             {{ range .Macro.BehaviorDisplay }}
             <div>
-                <span style="color: {{ if eq .Name " AGGRESSIVE" }}#ef4444{{ else if eq .Name "PASSIVE" }}#fbbf24{{ else
-                    }}#94a3b8{{ end }}; font-weight: bold;">{{ .Name }}:</span>
-                <span style="color: #fff;">{{ .Count }} ({{ printf "%.2f" .Percent }}%)</span>
+                <span class="{{ if eq .Name " AGGRESSIVE" }}status-aggr{{ else if eq .Name "PASSIVE" }}status-mixed{{
+                    else }}text-muted{{ end }}">{{ .Name }}:</span>
+                <span class="text-primary">{{ .Count }} ({{ printf "%.2f" .Percent }}%)</span>
             </div>
             {{ end }}
         </div>
     </div>
     {{ end }}
 </div>
+
 <!-- Блок - Эффективность ловушек -->
 <div class="card" style="margin-top: 20px;">
-    <h3>Эффективность ловушек</h3>
-    <p class="text-muted">Рейтинг утилизированного времени атакующих внутри каждой из ловушек.</p>
+    <h3>Анализ эффективности ловушек</h3>
+    <p class="text-muted">Анализ трафика и среднего утилизированного времени ботнета в конкретной из ловушек.
+    </p>
     <table>
         <thead>
             <tr>
@@ -86,11 +89,11 @@
             {{ range .Traps }}
             <tr>
                 <td>
-                    {{ if eq .Label "CORE" }}<span style="color: #f4a261; font-weight: bold;">CORE</span>
-                    {{ else }}<span style="color: #fff;">{{ .Label }}</span>{{ end }}
+                    {{ if eq .Label "CORE" }}<span class="text-amber">CORE</span>
+                    {{ else }}<span class="text-primary">{{ .Label }}</span>{{ end }}
                 </td>
                 <td>{{ .Events }}</td>
-                <td class="amber">{{ .HoldSumSec | formatDuration }}</td>
+                <td class="text-amber">{{ .HoldSumSec | formatDuration }}</td>
                 <td>{{ .UniqueIPs }}</td>
                 <td>{{ .UniqueCountries }}</td>
                 <td>{{ .DropCount }}</td>
@@ -104,10 +107,12 @@
         </tbody>
     </table>
 </div>
+
 <!-- Блок - Топ стран -->
 <div class="card" style="margin-top: 20px;">
-    <h3>Блок 1. Географический триаж — Топ-{{ len .Countries }} стран</h3>
-    <p class="text-muted">Глобальный вектор распределения ботнета. Концентрация = событий на IP.</p>
+    <h3>Блок 1. Геопрофилирование агрессивной сетевой активности — Топ-{{ len .Countries }} стран</h3>
+    <p class="text-muted">Детализация глобальных векторов ботнета и анализ концентрации событий по географическому
+        распределению.</p>
     <table>
         <thead>
             <tr>
@@ -124,14 +129,13 @@
             {{ range $i, $c := .Countries }}
             <tr>
                 <td>{{ add $i 1 }}</td>
-                <td style="color: #fff;">{{ $c.Code }}</td>
+                <td class="text-primary">{{ $c.Code }}</td>
                 <td>{{ $c.TopTrap }}</td>
                 <td>{{ $c.Events }}</td>
                 <td>{{ $c.UniqueIPs }}</td>
-                <td class="amber">{{ $c.HoldSumSec | formatDuration }}</td>
+                <td class="text-amber">{{ $c.HoldSumSec | formatDuration }}</td>
                 <td class="text-muted">{{ if gt $c.UniqueIPs 0 }}{{ printf "%.1f" $c.Concentration }}{{ else }}—{{ end
-                    }}
-                </td>
+                    }}</td>
             </tr>
             {{ else }}
             <tr>
@@ -144,8 +148,9 @@
 
 <!-- Блок 2: Топ IP -->
 <div class="card" style="margin-top: 20px;">
-    <h3>Блок 2. Оперативный триаж — Топ-{{ len .IPs }} атакующих</h3>
-    <p class="text-muted">Самые навязчивые сокеты. Готовый расстрельный список для abuse-команды.</p>
+    <h3>Блок 2. Профилирование агрессивной сетевой активности — Топ-{{ len .IPs }} атакующих</h3>
+    <p class="text-muted">Профилирование агрессивного трафика: Индикаторы оперативного анализа для приоритизации угроз и
+        принятия стратегических решений.</p>
     <table>
         <thead>
             <tr>
@@ -165,17 +170,17 @@
             {{ range $i, $ip := .IPs }}
             <tr>
                 <td>{{ add $i 1 }}</td>
-                <td><code style="color: #fff;">{{ $ip.IP }}</code></td>
+                <td><code>{{ $ip.IP }}</code></td>
                 <td>{{ if $ip.Country }}{{ $ip.Country }}{{ else }}—{{ end }}</td>
                 <td>{{ $ip.Trap }}</td>
                 <td>{{ $ip.Events }}</td>
-                <td class="amber">{{ $ip.HoldSumSec | formatDuration }}</td>
+                <td class="text-amber">{{ $ip.HoldSumSec | formatDuration }}</td>
                 <td>{{ if gt $ip.AvgRTTMs 0.0 }}{{ printf "%.0f" $ip.AvgRTTMs }} мс{{ else }}—{{ end }}</td>
                 <td>{{ $ip.DropCount }}</td>
                 <td>
-                    {{ if eq $ip.TopCloseReason "TIMEOUT" }}<span style="color: #34d399;">TIMEOUT</span>
-                    {{ else if eq $ip.TopCloseReason "RST" }}<span style="color: #ef4444;">RST</span>
-                    {{ else if eq $ip.TopCloseReason "FIN" }}<span style="color: #fbbf24;">FIN</span>
+                    {{ if eq $ip.TopCloseReason "TIMEOUT" }}<span class="status-pass">TIMEOUT</span>
+                    {{ else if eq $ip.TopCloseReason "RST" }}<span class="status-aggr">RST</span>
+                    {{ else if eq $ip.TopCloseReason "FIN" }}<span class="status-mixed">FIN</span>
                     {{ else }}<span class="text-muted">{{ $ip.TopCloseReason }}</span>{{ end }}
                 </td>
                 <td class="text-muted">{{ if $ip.LastSeen.IsZero }}—{{ else }}{{ $ip.LastSeen.Format "02.01 15:04" }}{{

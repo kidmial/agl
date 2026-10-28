@@ -2,251 +2,56 @@
 {{define "dashboard_vitals"}}
 {{template "header" .}}
 
+<div class="page-section-header">
+    <h1>Мониторинг динамики Инцидентов</h1>
+    <p>Комплексная хроника интенсивности, динамики, эскалации, скорости и смещения фаз атак.</p>
+</div>
+
+<!-- 1. Хроника за 60 минут -->
 <div class="card">
     <h2>Хроника за 60 минут</h2>
-    <p class="text-muted">Поминутная плотность событий в реальном времени. Всплески указывают на кучность
-        активности.</p>
-    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
+    <p class="text-muted">Поминутная плотность событий в реальном времени. Всплески указывают на кучность активности.
+    </p>
+    <div class="chart-container">
         <canvas id="burstChart"></canvas>
     </div>
 </div>
 
-<script>
-    // --- Хроника атаки: поминутная плотность событий ---
-    const burstSeries = {{ .BurstSeries | json }};
-    const burstLabels = burstSeries.map(p => p.label);
-    const burstData = burstSeries.map(p => p.count);
-
-    const burstCtx = document.getElementById('burstChart').getContext('2d');
-    new Chart(burstCtx, {
-        type: 'line',
-        data: {
-            labels: burstLabels,
-            datasets: [{
-                label: 'Событий в минуту',
-                data: burstData,
-                borderColor: 'rgb(239, 68, 68)',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                fill: true,
-                tension: 0.3,
-                pointRadius: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: { color: '#a5b4fc', maxTicksLimit: 12 }
-                },
-                y: {
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: { color: '#a5b4fc' },
-                    beginAtZero: true
-                }
-            },
-            plugins: { legend: { labels: { color: '#a5b4fc' } } }
-        }
-    });
-</script>
-
-<div class="card">
+<!-- 2. Динамика атаки и самодиагностика -->
+<div class="card" style="margin-top: 30px;">
     <h2>Динамика атаки и самодиагностика</h2>
     <p class="text-muted">Мультислойный таймлайн эскалации фаз: как волна PHASE_1 переходит в PHASE_2 и PHASE_3.</p>
 
     <h3>Эскалация фаз за 24 часа</h3>
-    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
+    <div class="chart-container">
         <canvas id="phaseChart"></canvas>
     </div>
 </div>
 
-<script>
-    // Извлекаем данные из Go-шаблона в JavaScript.
-    const hourStats = {{ .HourStats | json }};
-
-    // Маппинг кодов фаз на человекочитаемые имена и цвета.
-    const phaseConfig = {
-        'PHASE_1_BLIND_RECON_L4': { label: 'ФАЗА 1: Слепой скан', color: 'rgba(255, 99, 132, 0.3)', borderColor: 'rgb(255, 99, 132)' },
-        'PHASE_2_BANNER_RECON_L7': { label: 'ФАЗА 2: Сбор баннеров', color: 'rgba(54, 162, 235, 0.3)', borderColor: 'rgb(54, 162, 235)' },
-        'PHASE_3_PAYLOAD_PROBE': { label: 'ФАЗА 3: Payload зонд', color: 'rgba(255, 206, 86, 0.3)', borderColor: 'rgb(255, 206, 86)' },
-        'PHASE_UNKNOWN': { label: 'Не определено', color: 'rgba(128, 128, 128, 0.3)', borderColor: 'rgb(128, 128, 128)' }
-    };
-
-    // Извлекаем метки времени (часы) из hourStats.
-    const labels = hourStats.map(hs => {
-        const date = new Date(hs.hour);
-        return date.getHours().toString().padStart(2, '0') + ':00';
-    });
-
-    // Создаём datasets для каждой фазы.
-    const phaseCodes = Object.keys(phaseConfig);
-    const datasets = phaseCodes.map(code => {
-        const config = phaseConfig[code];
-        const data = hourStats.map(hs => {
-            const phase = hs.phase_counts.find(p => p.key === code);
-            return phase ? phase.count : 0;
-        });
-
-        return {
-            label: config.label,
-            data: data,
-            backgroundColor: config.color,
-            borderColor: config.borderColor,
-            fill: true
-        };
-    });
-
-    // Инициализируем Chart.js.
-    const ctx = document.getElementById('phaseChart').getContext('2d');
-    const chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: datasets
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    stacked: true,
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: { color: '#a5b4fc' }
-                },
-                y: {
-                    stacked: true,
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: { color: '#a5b4fc' }
-                }
-            },
-            plugins: {
-                legend: {
-                    labels: { color: '#a5b4fc' }
-                }
-            }
-        }
-    });
-</script>
+<!-- 3. Индекс скорости атаки -->
 <div class="card" style="margin-top: 30px;">
     <h2>Индекс скорости атаки (средний IAT)</h2>
     <p class="text-muted">Средний интервал между чтениями (мс). Отделяет автоматические скрипты (&lt;5 мс) от имитации
         человека (&gt;100 мс).</p>
-    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
+    <div class="chart-container">
         <canvas id="velocityChart"></canvas>
     </div>
 </div>
 
-<script>
-    // График индекса скорости атаки (средний IAT)
-    const velocityCtx = document.getElementById('velocityChart').getContext('2d');
-    const velocityChart = new Chart(velocityCtx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Средний IAT (мс)',
-                    data: hourStats.map(hs => hs.avg_iat_ms || 0),
-                    borderColor: 'rgb(147, 51, 234)',
-                    backgroundColor: 'rgba(147, 51, 234, 0.1)',
-                    fill: false,
-                    tension: 0.3
-                },
-                {
-                    label: 'Порог: Скрипт (<5 мс)',
-                    data: Array(labels.length).fill(5),
-                    borderColor: 'rgba(34, 197, 94, 0.5)',
-                    borderDash: [5, 5],
-                    fill: false,
-                    pointRadius: 0
-                },
-                {
-                    label: 'Порог: Человек (>100 мс)',
-                    data: Array(labels.length).fill(100),
-                    borderColor: 'rgba(239, 68, 68, 0.5)',
-                    borderDash: [5, 5],
-                    fill: false,
-                    pointRadius: 0
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: { color: '#a5b4fc' }
-                },
-                y: {
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: { color: '#a5b4fc' },
-                    beginAtZero: true
-                }
-            },
-            plugins: {
-                legend: {
-                    labels: { color: '#a5b4fc' }
-                }
-            }
-        }
-    });
-</script>
+<!-- 4. Временные отпечатки -->
 <div class="card" style="margin-top: 30px;">
     <h2>Временные отпечатки (тип инструмента)</h2>
     <p class="text-muted">Распределение вердиктов по ритму IAT. TIMER_BOT = фиксированный тайминг, прямой признак
         автоматического движка.</p>
-    <div style="position: relative; height: 300px; width: 100%; margin-bottom: 20px;">
+    <div class="chart-container">
         <canvas id="toolChart"></canvas>
     </div>
 </div>
 
-<script>
-    // Маппинг вердиктов инструмента на цвета и подписи
-    const toolConfig = {
-        'TIMER_BOT': { label: 'Жёсткий таймер (бот)', color: 'rgba(239, 68, 68, 0.7)' },
-        'HUMAN_EMULATION_OR_BAD_PROXY': { label: 'Рваный ритм (человек/прокси)', color: 'rgba(251, 191, 36, 0.7)' },
-        'UNKNOWN': { label: 'Ритм не определён', color: 'rgba(128, 128, 128, 0.5)' }
-    };
-
-    const toolDatasets = Object.keys(toolConfig).map(code => ({
-        label: toolConfig[code].label,
-        data: hourStats.map(hs => {
-            const item = (hs.tool_profiles || []).find(p => p.key === code);
-            return item ? item.count : 0;
-        }),
-        backgroundColor: toolConfig[code].color
-    }));
-
-    const toolCtx = document.getElementById('toolChart').getContext('2d');
-    new Chart(toolCtx, {
-        type: 'bar',
-        data: { labels: labels, datasets: toolDatasets },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    stacked: true,
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: { color: '#a5b4fc' }
-                },
-                y: {
-                    stacked: true,
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    ticks: { color: '#a5b4fc' },
-                    beginAtZero: true
-                }
-            },
-            plugins: { legend: { labels: { color: '#a5b4fc' } } }
-        }
-    });
-</script>
-
+<!-- 5. Самодиагностика конвейера -->
 <div class="card" style="margin-top: 30px;">
     <h2>Самодиагностика конвейера</h2>
-    <div class="grid">
+    <div class="grid" style="margin-bottom: 0;">
         <div class="card">
             <div class="metric-label">Упущенные события касания</div>
             <div class="metric">{{ .PipelineHealth.DroppedConnectionEvents }}</div>
@@ -258,9 +63,157 @@
             <div class="text-muted">Макс. латентность: {{ .PipelineHealth.MaxReportWriteLatencyMs }} мс</div>
         </div>
     </div>
-    <p class="text-muted">Данные с момента старта процесса. Ненулевые значения указывают на перегрузку каналов или
-        медленный диск.</p>
+    <p class="text-muted" style="margin-top: 16px; margin-bottom: 0;">Данные с момента старта процесса. Ненулевые
+        значения указывают на перегрузку каналов или медленный диск.</p>
 </div>
+
+<script>
+    // Вспомогательная функция для честной прозрачности (rgba)
+    function hexToRgba(hex, alpha) {
+        hex = hex.replace(/^#/, '');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // 1. Получаем актуальные цвета из CSS-переменных (через наш глобальный менеджер)
+        const colors = AGLCharts.getThemeColors();
+
+        // 2. Извлекаем данные из Go-шаблона
+        const burstSeries = {{ .BurstSeries | json
+    }};
+    const hourStats = {{ .HourStats | json }};
+
+    // Форматируем метки времени (часы)
+    const timeLabels = hourStats.map(hs => {
+        const date = new Date(hs.hour);
+        return date.getHours().toString().padStart(2, '0') + ':00';
+    });
+
+    // ==========================================================================
+    // ГРАФИК 1: Хроника атаки (Burst)
+    // ==========================================================================
+    AGLCharts.createChart('burstChart', 'line', {
+        labels: burstSeries.map(p => p.label),
+        datasets: [{
+            label: 'Событий в минуту',
+            data: burstSeries.map(p => p.count),
+            borderColor: colors.red,
+            backgroundColor: hexToRgba(colors.red, 0.1), // 10% прозрачности
+            fill: true,
+            tension: 0.3,
+            pointRadius: 0
+        }]
+    }, {
+        scales: {
+            x: { ticks: { maxTicksLimit: 12 } }
+        }
+    });
+
+    // ==========================================================================
+    // ГРАФИК 2: Эскалация фаз (Phase)
+    // ==========================================================================
+    const phaseConfig = {
+        'PHASE_1_BLIND_RECON_L4': { label: 'ФАЗА 1: Слепой скан', color: hexToRgba(colors.red, 0.3), borderColor: colors.red },
+        'PHASE_2_BANNER_RECON_L7': { label: 'ФАЗА 2: Сбор баннеров', color: hexToRgba(colors.blue, 0.3), borderColor: colors.blue },
+        'PHASE_3_PAYLOAD_PROBE': { label: 'ФАЗА 3: Payload зонд', color: hexToRgba(colors.amber, 0.3), borderColor: colors.amber },
+        'PHASE_UNKNOWN': { label: 'Не определено', color: hexToRgba(colors.text, 0.3), borderColor: colors.text }
+    };
+
+    const phaseDatasets = Object.keys(phaseConfig).map(code => {
+        const config = phaseConfig[code];
+        return {
+            label: config.label,
+            data: hourStats.map(hs => {
+                const phase = hs.phase_counts.find(p => p.key === code);
+                return phase ? phase.count : 0;
+            }),
+            backgroundColor: config.color,
+            borderColor: config.borderColor,
+            fill: true,
+            tension: 0.3
+        };
+    });
+
+    // Примечание: grid и text цвета подставляются менеджером AGLCharts автоматически!
+    AGLCharts.createChart('phaseChart', 'line', {
+        labels: timeLabels,
+        datasets: phaseDatasets
+    }, {
+        scales: {
+            x: { stacked: true },
+            y: { stacked: true }
+        }
+    });
+
+    // ==========================================================================
+    // ГРАФИК 3: Индекс скорости атаки (Velocity / IAT)
+    // ==========================================================================
+    AGLCharts.createChart('velocityChart', 'line', {
+        labels: timeLabels,
+        datasets: [
+            {
+                label: 'Средний IAT (мс)',
+                data: hourStats.map(hs => hs.avg_iat_ms || 0),
+                borderColor: colors.purple,
+                backgroundColor: hexToRgba(colors.purple, 0.1),
+                fill: true,
+                tension: 0.3
+            },
+            {
+                label: 'Порог: Скрипт (<5 мс)',
+                data: Array(timeLabels.length).fill(5),
+                borderColor: colors.green,
+                borderDash: [5, 5],
+                fill: false,
+                pointRadius: 0
+            },
+            {
+                label: 'Порог: Человек (>100 мс)',
+                data: Array(timeLabels.length).fill(100),
+                borderColor: colors.red,
+                borderDash: [5, 5],
+                fill: false,
+                pointRadius: 0
+            }
+        ]
+    }, {
+        scales: {
+            y: { beginAtZero: true }
+        }
+    });
+
+    // ==========================================================================
+    // ГРАФИК 4: Временные отпечатки (Tool)
+    // ==========================================================================
+    const toolConfig = {
+        'TIMER_BOT': { label: 'Жёсткий таймер (бот)', color: hexToRgba(colors.red, 0.7) },
+        'HUMAN_EMULATION_OR_BAD_PROXY': { label: 'Рваный ритм (человек/прокси)', color: hexToRgba(colors.amber, 0.7) },
+        'UNKNOWN': { label: 'Ритм не определён', color: hexToRgba(colors.text, 0.5) }
+    };
+
+    const toolDatasets = Object.keys(toolConfig).map(code => ({
+        label: toolConfig[code].label,
+        data: hourStats.map(hs => {
+            const item = (hs.tool_profiles || []).find(p => p.key === code);
+            return item ? item.count : 0;
+        }),
+        backgroundColor: toolConfig[code].color
+    }));
+
+    AGLCharts.createChart('toolChart', 'bar', {
+        labels: timeLabels,
+        datasets: toolDatasets
+    }, {
+        scales: {
+            x: { stacked: true },
+            y: { stacked: true, beginAtZero: true }
+        }
+    });
+    });
+</script>
 
 {{template "footer" .}}
 {{end}}

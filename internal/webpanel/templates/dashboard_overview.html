@@ -2,6 +2,24 @@
 {{define "dashboard_overview"}}
 {{template "header" .}}
 
+<!-- Блок управления данными -->
+<div class="control-panel">
+    <h3>Управление данными</h3>
+    {{ if .HistoryLoaded }}
+    <button class="control-btn" disabled>История загружена</button>
+    <span class="control-status success">{{ .StoreTotal }} событий в буфере. Перезапустите сервис для повторной
+        загрузки.</span>
+    {{ else }}
+    <button class="control-btn" id="rebuildBtn" onclick="rebuildHistory()">Загрузить историю из лога</button>
+    <span class="control-status" id="rebuildStatus">История не загружена. Нажмите кнопку для загрузки.</span>
+    {{ end }}
+</div>
+
+<div class="page-section-header">
+    <h1>Панель мониторинга киберугроз</h1>
+    <p>Поведенческий анализ недавней активности акторов, их касания инфраструктуры и сдерживания сетевых атак.</p>
+</div>
+
 <!-- Сводные метрики -->
 <div class="grid">
     <div class="card">
@@ -42,19 +60,6 @@
         <div class="metric-label">Утилизированное время ботнет за 30 дней</div>
         <div class="metric amber">{{ .StolenTime.MonthSec | formatDuration }}</div>
     </div>
-</div>
-
-<!-- Блок управления данными -->
-<div class="control-panel">
-    <h3>Управление данными</h3>
-    {{ if .HistoryLoaded }}
-    <button class="control-btn" disabled>История загружена</button>
-    <span class="control-status success">{{ .StoreTotal }} событий в буфере. Перезапустите сервис для повторной
-        загрузки.</span>
-    {{ else }}
-    <button class="control-btn" id="rebuildBtn" onclick="rebuildHistory()">Загрузить историю из лога</button>
-    <span class="control-status" id="rebuildStatus">История не загружена. Нажмите кнопку для загрузки.</span>
-    {{ end }}
 </div>
 
 <!-- Часовая статистика -->
@@ -109,20 +114,19 @@
                 <td>{{ if .HoldCount }}{{ printf "%.0f" .AvgActualHoldSec }}{{ else }}—{{ end }}</td>
                 <td>
                     {{ $b := .DominantBehavior }}
-                    {{ if eq $b "AGGR" }}<span style="color: #f87171; font-weight: bold;">AGGR</span>
-                    {{ else if eq $b "PASS" }}<span style="color: #34d399; font-weight: bold;">PASS</span>
-                    {{ else if eq $b "MIXED" }}<span style="color: #fbbf24; font-weight: bold;">MIXED</span>
+                    {{ if eq $b "AGGR" }}<span class="status-aggr">AGGR</span>
+                    {{ else if eq $b "PASS" }}<span class="status-pass">PASS</span>
+                    {{ else if eq $b "MIXED" }}<span class="status-mixed">MIXED</span>
                     {{ else }}<span class="text-muted">—</span>{{ end }}
                 </td>
                 <td>
-                    <a href="{{$.Prefix}}dashboard/profile/{{.ID}}"
-                        style="color: #00ff66; text-decoration: none; font-family: monospace; border-bottom: 1px dashed #00ff66;">
+                    <a href="{{$.Prefix}}dashboard/profile/{{.ID}}" class="profile-link">
                         {{ .ID }}
                     </a>
                 </td>
                 <td>{{ .UniqueIPCount }}</td>
-                <td style="color: #fbbf24;">{{ if .CurrentPhase }}{{ .CurrentPhase }}{{ else }}—{{ end }}</td>
-                <td style="color: #00ff66;">{{ if .PredictedVector }}{{ .PredictedVector }}{{ else }}—{{ end }}</td>
+                <td class="phase-text">{{ if .CurrentPhase }}{{ .CurrentPhase }}{{ else }}—{{ end }}</td>
+                <td class="prediction-text">{{ if .PredictedVector }}{{ .PredictedVector }}{{ else }}—{{ end }}</td>
                 <td>{{ if .TokenDriftValid }}{{ .TokenDriftMs }} мс{{ else }}—{{ end }}</td>
             </tr>
             {{ end }}
