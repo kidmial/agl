@@ -114,7 +114,9 @@
 
         const tdKey = document.createElement('td');
         const code = document.createElement('code');
-        code.textContent = key; // Защита от XSS
+        const privateKey = document.createElement('agl-private');
+        privateKey.textContent = key; // Защита от XSS
+        code.appendChild(privateKey);
         tdKey.appendChild(code);
 
         const tdCount = document.createElement('td');

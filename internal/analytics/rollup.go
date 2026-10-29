@@ -174,7 +174,7 @@ func trapPort(tarpitID string) string {
 }
 
 // TrapLabel — человекочитаемое имя ловушки по терминологии комплекса:
-// порт 22 — "CORE", остальные — "Порт N".
+// порт 22 — "CORE", остальные — "N".
 // Если порт не извлекается, возвращаем сырой идентификатор:
 // честность важнее красивого ярлыка.
 func TrapLabel(tarpitID string) string {
@@ -188,7 +188,7 @@ func TrapLabel(tarpitID string) string {
 	case port == "22":
 		return "CORE"
 	default:
-		return "Порт " + port
+		return port
 	}
 }
 

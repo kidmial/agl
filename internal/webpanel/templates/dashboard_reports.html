@@ -58,9 +58,9 @@
         <div style="display: flex; gap: 20px; margin-top: 10px; flex-wrap: wrap;">
             {{ range .Macro.BehaviorDisplay }}
             <div>
-                <span class="{{ if eq .Name " AGGRESSIVE" }}status-aggr{{ else if eq .Name "PASSIVE" }}status-mixed{{
-                    else }}text-muted{{ end }}">{{ .Name }}:</span>
-                <span class="text-primary">{{ .Count }} ({{ printf "%.2f" .Percent }}%)</span>
+                <span>{{ .Name }}:</span>
+                <span class="text-primary">{{ .Count }}</span>
+                <span class="status-mixed">({{ printf "%.2f" .Percent }}%)</span>
             </div>
             {{ end }}
         </div>
@@ -88,10 +88,7 @@
         <tbody>
             {{ range .Traps }}
             <tr>
-                <td>
-                    {{ if eq .Label "CORE" }}<span class="text-amber">CORE</span>
-                    {{ else }}<span class="text-primary">{{ .Label }}</span>{{ end }}
-                </td>
+                <td><agl-private>{{ .Label }}</agl-private></td>
                 <td>{{ .Events }}</td>
                 <td class="text-amber">{{ .HoldSumSec | formatDuration }}</td>
                 <td>{{ .UniqueIPs }}</td>
@@ -130,7 +127,7 @@
             <tr>
                 <td>{{ add $i 1 }}</td>
                 <td class="text-primary">{{ $c.Code }}</td>
-                <td>{{ $c.TopTrap }}</td>
+                <td><agl-private>{{ $c.TopTrap }}</agl-private></td>
                 <td>{{ $c.Events }}</td>
                 <td>{{ $c.UniqueIPs }}</td>
                 <td class="text-amber">{{ $c.HoldSumSec | formatDuration }}</td>
@@ -170,9 +167,9 @@
             {{ range $i, $ip := .IPs }}
             <tr>
                 <td>{{ add $i 1 }}</td>
-                <td><code>{{ $ip.IP }}</code></td>
+                <td><code><agl-private>{{ $ip.IP }}</agl-private></code></td>
                 <td>{{ if $ip.Country }}{{ $ip.Country }}{{ else }}—{{ end }}</td>
-                <td>{{ $ip.Trap }}</td>
+                <td><agl-private>{{ $ip.Trap }}</agl-private></td>
                 <td>{{ $ip.Events }}</td>
                 <td class="text-amber">{{ $ip.HoldSumSec | formatDuration }}</td>
                 <td>{{ if gt $ip.AvgRTTMs 0.0 }}{{ printf "%.0f" $ip.AvgRTTMs }} мс{{ else }}—{{ end }}</td>

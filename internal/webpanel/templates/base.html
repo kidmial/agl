@@ -359,7 +359,7 @@
         }
 
         .gl {
-            color: var(--text-secondary)
+            color: var(--text-secondary);
         }
 
         .nav-link {
@@ -484,7 +484,7 @@
            6. THEME SWITCHER
            ========================================================================== */
         .theme-switch {
-            position: absolute;
+            position: fixed;
             width: 1px;
             height: 1px;
             margin: -1px;
@@ -522,6 +522,42 @@
         body:has(#theme-switch:checked) .theme-icon-light,
         body:has(#theme-switch:checked) .theme-text-light {
             display: inline;
+        }
+
+        /* --- Privacy mode --- */
+        agl-private {
+            display: inline-block;
+            /* blur не обрезается по строковым фрагментам */
+            transition: filter 0.15s ease;
+        }
+
+        body:has(#privacy-switch:checked) agl-private {
+            filter: blur(4px);
+            user-select: none;
+            /* барьер от копипасты в privacy-режиме */
+        }
+
+        .privacy-toggle {
+            cursor: pointer;
+        }
+
+        /* Иконка показывает следствие нажатия (наша конвенция):
+           режим выключен → перечёркнутый глаз («нажми, чтобы скрыть») */
+        .privacy-icon-show {
+            display: none;
+        }
+
+        body:has(#privacy-switch:checked) .privacy-icon-hide {
+            display: none;
+        }
+
+        body:has(#privacy-switch:checked) .privacy-icon-show {
+            display: inline;
+        }
+
+        /* Явный сигнал включённого режима — янтарная рамка */
+        body:has(#privacy-switch:checked) .privacy-toggle {
+            color: var(--accent-amber);
         }
 
         /* ==========================================================================
@@ -723,7 +759,9 @@
             flex-wrap: wrap;
             justify-content: center;
             align-items: center;
-            margin-top: 20px;
+            margin: 24px 0 20px 0;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-primary);
             gap: 8px 20px;
             font-size: 11px;
             color: var(--text-muted);
@@ -741,8 +779,24 @@
         }
 
         .version-signature {
-            letter-spacing: 0.5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            text-align: center;
+        }
+
+        .agl-footer {
+            font-size: 11px;
             font-weight: 700;
+            letter-spacing: 0.08em;
+        }
+
+        .build-version {
+            font-size: 10px;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
         }
     </style>
     <script src="{{.Prefix}}assets/js/chart.min.js"></script>
@@ -751,6 +805,8 @@
 <body>
     <!-- Скрытый чекбокс для управления темой -->
     <input type="checkbox" id="theme-switch" class="theme-switch" aria-label="Переключить тему">
+    <!-- Скрытый чекбокс для управления режимом приватности данных -->
+    <input type="checkbox" id="privacy-switch" class="theme-switch" aria-label="Режим приватности">
 
     <div class="header">
         <div class="header-brand">
@@ -782,6 +838,25 @@
                     </svg>
                 </span>
             </label>
+            <label for="privacy-switch" class="nav-link privacy-toggle"
+                title="Режим приватности: скрыть чувствительные данные для скриншотов">
+                <span class="privacy-icon-show" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                        <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 8 10 8a10.45 10.45 0 0 0 5.39-1.5" />
+                        <line x1="2" x2="22" y1="2" y2="22" />
+                    </svg>
+                </span>
+                <span class="privacy-icon-hide" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                </span>
+            </label>
 
             <a href="{{.Prefix}}logout" class="nav-link danger">Выход</a>
         </nav>
@@ -790,9 +865,7 @@
         {{end}}
 
         {{define "footer"}}
-        <div class="status-bar">
-            <div class="version-signature"><span class="amber">A</span><span class="gl">GL</span> {{.Version}}</div>
-        </div>
+
         <script>
             // ==========================================================================
             // 1. GLOBAL CHART MANAGER (AGLCharts)
@@ -896,6 +969,17 @@
             })();
 
             // ==========================================================================
+            // CONCEALMENT OF PERSONAL DATA
+            // ==========================================================================
+            (function () {
+                const cb = document.getElementById('privacy-switch');
+                if (localStorage.getItem('agl_privacy') === 'on') cb.checked = true;
+                cb.addEventListener('change', function () {
+                    localStorage.setItem('agl_privacy', this.checked ? 'on' : 'off');
+                });
+            })();
+
+            // ==========================================================================
             // 3. UTILITY FUNCTIONS
             // ==========================================================================
             function rebuildHistory() {
@@ -935,6 +1019,12 @@
             }
         </script>
     </div>
+    <footer class="status-bar">
+        <div class="version-signature">
+            <div class="agl-footer"><span class="amber">A</span><span class="gl">GL</span></div>
+            <div class="build-version">{{.Version}}</div>
+        </div>
+    </footer>
 </body>
 
 </html>

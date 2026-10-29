@@ -110,8 +110,10 @@
             {{ range .Profiles }}
             <tr>
                 <td>{{ .LastEventTime.Format "15:04:05" }}</td>
-                <td>{{ if .HoldCount }}{{ printf "%.0f" .AvgPlannedHoldSec }}{{ else }}—{{ end }}</td>
-                <td>{{ if .HoldCount }}{{ printf "%.0f" .AvgActualHoldSec }}{{ else }}—{{ end }}</td>
+                <td><agl-private>{{ if .HoldCount }}{{ printf "%.0f" .AvgPlannedHoldSec }}{{ else }}—{{ end
+                        }}</agl-private></td>
+                <td><agl-private>{{ if .HoldCount }}{{ printf "%.0f" .AvgActualHoldSec }}{{ else }}—{{ end
+                        }}</agl-private></td>
                 <td>
                     {{ $b := .DominantBehavior }}
                     {{ if eq $b "AGGR" }}<span class="status-aggr">AGGR</span>

@@ -43,7 +43,9 @@
                         <summary>Показать ({{ add (len $det.IPsInvolved) (len $det.Evidence) }})</summary>
                         <ul class="details-list">
                             {{ range $ip := $det.IPsInvolved }}
-                            <li><code>{{ $ip }}</code>{{ with index $det.CountryByIP $ip }} — {{ . }}{{ end }}</li>
+                            <li><code><agl-private>{{ $ip }}</agl-private></code>{{ with index $det.CountryByIP $ip }} —
+                                <agl-private>{{ . }}</agl-private>{{ end }}
+                            </li>
                             {{ end }}
                             {{ range $det.Evidence }}
                             <li>{{ . }}</li>
@@ -86,7 +88,7 @@
             <ul class="list-unstyled" style="margin-top: 12px;">
                 {{ range .ProxyDetails }}
                 <li class="list-item-sm">
-                    <code>{{ .Subject }}</code>
+                    <code><agl-private>{{ .Subject }}</agl-private></code>
                     <div class="text-muted" style="font-size: 11px; margin-top: 2px;">{{ .Facts }}</div>
                 </li>
                 {{ end }}
