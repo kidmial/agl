@@ -22,8 +22,9 @@ import (
 
 // Глубина колец.
 const (
-	HourBucketsDepth = 24 // 24 часа покрывают сутки
-	DayBucketsDepth  = 31 // 31 день покрывает месяц
+	MinuteBucketsDepth = 1440 // 1440 минут покрывают 24 часа (для GeoPulse)
+	HourBucketsDepth   = 24   // 24 часа покрывают сутки
+	DayBucketsDepth    = 31   // 31 день покрывает месяц
 )
 
 // Лимиты вместимости, чтобы одна активная страна/IP не раздула память.
@@ -32,6 +33,15 @@ const (
 	IPPerDayLimit         = 2000 // макс IP в одном суточном бакете
 	CountryPerBucketLimit = 250  // практически все ISO-коды умещаются
 )
+
+// MinuteAggBucket — минутная агрегация для GeoPulse.
+// Облегчённая структура: только Countries и Events (без IPs, Traps, расширенных агрегатов).
+// Глубина 1440 минут (24 часа) достаточна для всех интервалов GeoPulse (1мин–30мин).
+type MinuteAggBucket struct {
+	Minute    time.Time
+	Events    uint64
+	Countries map[string]*CountryBucket
+}
 
 // CountryBucket — агрегат страны внутри одного бакета.
 type CountryBucket struct {
@@ -130,10 +140,11 @@ type TrapBucket struct {
 
 // Rollup — глобальные кольца бакетов.
 type Rollup struct {
-	mu    sync.RWMutex
-	loc   *time.Location
-	hours [HourBucketsDepth]*HourAggBucket
-	days  [DayBucketsDepth]*DayAggBucket
+	mu      sync.RWMutex
+	loc     *time.Location
+	minutes [MinuteBucketsDepth]*MinuteAggBucket // v8.6.2: для GeoPulse
+	hours   [HourBucketsDepth]*HourAggBucket
+	days    [DayBucketsDepth]*DayAggBucket
 }
 
 type TrapReport struct {
@@ -226,6 +237,9 @@ func (r *Rollup) Reset() {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	for i := range r.minutes {
+		r.minutes[i] = nil
+	}
 	for i := range r.hours {
 		r.hours[i] = nil
 	}
@@ -255,6 +269,14 @@ func (r *Rollup) Ingest(rec EventRecord) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	// Инкремент минутного бакета (для GeoPulse).
+	minuteStart := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 0, 0, loc)
+	mIdx := hourStart.Hour()*60 + minuteStart.Minute()
+	if r.minutes[mIdx] == nil || !r.minutes[mIdx].Minute.Equal(minuteStart) {
+		r.minutes[mIdx] = newMinuteAggBucket(minuteStart)
+	}
+	applyEventToMinute(r.minutes[mIdx], rec)
+
 	// Инкремент часового бакета.
 	hIdx := hourStart.Hour()
 	if r.hours[hIdx] == nil || !r.hours[hIdx].Hour.Equal(hourStart) {
@@ -271,6 +293,13 @@ func (r *Rollup) Ingest(rec EventRecord) {
 		r.days[dIdx] = newDayAggBucket(dayStart)
 	}
 	applyEventToDay(r.days[dIdx], rec)
+}
+
+func newMinuteAggBucket(minute time.Time) *MinuteAggBucket {
+	return &MinuteAggBucket{
+		Minute:    minute,
+		Countries: make(map[string]*CountryBucket),
+	}
 }
 
 func newHourAggBucket(hour time.Time) *HourAggBucket {
@@ -293,6 +322,27 @@ func newDayAggBucket(day time.Time) *DayAggBucket {
 		Countries: make(map[string]*CountryBucket),
 		IPs:       make(map[string]*IPBucket),
 		Traps:     make(map[string]*TrapBucket),
+	}
+}
+
+// applyEventToMinute наполняет минутный бакет для GeoPulse.
+// Облегчённая версия: только Countries и Events (без IPs, Traps, расширенных агрегатов).
+func applyEventToMinute(m *MinuteAggBucket, rec EventRecord) {
+	m.Events++
+
+	if rec.Country != "" {
+		c, ok := m.Countries[rec.Country]
+		if !ok {
+			if len(m.Countries) >= CountryPerBucketLimit {
+				// Не расширяем страну, просто не считаем
+			} else {
+				c = &CountryBucket{Code: rec.Country}
+				m.Countries[rec.Country] = c
+			}
+		}
+		if c != nil {
+			c.Events++
+		}
 	}
 }
 

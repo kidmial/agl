@@ -38,7 +38,46 @@
     </div>
 </div>
 
-<!-- 4. Временные отпечатки -->
+<!-- 4. Географический пульс ботнета -->
+<div class="card" style="margin-top: 30px;">
+    <div class="card-header-row">
+        <div>
+            <h2 style="margin-bottom: 4px;">Географический пульс ботнета</h2>
+            <p class="text-muted" style="margin: 0;">Криминалистический анализ географической кучности и ротации
+                прокси-узлов.</p>
+        </div>
+        <select id="geoWindowSelect" class="control-btn" style="padding: 8px 16px;">
+            {{range .TimeWindows}}
+            <option value="{{.Name}}">{{.Label}}</option>
+            {{end}}
+        </select>
+    </div>
+
+    <h3 style="margin-top: 20px;">Кол-во стран за период</h3>
+    <div class="chart-container">
+        <canvas id="geoChart"></canvas>
+    </div>
+
+    <div class="grid" style="margin-top: 20px; margin-bottom: 0;">
+        <div class="card">
+            <div class="metric-label">GDI (Плотность атаки)</div>
+            <div class="metric metric-value" id="geoGDI">—</div>
+            <div class="text-muted" id="geoGDIInterpretation">—</div>
+        </div>
+        <div class="card">
+            <div class="metric-label">Geo-Churn (Ротация)</div>
+            <div class="metric" id="geoChurn">—</div>
+            <div class="text-muted" id="geoChurnInterpretation">—</div>
+        </div>
+        <div class="card">
+            <div class="metric-label">Geo-Dominance</div>
+            <div class="metric" id="geoDominance">—</div>
+            <div class="text-muted" id="geoDominanceInterpretation">—</div>
+        </div>
+    </div>
+</div>
+
+<!-- 5. Временные отпечатки -->
 <div class="card" style="margin-top: 30px;">
     <h2>Временные отпечатки (тип инструмента)</h2>
     <p class="text-muted">Распределение вердиктов по ритму IAT. TIMER_BOT = фиксированный тайминг, прямой признак
@@ -48,7 +87,7 @@
     </div>
 </div>
 
-<!-- 5. Самодиагностика конвейера -->
+<!-- 6. Самодиагностика конвейера -->
 <div class="card" style="margin-top: 30px;">
     <h2>Самодиагностика конвейера</h2>
     <div class="grid" style="margin-bottom: 0;">
@@ -186,7 +225,7 @@
     });
 
     // ==========================================================================
-    // ГРАФИК 4: Временные отпечатки (Tool)
+    // ГРАФИК 5: Временные отпечатки (Tool)
     // ==========================================================================
     const toolConfig = {
         'TIMER_BOT': { label: 'Жёсткий таймер (бот)', color: hexToRgba(colors.red, 0.7) },
@@ -212,6 +251,95 @@
             y: { stacked: true, beginAtZero: true }
         }
     });
+
+    // ==========================================================================
+    // ГРАФИК 4: Географический пульс ботнета (GeoPulse)
+    // ==========================================================================
+    const geoWindowSelect = document.getElementById('geoWindowSelect');
+    if (geoWindowSelect) {
+        geoWindowSelect.value = '1h'; // установка значения ДО первого вызова updateGeoPulse
+    }
+    let geoChart = null;
+
+    function updateGeoPulse() {
+        const windowName = geoWindowSelect.value;  // Переименовано: не затеняем глобальный window
+        const pathParts = window.location.pathname.split('/');
+        const prefix = pathParts[1] ? pathParts[1] + '/' : '';
+
+        // Загружаем историю для графика
+        fetch('/' + prefix + 'api/geo-pulse/history?window=' + windowName)
+            .then(res => res.json())
+            .then(data => {
+                if (geoChart) geoChart.destroy();
+                geoChart = AGLCharts.createChart('geoChart', 'line', {
+                    labels: data.points.map(p => {
+                        const date = new Date(p.time);
+                        // Метки по ШАГУ точек (data.step), а не по глубине интервала
+                        if (data.step === '1min' || data.step === '5min') {
+                            return date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
+                        } else if (data.step === '1h') {
+                            return date.getHours().toString().padStart(2, '0') + ':00';
+                        } else {
+                            return (date.getMonth() + 1) + '/' + date.getDate();
+                        }
+                    }),
+                    datasets: [{
+                        label: 'Уникальных стран',
+                        data: data.points.map(p => p.unique_countries),
+                        borderColor: colors.amber,
+                        backgroundColor: hexToRgba(colors.amber, 0.1),
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 2
+                    }]
+                }, {
+                    scales: {
+                        x: { ticks: { maxTicksLimit: 12 } },
+                        y: { beginAtZero: true }
+                    }
+                });
+            });
+
+        // Загружаем текущие метрики
+        fetch('/' + prefix + 'api/geo-pulse?window=' + windowName)
+            .then(res => res.json())
+            .then(data => {
+                const metrics = data.metrics;
+
+                // GDI
+                document.getElementById('geoGDI').textContent = metrics.GDI.toFixed(1);
+                if (metrics.GDI > 100) {
+                    document.getElementById('geoGDIInterpretation').textContent = 'Региональный таран (дата-центр)';
+                } else if (metrics.GDI < 5 && data.current.UniqueCountries > 10) {
+                    document.getElementById('geoGDIInterpretation').textContent = 'Глобальная мимикрия (распределённый ботнет)';
+                } else {
+                    document.getElementById('geoGDIInterpretation').textContent = 'Умеренная плотность';
+                }
+
+                // Geo-Churn
+                document.getElementById('geoChurn').textContent = metrics.GeoChurn.toFixed(0) + '%';
+                if (metrics.GeoChurn > 70) {
+                    document.getElementById('geoChurnInterpretation').textContent = 'Высокая ротация прокси';
+                } else if (metrics.GeoChurn < 10) {
+                    document.getElementById('geoChurnInterpretation').textContent = 'Статичный ботнет';
+                } else {
+                    document.getElementById('geoChurnInterpretation').textContent = 'Умеренная ротация';
+                }
+
+                // Geo-Dominance
+                if (metrics.GeoDominance) {
+                    document.getElementById('geoDominance').innerHTML = '<agl-private>' + metrics.GeoDominance + '</agl-private>';
+                    document.getElementById('geoDominanceInterpretation').textContent = 'Доминирует (' + metrics.DominancePct.toFixed(0) + '%)';
+                } else {
+                    document.getElementById('geoDominance').textContent = '—';
+                    document.getElementById('geoDominanceInterpretation').textContent = 'Нет доминирующей страны';
+                }
+            });
+    }
+
+    geoWindowSelect.addEventListener('change', updateGeoPulse);
+    updateGeoPulse(); // Загрузка при старте
+
     });
 </script>
 

@@ -314,6 +314,7 @@ func renderDashboardVitals(w http.ResponseWriter, templateName string, prefix st
 		"StolenTime":      stolenTime,
 		"BurstSeries":     burst,
 		"Version":         buildinfo.Version,
+		"TimeWindows":     analytics.TimeWindows, // v8.6.2: для GeoPulse dropdown
 	}
 
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {

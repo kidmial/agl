@@ -14,11 +14,29 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"agl/config"
 	"agl/internal/analytics"
 	"agl/internal/tarpit"
 )
+
+// geoGranularityFor возвращает шаг точек графика для заданной глубины истории.
+// Принцип: X-ось покрывает весь выбранный интервал, точки — бакеты естественной
+// гранулярности (минутные до 3 часов, часовые для суток, суточные для недель/месяца).
+func geoGranularityFor(window analytics.TimeWindow) analytics.TimeWindow {
+	switch window.Name {
+	case "3h":
+		return analytics.TimeWindow{Name: "5min", Duration: 5 * time.Minute}
+	case "24h":
+		return analytics.TimeWindow{Name: "1h", Duration: time.Hour}
+	case "7d", "30d":
+		return analytics.TimeWindow{Name: "1d", Duration: 24 * time.Hour}
+	default:
+		// 1min..1h: поминутные точки (кардиограмма паука в лучшем виде)
+		return analytics.TimeWindow{Name: "1min", Duration: time.Minute}
+	}
+}
 
 // panel404Stub отдаёт стилизованную 404-страницу, когда панель недоступна.
 //
@@ -328,6 +346,75 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		traps := analytics.GlobalRollup.BuildTarpitReport(reportRange, 10)
 
 		renderDashboardReports(w, "dashboard_reports", prefix, rng, countries, ips, macro, traps)
+	})
+
+	// === v8.6.2: API для GeoPulse ===
+	mux.HandleFunc(prefix+"api/geo-pulse", func(w http.ResponseWriter, r *http.Request) {
+		windowName := r.URL.Query().Get("window")
+		if windowName == "" {
+			windowName = "15min"
+		}
+		window := analytics.GetTimeWindowByName(windowName)
+		if window == nil {
+			http.Error(w, "Invalid window", http.StatusBadRequest)
+			return
+		}
+
+		endTime := time.Now()
+		if t := r.URL.Query().Get("end_time"); t != "" {
+			if parsed, err := time.Parse(time.RFC3339, t); err == nil {
+				endTime = parsed
+			}
+		}
+
+		current := analytics.GlobalRollup.AggregateGeoStats(*window, endTime)
+		previous := analytics.GlobalRollup.AggregateGeoStats(*window, endTime.Add(-window.Duration))
+		metrics := analytics.CalculateGeoMetrics(current, previous)
+
+		renderJSON(w, map[string]interface{}{
+			"current":  current,
+			"previous": previous,
+			"metrics":  metrics,
+		})
+	})
+
+	mux.HandleFunc(prefix+"api/geo-pulse/history", func(w http.ResponseWriter, r *http.Request) {
+		windowName := r.URL.Query().Get("window")
+		if windowName == "" {
+			windowName = "15min"
+		}
+		window := analytics.GetTimeWindowByName(windowName)
+		if window == nil {
+			http.Error(w, "Invalid window", http.StatusBadRequest)
+			return
+		}
+
+		// v8.6.2: интервал = глубина истории, шаг точек = естественная гранулярность.
+		step := geoGranularityFor(*window)
+		endTime := time.Now()
+		startTime := endTime.Add(-window.Duration)
+
+		// Точки от конца окна к началу: каждая = агрегат за step, заканчивающийся в t.
+		points := make([]map[string]interface{}, 0)
+		for t := endTime; t.After(startTime); t = t.Add(-step.Duration) {
+			stats := analytics.GlobalRollup.AggregateGeoStats(step, t)
+			points = append(points, map[string]interface{}{
+				"time":             t,
+				"unique_countries": stats.UniqueCountries,
+				"total_sessions":   stats.TotalSessions,
+			})
+		}
+
+		// Разворачиваем (старые слева, новые справа)
+		for i, j := 0, len(points)-1; i < j; i, j = i+1, j-1 {
+			points[i], points[j] = points[j], points[i]
+		}
+
+		renderJSON(w, map[string]interface{}{
+			"points": points,
+			"window": window,
+			"step":   step.Name,
+		})
 	})
 
 	// 1.7. Раздача статических файлов (CSS, JS)
