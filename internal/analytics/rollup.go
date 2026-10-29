@@ -13,6 +13,7 @@
 package analytics
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -71,6 +72,36 @@ type HourAggBucket struct {
 	Countries map[string]*CountryBucket
 	IPs       map[string]*IPBucket
 	Traps     map[string]*TrapBucket // "22", "2222", "8080" -> агрегаты
+
+	// === v8.6.2: Расширенные агрегаты для виджетов dashboard ===
+
+	// PlannedHoldSum — суммарный план удержания (только для событий с валидной парой план/факт).
+	PlannedHoldSum uint64
+
+	// HoldCount — количество событий с валидной парой план/факт.
+	HoldCount uint64
+
+	// IAT агрегаты (интервалы между чтениями)
+	IATCount   uint64 // количество интервалов
+	IATSumMs   uint64 // сумма интервалов в мс
+	IATMinMs   uint64 // минимальный интервал
+	IATMaxMs   uint64 // максимальный интервал
+	IATSumSqMs uint64 // сумма квадратов интервалов (для дисперсии)
+
+	// Read distribution (распределение чтений по размеру)
+	ReadTiny   uint64 // 0-64 байта
+	ReadSmall  uint64 // 65-256 байт
+	ReadMedium uint64 // 257-1024 байт
+	ReadLarge  uint64 // >1024 байт
+
+	// Phase counts (распределение по фазам угрозы)
+	PhaseCounts map[string]uint64 // PHASE_1_BLIND_RECON_L4, PHASE_2_BANNER_RECON_L7, PHASE_3_PAYLOAD_PROBE
+
+	// Tool profiles (тип инструмента бота)
+	ToolProfiles map[string]uint64 // TIMER_BOT, HUMAN_EMULATION_OR_BAD_PROXY, UNKNOWN
+
+	// Stack fingerprints (TCP-отпечатки)
+	StackFingerprints map[string]uint64 // ключ: "MSS|RcvSpace|SndWscale|RcvWscale"
 }
 
 // DayBucket — суточная агрегация.
@@ -244,11 +275,14 @@ func (r *Rollup) Ingest(rec EventRecord) {
 
 func newHourAggBucket(hour time.Time) *HourAggBucket {
 	return &HourAggBucket{
-		Hour:      hour,
-		Behavior:  make(map[string]uint64),
-		Countries: make(map[string]*CountryBucket),
-		IPs:       make(map[string]*IPBucket),
-		Traps:     make(map[string]*TrapBucket),
+		Hour:              hour,
+		Behavior:          make(map[string]uint64),
+		Countries:         make(map[string]*CountryBucket),
+		IPs:               make(map[string]*IPBucket),
+		Traps:             make(map[string]*TrapBucket),
+		PhaseCounts:       make(map[string]uint64),
+		ToolProfiles:      make(map[string]uint64),
+		StackFingerprints: make(map[string]uint64),
 	}
 }
 
@@ -279,6 +313,69 @@ func applyEventToHour(h *HourAggBucket, rec EventRecord) {
 		behavior = "UNKNOWN"
 	}
 	h.Behavior[behavior]++
+
+	// === v8.6.2: Наполнение расширенных агрегатов ===
+
+	// Planned/Actual hold (только для событий с валидной парой)
+	if rec.PlannedHoldValid && rec.ActualHoldValid {
+		h.PlannedHoldSum += rec.PlannedHoldSec
+		h.HoldCount++
+	}
+
+	// IAT агрегаты
+	if rec.IATCountValid && rec.IATCount > 0 {
+		h.IATCount += rec.IATCount
+		if rec.IATSumMsValid {
+			h.IATSumMs += rec.IATSumMs
+		}
+		if rec.IATMinMsValid {
+			if h.IATMinMs == 0 || rec.IATMinMs < h.IATMinMs {
+				h.IATMinMs = rec.IATMinMs
+			}
+		}
+		if rec.IATMaxMsValid {
+			if rec.IATMaxMs > h.IATMaxMs {
+				h.IATMaxMs = rec.IATMaxMs
+			}
+		}
+		if rec.IATSumSqMsValid {
+			h.IATSumSqMs += rec.IATSumSqMs
+		}
+	}
+
+	// Read distribution
+	if rec.ReadTinyValid {
+		h.ReadTiny += rec.ReadTiny
+	}
+	if rec.ReadSmallValid {
+		h.ReadSmall += rec.ReadSmall
+	}
+	if rec.ReadMediumValid {
+		h.ReadMedium += rec.ReadMedium
+	}
+	if rec.ReadLargeValid {
+		h.ReadLarge += rec.ReadLarge
+	}
+
+	// Phase classification (вызываем ClassifyPhase для каждого события)
+	phaseResult := ClassifyPhase(rec)
+	if phaseResult.Code != PhaseCodeUnknown {
+		h.PhaseCounts[phaseResult.Code]++
+	}
+
+	// Tool profile (вызываем analyzeToolProfile)
+	dispersion := calculateIATDispersion(rec)
+	toolProfile := analyzeToolProfile(rec, dispersion)
+	h.ToolProfiles[toolProfile]++
+
+	// Stack fingerprint (извлекаем TCP-отпечаток)
+	if fp, ok := StackFingerprintFromEvent(rec); ok {
+		// Формируем ключ: "MSS|RcvSpace|SndWscale|RcvWscale"
+		key := fmt.Sprintf("%d|%d|%d|%d", fp.MSS, fp.RcvSpace, fp.SndWscale, fp.RcvWscale)
+		h.StackFingerprints[key]++
+	}
+
+	// Измерение ловушек: агрегат по порту + дубли в срезы стран и IP.
 
 	// Измерение ловушек: агрегат по порту + дубли в срезы стран и IP.
 	if rec.TarpitIDValid {

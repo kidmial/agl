@@ -118,7 +118,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		}
 		counters := store.Counters()
 		profileCounters := manager.Counters()
-		hourStats := analytics.BuildLatestHourStats(store, 24, 10)
+		hourStats := analytics.BuildLatestHourStatsFromBuckets(analytics.GlobalRollup, 24, 10)
 		profiles := manager.ProfilesSnapshot(20)
 
 		// Получаем метрики здоровья конвейера из tarpit
@@ -148,7 +148,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		}
 		counters := store.Counters()
 		profileCounters := manager.Counters()
-		hourStats := analytics.BuildLatestHourStats(store, 24, 10)
+		hourStats := analytics.BuildLatestHourStatsFromBuckets(analytics.GlobalRollup, 24, 10)
 		profiles := manager.ProfilesSnapshot(20)
 
 		// Получаем метрики здоровья конвейера из tarpit
@@ -176,7 +176,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		}
 		counters := store.Counters()
 		profileCounters := manager.Counters()
-		hourStats := analytics.BuildLatestHourStats(store, 24, 10)
+		hourStats := analytics.BuildLatestHourStatsFromBuckets(analytics.GlobalRollup, 24, 10)
 		profiles := manager.ProfilesSnapshot(20)
 
 		// Получаем метрики здоровья конвейера из tarpit
@@ -203,7 +203,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		}
 		counters := store.Counters()
 		profileCounters := manager.Counters()
-		hourStats := analytics.BuildLatestHourStats(store, 24, 10)
+		hourStats := analytics.BuildLatestHourStatsFromBuckets(analytics.GlobalRollup, 24, 10)
 		profiles := manager.ProfilesSnapshot(20)
 
 		// Получаем метрики здоровья конвейера из tarpit
@@ -230,7 +230,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		}
 		counters := store.Counters()
 		profileCounters := manager.Counters()
-		hourStats := analytics.BuildLatestHourStats(store, 24, 10)
+		hourStats := analytics.BuildLatestHourStatsFromBuckets(analytics.GlobalRollup, 24, 10)
 		profiles := manager.ProfilesSnapshot(20)
 
 		// Получаем метрики здоровья конвейера из tarpit
@@ -349,7 +349,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		renderJSON(w, map[string]interface{}{
 			"store_counters":   store.Counters(),
 			"profile_counters": manager.Counters(),
-			"hourly_stats":     analytics.BuildLatestHourStats(store, 24, 10),
+			"hourly_stats":     analytics.BuildLatestHourStatsFromBuckets(analytics.GlobalRollup, 24, 10),
 		})
 	})
 

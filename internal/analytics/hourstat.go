@@ -853,52 +853,6 @@ func BuildHourStats(s *Store, topLimit int) []HourStat {
 	return result
 }
 
-// BuildLatestHourStats возвращает последние часовые срезы.
-//
-// Аргументы:
-//   - s: хранилище событий;
-//   - maxHours: сколько последних часов вернуть;
-//   - topLimit: размер топ-списков.
-//
-// Возврат:
-//   - список часовых срезов в хронологическом порядке.
-//
-// Поведение:
-//   - если maxHours <= 0, возвращаем все доступные часы;
-//   - если доступных часов меньше, возвращаем все доступные;
-//   - если часов больше, возвращаем только хвост.
-//
-// Зачем:
-//   - веб-панель обычно показывает последние часы, а не всю историю;
-//   - администратору нужен быстрый срез текущей обстановки;
-//   - полный список можно запрашивать отдельным режимом позже.
-func BuildLatestHourStats(s *Store, maxHours int, topLimit int) []HourStat {
-	// Строим полный список часовых срезов.
-	//
-	// Это переиспользует уже готовую логику агрегации.
-	// Мы сознательно не дублируем её здесь.
-	stats := BuildHourStats(s, topLimit)
-
-	// Если ограничение не задано или список меньше ограничения,
-	// возвращаем весь список.
-	//
-	// Это защищает от лишних аллокаций и пустых манипуляций.
-	if maxHours <= 0 || len(stats) <= maxHours {
-		return stats
-	}
-
-	// Возвращаем только последние часы.
-	//
-	// Список отсортирован от старых к новым,
-	// поэтому хвост — это самые свежие часы.
-	//
-	// Пример:
-	//   - всего 50 часов;
-	//   - maxHours = 24;
-	//   - вернутся часы с 27-го по 50-й.
-	return stats[len(stats)-maxHours:]
-}
-
 // topFromMap превращает карту счётчиков в отсортированный топ-список.
 //
 // Аргументы:
@@ -1102,4 +1056,215 @@ func FormatDuration(sec uint64) string {
 	}
 
 	return strings.Join(parts, " ")
+}
+
+// BuildLatestHourStatsFromBuckets строит таблицу почасовой статистики из часовых бакетов.
+// Единый источник правды: бакеты держат 24 часа независимо от плотности трафика.
+// topN — размер топ-списков (страны, IP).
+//
+// ВАЖНО: бакеты не хранят IAT, phase counts, tool profiles, stack fingerprints,
+// read distribution. Эти поля остаются нулевыми. Если нужна полная детализация,
+// потребуется расширение HourAggBucket или чтение из сырых событий Store.
+func BuildLatestHourStatsFromBuckets(rollup *Rollup, hours int, topN int) []HourStat {
+	if rollup == nil {
+		return nil
+	}
+	rollup.mu.RLock()
+	defer rollup.mu.RUnlock()
+
+	loc := time.UTC
+	if rollup.loc != nil {
+		loc = rollup.loc
+	}
+	now := time.Now().In(loc)
+	cutoff := now.Add(-time.Duration(hours) * time.Hour)
+
+	var stats []HourStat
+
+	for _, h := range rollup.hours {
+		if h == nil || h.Hour.Before(cutoff) {
+			continue
+		}
+
+		stat := HourStat{
+			Hour:                  h.Hour,
+			Events:                int(h.Events),
+			ValidEvents:           int(h.Valid),
+			InvalidEvents:         int(h.Events - h.Valid),
+			UniqueIPs:             len(h.IPs),
+			UniqueCountries:       len(h.Countries),
+			AggressiveEvents:      int(h.Behavior["AGGRESSIVE"]),
+			PassiveEvents:         int(h.Behavior["PASSIVE"]),
+			UnknownBehaviorEvents: int(h.Behavior["UNKNOWN"]),
+			ActualHoldSumSec:      h.HoldSum,
+			PlannedHoldSumSec:     0,                                    // не хранится в бакетах
+			HoldCount:             h.DropCount + h.Events - h.DropCount, // все события с фактом
+		}
+
+		// Топ стран по событиям
+		type countryCount struct {
+			code   string
+			events uint64
+		}
+		var countries []countryCount
+		for code, cb := range h.Countries {
+			countries = append(countries, countryCount{code, cb.Events})
+		}
+		sort.Slice(countries, func(i, j int) bool {
+			return countries[i].events > countries[j].events
+		})
+		for i, c := range countries {
+			if i >= topN {
+				break
+			}
+			stat.TopCountries = append(stat.TopCountries, CountItem{
+				Key:   c.code,
+				Count: int(c.events),
+			})
+		}
+
+		// Топ IP по событиям
+		type ipCount struct {
+			ip     string
+			events uint64
+		}
+		var ips []ipCount
+		for ip, ipb := range h.IPs {
+			ips = append(ips, ipCount{ip, ipb.Events})
+		}
+		sort.Slice(ips, func(i, j int) bool {
+			return ips[i].events > ips[j].events
+		})
+		for i, ip := range ips {
+			if i >= topN {
+				break
+			}
+			stat.TopIPs = append(stat.TopIPs, CountItem{
+				Key:   ip.ip,
+				Count: int(ip.events),
+			})
+		}
+
+		// Close reasons из IP buckets (агрегация)
+		closeReasons := make(map[string]int)
+		for _, ipb := range h.IPs {
+			for reason, count := range ipb.CloseReasons {
+				closeReasons[reason] += int(count)
+			}
+		}
+		for reason, count := range closeReasons {
+			stat.CloseReasons = append(stat.CloseReasons, CountItem{
+				Key:   reason,
+				Count: count,
+			})
+		}
+		sort.Slice(stat.CloseReasons, func(i, j int) bool {
+			return stat.CloseReasons[i].Count > stat.CloseReasons[j].Count
+		})
+
+		// RTT агрегация из IP buckets
+		var totalRTT uint64
+		var rttCount uint64
+		var rttMin, rttMax uint32
+		firstRTT := true
+		for _, ipb := range h.IPs {
+			if ipb.RTTCount > 0 {
+				totalRTT += ipb.RTTSumMs
+				rttCount += ipb.RTTCount
+				// Минимум/максимум аппроксимируем (точные значения не хранятся)
+				if firstRTT {
+					rttMin = uint32(ipb.RTTSumMs / ipb.RTTCount)
+					rttMax = rttMin
+					firstRTT = false
+				}
+			}
+		}
+		if rttCount > 0 {
+			stat.RTTCount = rttCount
+			stat.RTTAvgMs = float64(totalRTT) / float64(rttCount)
+			stat.RTTMinMs = rttMin
+			stat.RTTMaxMs = rttMax
+		}
+
+		// Planned/Actual hold
+		stat.PlannedHoldSumSec = h.PlannedHoldSum
+		stat.ActualHoldSumSec = h.HoldSum
+		stat.HoldCount = h.HoldCount
+
+		// IAT агрегаты
+		if h.IATCount > 0 {
+			stat.IATEventCount = int(h.IATCount)
+			stat.AvgIATMs = float64(h.IATSumMs) / float64(h.IATCount)
+
+			// Дисперсия IAT (по формуле из phases.go)
+			if h.IATSumSqMs > 0 {
+				dispersion := float64(h.IATSumSqMs) - (float64(h.IATSumMs)*float64(h.IATSumMs))/float64(h.IATCount)
+				if dispersion > 0 {
+					stat.AvgIATDispersion = dispersion
+				}
+			}
+		}
+
+		// Read distribution
+		stat.ReadDistribution = []CountItem{
+			{Key: "tiny (0-64)", Count: int(h.ReadTiny)},
+			{Key: "small (65-256)", Count: int(h.ReadSmall)},
+			{Key: "medium (257-1024)", Count: int(h.ReadMedium)},
+			{Key: "large (>1024)", Count: int(h.ReadLarge)},
+		}
+
+		// Phase counts
+		for phase, count := range h.PhaseCounts {
+			stat.PhaseCounts = append(stat.PhaseCounts, CountItem{
+				Key:   phase,
+				Count: int(count),
+			})
+		}
+		sort.Slice(stat.PhaseCounts, func(i, j int) bool {
+			return stat.PhaseCounts[i].Count > stat.PhaseCounts[j].Count
+		})
+
+		// Tool profiles
+		for tool, count := range h.ToolProfiles {
+			stat.ToolProfiles = append(stat.ToolProfiles, CountItem{
+				Key:   tool,
+				Count: int(count),
+			})
+		}
+		sort.Slice(stat.ToolProfiles, func(i, j int) bool {
+			return stat.ToolProfiles[i].Count > stat.ToolProfiles[j].Count
+		})
+
+		// Stack fingerprints (топ-10)
+		type stackCount struct {
+			key   string
+			count uint64
+		}
+		var stacks []stackCount
+		for key, count := range h.StackFingerprints {
+			stacks = append(stacks, stackCount{key, count})
+		}
+		sort.Slice(stacks, func(i, j int) bool {
+			return stacks[i].count > stacks[j].count
+		})
+		for i, s := range stacks {
+			if i >= 10 {
+				break
+			}
+			stat.TopStackFingerprints = append(stat.TopStackFingerprints, CountItem{
+				Key:   s.key,
+				Count: int(s.count),
+			})
+		}
+
+		stats = append(stats, stat)
+
+	}
+
+	// Сортировка по возрастанию часа (старые слева, новые справа — классический таймлайн)
+	sort.Slice(stats, func(i, j int) bool {
+		return stats[i].Hour.Before(stats[j].Hour)
+	})
+
+	return stats
 }
