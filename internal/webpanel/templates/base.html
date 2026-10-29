@@ -531,8 +531,20 @@
             transition: filter 0.15s ease;
         }
 
+        agl-privated {
+            display: inline-block;
+            /* blur не обрезается по строковым фрагментам */
+            transition: filter 0.15s ease;
+        }
+
         body:has(#privacy-switch:checked) agl-private {
             filter: blur(4px);
+            user-select: none;
+            /* барьер от копипасты в privacy-режиме */
+        }
+
+        body:has(#privacy-switch:checked) agl-privated {
+            filter: blur(15px);
             user-select: none;
             /* барьер от копипасты в privacy-режиме */
         }

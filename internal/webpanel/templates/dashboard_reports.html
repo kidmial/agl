@@ -25,6 +25,17 @@
     </div>
 </div>
 
+<!-- Инициализация переменной для описания периода в инфоблоке (по умолчанию - пусто) -->
+{{ $rangeDesc := "" }}
+<!-- 2. Логика определения описания -->
+{{ if eq .Range "24h" }}
+{{ $rangeDesc = "24 часа" }}
+{{ else if eq .Range "7d" }}
+{{ $rangeDesc = "7 дней" }}
+{{ else if eq .Range "30d" }}
+{{ $rangeDesc = "30 дней" }}
+{{ end }}
+
 <!-- Блок - Макро-статистика -->
 <div class="card" style="margin-top: 20px;">
     <h3>Макро-статистика за период</h3>
@@ -32,12 +43,13 @@
         <div class="card">
             <div class="metric-label">Всего событий</div>
             <div class="metric">{{ .Macro.Events }}</div>
-            <div class="text-muted">Валидных: {{ .Macro.ValidEvents }}</div>
+            <div class="text-muted">Валидных событий: {{ .Macro.ValidEvents }}</div>
         </div>
         <div class="card">
             <div class="metric-label">Утилизировано времени</div>
             <div class="metric text-amber">{{ .Macro.HoldSumSec | formatDuration }}</div>
-            <div class="text-muted">Сумма фактического удержания</div>
+            <div class="text-muted">Сумма фактического утилизированного времени ботнет в интервале за {{ $rangeDesc }}
+            </div>
         </div>
         <div class="card">
             <div class="metric-label">Уникальных стран / IP</div>
@@ -46,9 +58,13 @@
         </div>
         <div class="card">
             <div class="metric-label">Avg Drop Second</div>
-            <div class="metric text-green">{{ if gt .Macro.DropCount 0 }}{{ printf "%.1f" .Macro.AvgDropSec }} сек{{
-                else }}—{{ end }}</div>
-            <div class="text-muted">Средняя секунда сброса клиентом (FIN/RST). Дроп-сессий: {{ .Macro.DropCount }}</div>
+            <div class="metric text-green">
+                <agl-privated>{{ if gt .Macro.DropCount 0 }}{{ printf "%.1f" .Macro.AvgDropSec }} сек{{ else }}—{{ end
+                    }}</agl-privated>
+            </div>
+            <div class="text-muted">Средняя секунда сброса атакующим (FIN/RST). Дроп-сессий: <agl-private>{{
+                    .Macro.DropCount }}</agl-private>
+            </div>
         </div>
     </div>
 
@@ -59,8 +75,8 @@
             {{ range .Macro.BehaviorDisplay }}
             <div>
                 <span>{{ .Name }}:</span>
-                <span class="text-primary">{{ .Count }}</span>
-                <span class="status-mixed">({{ printf "%.2f" .Percent }}%)</span>
+                <span class="text-primary"><agl-private>{{ .Count }}</agl-private></span>
+                <span class="status-mixed"><agl-private>({{ printf "%.2f" .Percent }}%)</agl-private></span>
             </div>
             {{ end }}
         </div>
@@ -173,7 +189,7 @@
                 <td>{{ $ip.Events }}</td>
                 <td class="text-amber">{{ $ip.HoldSumSec | formatDuration }}</td>
                 <td>{{ if gt $ip.AvgRTTMs 0.0 }}{{ printf "%.0f" $ip.AvgRTTMs }} мс{{ else }}—{{ end }}</td>
-                <td>{{ $ip.DropCount }}</td>
+                <td><agl-private>{{ $ip.DropCount }}</agl-private></td>
                 <td>
                     {{ if eq $ip.TopCloseReason "TIMEOUT" }}<span class="status-pass">TIMEOUT</span>
                     {{ else if eq $ip.TopCloseReason "RST" }}<span class="status-aggr">RST</span>
