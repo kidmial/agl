@@ -1285,6 +1285,24 @@ func (p *ActorProfile) UniqueIPCount() int {
 	return len(p.IPCounts)
 }
 
+// PrimaryIP возвращает IP с наибольшим количеством наблюдений.
+// Используется для отображения основного IP профиля без сортировки всего списка.
+// Если IP нет — возвращает пустую строку.
+func (p *ActorProfile) PrimaryIP() string {
+	if p == nil || len(p.IPCounts) == 0 {
+		return ""
+	}
+	var maxIP string
+	var maxCount int
+	for ip, count := range p.IPCounts {
+		if count > maxCount || (count == maxCount && ip < maxIP) {
+			maxCount = count
+			maxIP = ip
+		}
+	}
+	return maxIP
+}
+
 // UniqueCountryCount возвращает количество уникальных стран профиля.
 //
 // Пустые страны не учитываются.

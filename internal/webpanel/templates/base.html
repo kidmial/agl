@@ -344,6 +344,39 @@
             background: var(--bg-tertiary);
         }
 
+        /* --- Контейнер прокрутки таблиц --- */
+        /* На десктопе НЕ скролл-контейнер: sticky-шапки работают как прежде */
+        .table-scroll {
+            min-width: 0;
+        }
+
+        @media (max-width: 1000px) {
+            th {
+                position: relative;
+                top: 0px;
+            }
+
+            .table-scroll {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
+                scrollbar-color: var(--border-light) var(--bg-secondary);
+            }
+
+            .table-scroll::-webkit-scrollbar {
+                height: 6px;
+            }
+
+            .table-scroll::-webkit-scrollbar-track {
+                background: var(--bg-secondary);
+            }
+
+            .table-scroll::-webkit-scrollbar-thumb {
+                background: var(--border-light);
+                border-radius: 3px;
+            }
+        }
+
         /* --- Navigation --- */
         .logo {
             font-family: "JetBrains Mono", monospace;
@@ -747,7 +780,7 @@
         }
 
         code {
-            background: var(--bg-tertiary);
+            /* background: var(--bg-tertiary); */
             padding: 2px 6px;
             border-radius: 4px;
             color: var(--text-primary);

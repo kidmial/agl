@@ -12,51 +12,54 @@
 <div class="card" style="margin-top: 20px;">
     <h3>Обнаруженные ботнет-паттерны (интервал - час)</h3>
     {{ if .Detections }}
-    <table>
-        <thead>
-            <tr>
-                <th>Паттерн</th>
-                <th>Уверенность</th>
-                <th>IP вовлечено</th>
-                <th>Время обнаружения</th>
-                <th>Доказательства</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{ range .Detections }}
-            <tr>
-                <td><strong>{{ .Label }}</strong></td>
-                <td>
-                    {{ if eq .Confidence "HIGH" }}
-                    <span class="status-aggr">{{ .Confidence }}</span>
-                    {{ else if eq .Confidence "MEDIUM" }}
-                    <span class="status-mixed">{{ .Confidence }}</span>
-                    {{ else }}
-                    <span class="status-pass">{{ .Confidence }}</span>
-                    {{ end }}
-                </td>
-                <td>{{ len .IPsInvolved }}</td>
-                <td>{{ .StartTime.Format "15:04:05" }}</td>
-                <td>
-                    {{ $det := . }}
-                    <details>
-                        <summary>Показать ({{ add (len $det.IPsInvolved) (len $det.Evidence) }})</summary>
-                        <ul class="details-list">
-                            {{ range $ip := $det.IPsInvolved }}
-                            <li><code><agl-private>{{ $ip }}</agl-private></code>{{ with index $det.CountryByIP $ip }} —
-                                <agl-private>{{ . }}</agl-private>{{ end }}
-                            </li>
-                            {{ end }}
-                            {{ range $det.Evidence }}
-                            <li>{{ . }}</li>
-                            {{ end }}
-                        </ul>
-                    </details>
-                </td>
-            </tr>
-            {{ end }}
-        </tbody>
-    </table>
+    <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Паттерн</th>
+                    <th>Уверенность</th>
+                    <th>IP вовлечено</th>
+                    <th>Время обнаружения</th>
+                    <th>Доказательства</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Detections }}
+                <tr>
+                    <td><strong>{{ .Label }}</strong></td>
+                    <td>
+                        {{ if eq .Confidence "HIGH" }}
+                        <span class="status-aggr">{{ .Confidence }}</span>
+                        {{ else if eq .Confidence "MEDIUM" }}
+                        <span class="status-mixed">{{ .Confidence }}</span>
+                        {{ else }}
+                        <span class="status-pass">{{ .Confidence }}</span>
+                        {{ end }}
+                    </td>
+                    <td>{{ len .IPsInvolved }}</td>
+                    <td>{{ .StartTime.Format "15:04:05" }}</td>
+                    <td>
+                        {{ $det := . }}
+                        <details>
+                            <summary>Показать ({{ add (len $det.IPsInvolved) (len $det.Evidence) }})</summary>
+                            <ul class="details-list">
+                                {{ range $ip := $det.IPsInvolved }}
+                                <li><code><agl-private>{{ $ip }}</agl-private></code>{{ with index $det.CountryByIP $ip
+                                    }} —
+                                    <agl-private>{{ . }}</agl-private>{{ end }}
+                                </li>
+                                {{ end }}
+                                {{ range $det.Evidence }}
+                                <li>{{ . }}</li>
+                                {{ end }}
+                            </ul>
+                        </details>
+                    </td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
     {{ else }}
     <p class="text-muted">За последний час ботнет-паттернов не обнаружено.</p>
     {{ end }}

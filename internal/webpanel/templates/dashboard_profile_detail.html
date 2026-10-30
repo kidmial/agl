@@ -84,49 +84,53 @@
     <div class="grid" style="margin-top: 20px;">
         <div class="card">
             <h3>Топ IP адресов ({{ .Profile.UniqueIPCount }})</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>IP</th>
-                        <th>Событий</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Profile.TopIPs 10 }}
-                    <tr>
-                        <td><code>{{ .Key }}</code></td>
-                        <td>{{ .Count }}</td>
-                    </tr>
-                    {{ else }}
-                    <tr>
-                        <td colspan="2" class="text-muted">Нет данных</td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-            </table>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>IP</th>
+                            <th>Событий</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Profile.TopIPs 10 }}
+                        <tr>
+                            <td><code><agl-private>{{ .Key }}</agl-private></code></td>
+                            <td>{{ .Count }}</td>
+                        </tr>
+                        {{ else }}
+                        <tr>
+                            <td colspan="2" class="text-muted">Нет данных</td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
         </div>
         <div class="card">
             <h3>Топ Стран ({{ .Profile.UniqueCountryCount }})</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Страна</th>
-                        <th>Событий</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Profile.TopCountries 10 }}
-                    <tr>
-                        <td>{{ .Key }}</td>
-                        <td>{{ .Count }}</td>
-                    </tr>
-                    {{ else }}
-                    <tr>
-                        <td colspan="2" class="text-muted">Нет данных</td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-            </table>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Страна</th>
+                            <th>Событий</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Profile.TopCountries 10 }}
+                        <tr>
+                            <td>{{ .Key }}</td>
+                            <td>{{ .Count }}</td>
+                        </tr>
+                        {{ else }}
+                        <tr>
+                            <td colspan="2" class="text-muted">Нет данных</td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -135,10 +139,14 @@
         <div class="card">
             <h3>Метрики удержания</h3>
             <div class="grid" style="margin-top: 10px;">
-                <div><span class="metric-label">Средний план:</span> <span class="text-primary">{{ if .Profile.HoldCount
-                        }}{{ printf "%.0f" .Profile.AvgPlannedHoldSec }} сек{{ else }}—{{ end }}</span></div>
-                <div><span class="metric-label">Средний факт:</span> <span class="text-primary">{{ if .Profile.HoldCount
-                        }}{{ printf "%.0f" .Profile.AvgActualHoldSec }} сек{{ else }}—{{ end }}</span></div>
+                <div><span class="metric-label">Средний план:</span> <span class="text-primary"><agl-private>{{ if
+                            .Profile.HoldCount
+                            }}{{ printf "%.0f" .Profile.AvgPlannedHoldSec }} сек{{ else }}—{{ end
+                            }}</agl-private></span></div>
+                <div><span class="metric-label">Средний факт:</span> <span class="text-primary"><agl-private>{{ if
+                            .Profile.HoldCount
+                            }}{{ printf "%.0f" .Profile.AvgActualHoldSec }} сек{{ else }}—{{ end }}</agl-private></span>
+                </div>
                 <div><span class="metric-label">Всего сессий:</span> <span class="text-primary">{{ .Profile.HoldCount
                         }}</span></div>
             </div>
@@ -184,7 +192,7 @@
     <div class="card">
         <h2>Профиль не найден</h2>
         <p class="text-muted">Профиль с указанным идентификатором не существует, был удалён или ещё не создан.</p>
-        <a href="{{.Prefix}}dashboard/overview" class="link-green">&larr; Вернуться к обзору</a>
+        <a href="{{.Prefix}}dashboard/overview" class="link-green">&larr; Назад к обзору</a>
     </div>
     {{ end }}
 

@@ -18,6 +18,7 @@ import (
 
 	"agl/config"
 	"agl/internal/analytics"
+	"agl/internal/buildinfo"
 	"agl/internal/tarpit"
 )
 
@@ -309,6 +310,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			"Prefix":  prefix,
 			"Profile": &profile,
 			"Found":   ok,
+			"Version": buildinfo.Version,
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

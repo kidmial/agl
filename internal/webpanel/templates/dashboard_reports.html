@@ -89,36 +89,38 @@
     <h3>Анализ эффективности ловушек</h3>
     <p class="text-muted">Анализ трафика и среднего утилизированного времени ботнета в конкретной из ловушек.
     </p>
-    <table>
-        <thead>
-            <tr>
-                <th>Ловушка</th>
-                <th>Атак</th>
-                <th>Утилизировано</th>
-                <th>Уник. IP</th>
-                <th>Уник. стран</th>
-                <th>Дропов (FIN/RST)</th>
-                <th>Ср. удержание за атаку</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{ range .Traps }}
-            <tr>
-                <td><agl-private>{{ .Label }}</agl-private></td>
-                <td>{{ .Events }}</td>
-                <td class="text-amber">{{ .HoldSumSec | formatDuration }}</td>
-                <td>{{ .UniqueIPs }}</td>
-                <td>{{ .UniqueCountries }}</td>
-                <td>{{ .DropCount }}</td>
-                <td>{{ printf "%.1f" .Efficiency }} сек</td>
-            </tr>
-            {{ else }}
-            <tr>
-                <td colspan="7" class="text-muted">Нет данных за выбранный период.</td>
-            </tr>
-            {{ end }}
-        </tbody>
-    </table>
+    <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ловушка</th>
+                    <th>Атак</th>
+                    <th>Утилизировано</th>
+                    <th>Уник. IP</th>
+                    <th>Уник. стран</th>
+                    <th>Дропов (FIN/RST)</th>
+                    <th>Ср. удержание за атаку</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Traps }}
+                <tr>
+                    <td><agl-private>{{ .Label }}</agl-private></td>
+                    <td>{{ .Events }}</td>
+                    <td class="text-amber">{{ .HoldSumSec | formatDuration }}</td>
+                    <td>{{ .UniqueIPs }}</td>
+                    <td>{{ .UniqueCountries }}</td>
+                    <td>{{ .DropCount }}</td>
+                    <td>{{ printf "%.1f" .Efficiency }} сек</td>
+                </tr>
+                {{ else }}
+                <tr>
+                    <td colspan="7" class="text-muted">Нет данных за выбранный период.</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- Блок - Топ стран -->
@@ -126,37 +128,40 @@
     <h3>Блок 1. Геопрофилирование агрессивной сетевой активности — Топ-{{ len .Countries }} стран</h3>
     <p class="text-muted">Детализация глобальных векторов ботнета и анализ концентрации событий по географическому
         распределению.</p>
-    <table>
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Страна</th>
-                <th>Топ-ловушка</th>
-                <th>Событий</th>
-                <th>Уник. IP</th>
-                <th>Утилизировано</th>
-                <th>Концентрация</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{ range $i, $c := .Countries }}
-            <tr>
-                <td>{{ add $i 1 }}</td>
-                <td class="text-primary">{{ $c.Code }}</td>
-                <td><agl-private>{{ $c.TopTrap }}</agl-private></td>
-                <td>{{ $c.Events }}</td>
-                <td>{{ $c.UniqueIPs }}</td>
-                <td class="text-amber">{{ $c.HoldSumSec | formatDuration }}</td>
-                <td class="text-muted">{{ if gt $c.UniqueIPs 0 }}{{ printf "%.1f" $c.Concentration }}{{ else }}—{{ end
-                    }}</td>
-            </tr>
-            {{ else }}
-            <tr>
-                <td colspan="7" class="text-muted">Нет данных за выбранный период.</td>
-            </tr>
-            {{ end }}
-        </tbody>
-    </table>
+    <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Страна</th>
+                    <th>Топ-ловушка</th>
+                    <th>Событий</th>
+                    <th>Уник. IP</th>
+                    <th>Утилизировано</th>
+                    <th>Концентрация</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range $i, $c := .Countries }}
+                <tr>
+                    <td>{{ add $i 1 }}</td>
+                    <td class="text-primary">{{ $c.Code }}</td>
+                    <td><agl-private>{{ $c.TopTrap }}</agl-private></td>
+                    <td>{{ $c.Events }}</td>
+                    <td>{{ $c.UniqueIPs }}</td>
+                    <td class="text-amber">{{ $c.HoldSumSec | formatDuration }}</td>
+                    <td class="text-muted">{{ if gt $c.UniqueIPs 0 }}{{ printf "%.1f" $c.Concentration }}{{ else }}—{{
+                        end
+                        }}</td>
+                </tr>
+                {{ else }}
+                <tr>
+                    <td colspan="7" class="text-muted">Нет данных за выбранный период.</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- Блок 2: Топ IP -->
@@ -164,48 +169,51 @@
     <h3>Блок 2. Профилирование агрессивной сетевой активности — Топ-{{ len .IPs }} атакующих</h3>
     <p class="text-muted">Профилирование агрессивного трафика: Индикаторы оперативного анализа для приоритизации угроз и
         принятия стратегических решений.</p>
-    <table>
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>IP</th>
-                <th>Страна</th>
-                <th>Ловушка</th>
-                <th>Заходов</th>
-                <th>Утилизировано</th>
-                <th>Ср. RTT</th>
-                <th>Дропов (FIN/RST)</th>
-                <th>Домин. CloseReason</th>
-                <th>Последняя активность</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{ range $i, $ip := .IPs }}
-            <tr>
-                <td>{{ add $i 1 }}</td>
-                <td><code><agl-private>{{ $ip.IP }}</agl-private></code></td>
-                <td>{{ if $ip.Country }}{{ $ip.Country }}{{ else }}—{{ end }}</td>
-                <td><agl-private>{{ $ip.Trap }}</agl-private></td>
-                <td>{{ $ip.Events }}</td>
-                <td class="text-amber">{{ $ip.HoldSumSec | formatDuration }}</td>
-                <td>{{ if gt $ip.AvgRTTMs 0.0 }}{{ printf "%.0f" $ip.AvgRTTMs }} мс{{ else }}—{{ end }}</td>
-                <td><agl-private>{{ $ip.DropCount }}</agl-private></td>
-                <td>
-                    {{ if eq $ip.TopCloseReason "TIMEOUT" }}<span class="status-pass">TIMEOUT</span>
-                    {{ else if eq $ip.TopCloseReason "RST" }}<span class="status-aggr">RST</span>
-                    {{ else if eq $ip.TopCloseReason "FIN" }}<span class="status-mixed">FIN</span>
-                    {{ else }}<span class="text-muted">{{ $ip.TopCloseReason }}</span>{{ end }}
-                </td>
-                <td class="text-muted">{{ if $ip.LastSeen.IsZero }}—{{ else }}{{ $ip.LastSeen.Format "02.01 15:04" }}{{
-                    end }}</td>
-            </tr>
-            {{ else }}
-            <tr>
-                <td colspan="10" class="text-muted">Нет данных за выбранный период.</td>
-            </tr>
-            {{ end }}
-        </tbody>
-    </table>
+    <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>IP</th>
+                    <th>Страна</th>
+                    <th>Ловушка</th>
+                    <th>Заходов</th>
+                    <th>Утилизировано</th>
+                    <th>Ср. RTT</th>
+                    <th>Дропов (FIN/RST)</th>
+                    <th>Домин. CloseReason</th>
+                    <th>Последняя активность</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range $i, $ip := .IPs }}
+                <tr>
+                    <td>{{ add $i 1 }}</td>
+                    <td><code><agl-private>{{ $ip.IP }}</agl-private></code></td>
+                    <td>{{ if $ip.Country }}{{ $ip.Country }}{{ else }}—{{ end }}</td>
+                    <td><agl-private>{{ $ip.Trap }}</agl-private></td>
+                    <td>{{ $ip.Events }}</td>
+                    <td class="text-amber">{{ $ip.HoldSumSec | formatDuration }}</td>
+                    <td>{{ if gt $ip.AvgRTTMs 0.0 }}{{ printf "%.0f" $ip.AvgRTTMs }} мс{{ else }}—{{ end }}</td>
+                    <td><agl-private>{{ $ip.DropCount }}</agl-private></td>
+                    <td>
+                        {{ if eq $ip.TopCloseReason "TIMEOUT" }}<span class="status-pass">TIMEOUT</span>
+                        {{ else if eq $ip.TopCloseReason "RST" }}<span class="status-aggr">RST</span>
+                        {{ else if eq $ip.TopCloseReason "FIN" }}<span class="status-mixed">FIN</span>
+                        {{ else }}<span class="text-muted">{{ $ip.TopCloseReason }}</span>{{ end }}
+                    </td>
+                    <td class="text-muted">{{ if $ip.LastSeen.IsZero }}—{{ else }}{{ $ip.LastSeen.Format "02.01 15:04"
+                        }}{{
+                        end }}</td>
+                </tr>
+                {{ else }}
+                <tr>
+                    <td colspan="10" class="text-muted">Нет данных за выбранный период.</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
     <p class="text-muted" style="margin-top: 10px; font-size: 12px;">
         Топ-100 гарантирует учёт всех активных адресов. Единичные касания на хвосте статистики
         могут быть учтены не полностью: это осознанный предел оперативной памяти, а не потеря данных —

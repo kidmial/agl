@@ -22,18 +22,20 @@
     <h3>Топ TCP-отпечатков (p0f-логика)</h3>
     <p class="text-muted">Уникальные комбинации MSS|RcvSpace|SndWscale|RcvWscale идентифицируют ОС. Агрегат за 24 часа.
     </p>
-    <table>
-        <thead>
-            <tr>
-                <th>Отпечаток (MSS|RcvSpace|SndW|RcvW)</th>
-                <th>Количество событий</th>
-                <th>Доля</th>
-            </tr>
-        </thead>
-        <tbody id="fpTableBody">
-            <!-- Заполняется через JS -->
-        </tbody>
-    </table>
+    <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Отпечаток (MSS|RcvSpace|SndW|RcvW)</th>
+                    <th>Количество событий</th>
+                    <th>Доля</th>
+                </tr>
+            </thead>
+            <tbody id="fpTableBody">
+                <!-- Заполняется через JS -->
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- 3. Дисперсия IAT -->

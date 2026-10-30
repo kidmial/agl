@@ -53,7 +53,7 @@
         <div class="metric amber">{{ .StolenTime.DaySec | formatDuration }}</div>
     </div>
     <div class="card">
-        <div class="metric-label">УтилизировУтилизированоанно времени ботнет за 7 дней</div>
+        <div class="metric-label">Утилизировано времени ботнет за 7 дней</div>
         <div class="metric amber">{{ .StolenTime.WeekSec | formatDuration }}</div>
     </div>
     <div class="card">
@@ -65,75 +65,78 @@
 <!-- Часовая статистика -->
 <div class="card">
     <h2>События за 24 часа</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Час ({{ .TimezoneLabel }})</th>
-                <th>Событий</th>
-                <th>Уник. IP</th>
-                <th>Агрессивных</th>
-                <th>Средний RTT</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{ range .HourStats }}
-            <tr>
-                <td>{{ .Hour.Format "15:04" }}</td>
-                <td>{{ .Events }}</td>
-                <td>{{ .UniqueIPs }}</td>
-                <td>{{ .AggressiveEvents }}</td>
-                <td>{{ printf "%.0f" .RTTAvgMs }} ms</td>
-            </tr>
-            {{ end }}
-        </tbody>
-    </table>
-</div>
+    <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Час ({{ .TimezoneLabel }})</th>
+                    <th>Событий</th>
+                    <th>Уник. IP</th>
+                    <th>Агрессивных</th>
+                    <th>Средний RTT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .HourStats }}
+                <tr>
+                    <td>{{ .Hour.Format "15:04" }}</td>
+                    <td>{{ .Events }}</td>
+                    <td>{{ .UniqueIPs }}</td>
+                    <td>{{ .AggressiveEvents }}</td>
+                    <td>{{ printf "%.0f" .RTTAvgMs }} ms</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
 
-<!-- Профили акторов -->
-<div class="card" style="margin-top: 30px;">
-    <h2>Свежие профили акторов</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Время завершения</th>
-                <th>План (сек)</th>
-                <th>Факт (сек)</th>
-                <th>Тип</th>
-                <th>ID Профиля</th>
-                <th>Уник. IP</th>
-                <th>Фаза (Алг.3)</th>
-                <th>Прогноз (Алг.4)</th>
-                <th>Дрейф (Алг.2)</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{ range .Profiles }}
-            <tr>
-                <td>{{ .LastEventTime.Format "15:04:05" }}</td>
-                <td><agl-private>{{ if .HoldCount }}{{ printf "%.0f" .AvgPlannedHoldSec }}{{ else }}—{{ end
-                        }}</agl-private></td>
-                <td><agl-private>{{ if .HoldCount }}{{ printf "%.0f" .AvgActualHoldSec }}{{ else }}—{{ end
-                        }}</agl-private></td>
-                <td>
-                    {{ $b := .DominantBehavior }}
-                    {{ if eq $b "AGGR" }}<span class="status-aggr">AGGR</span>
-                    {{ else if eq $b "PASS" }}<span class="status-pass">PASS</span>
-                    {{ else if eq $b "MIXED" }}<span class="status-mixed">MIXED</span>
-                    {{ else }}<span class="text-muted">—</span>{{ end }}
-                </td>
-                <td>
-                    <a href="{{$.Prefix}}dashboard/profile/{{.ID}}" class="profile-link">
-                        {{ .ID }}
-                    </a>
-                </td>
-                <td>{{ .UniqueIPCount }}</td>
-                <td class="phase-text">{{ if .CurrentPhase }}{{ .CurrentPhase }}{{ else }}—{{ end }}</td>
-                <td class="prediction-text">{{ if .PredictedVector }}{{ .PredictedVector }}{{ else }}—{{ end }}</td>
-                <td>{{ if .TokenDriftValid }}{{ .TokenDriftMs }} мс{{ else }}—{{ end }}</td>
-            </tr>
-            {{ end }}
-        </tbody>
-    </table>
+    <!-- Профили акторов -->
+    <div class="card" style="margin-top: 30px;">
+        <h2>Свежие профили акторов</h2>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Время завершения</th>
+                        <th>IP</th>
+                        <th>Cобытий</th>
+                        <th>Тип</th>
+                        <th>План (сек)</th>
+                        <th>Факт (сек)</th>
+                        <th>Фаза (Алг.3)</th>
+                        <th>Прогноз (Алг.4)</th>
+                        <th>Дрейф (Алг.2)</th>
+                        <th>Субъект</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Profiles }}
+                    <tr>
+                        <td>{{ .LastEventTime.Format "15:04:05" }}</td>
+                        <td><code><agl-private>{{ .PrimaryIP }}</agl-private></code></td>
+                        <td>{{ .EventCount }}</td>
+                        <td>
+                            {{ $b := .DominantBehavior }}
+                            {{ if eq $b "AGGR" }}<span class="status-aggr">AGGR</span>
+                            {{ else if eq $b "PASS" }}<span class="status-pass">PASS</span>
+                            {{ else if eq $b "MIXED" }}<span class="status-mixed">MIXED</span>
+                            {{ else }}<span class="text-muted">—</span>{{ end }}
+                        </td>
+                        <td><agl-private>{{ if .HoldCount }}{{ printf "%.0f" .AvgPlannedHoldSec }}{{ else }}—{{ end
+                                }}</agl-private></td>
+                        <td><agl-private>{{ if .HoldCount }}{{ printf "%.0f" .AvgActualHoldSec }}{{ else }}—{{ end
+                                }}</agl-private></td>
+                        <td class="phase-text">{{ if .CurrentPhase }}{{ .CurrentPhase }}{{ else }}—{{ end }}</td>
+                        <td class="prediction-text">{{ if .PredictedVector }}{{ .PredictedVector }}{{ else }}—{{ end }}
+                        </td>
+                        <td>{{ if .TokenDriftValid }}{{ .TokenDriftMs }} мс{{ else }}—{{ end }}</td>
+                        <td><a href="{{$.Prefix}}dashboard/profile/{{.ID}}" class="profile-link">ДОСЬЕ</a></td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 {{template "footer" .}}

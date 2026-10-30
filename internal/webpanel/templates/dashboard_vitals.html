@@ -40,12 +40,12 @@
 
 <!-- 4. Географический пульс ботнета -->
 <div class="card" style="margin-top: 30px;">
-    <div class="card-header-row">
-        <div>
-            <h2 style="margin-bottom: 4px;">Географический пульс ботнета</h2>
-            <p class="text-muted" style="margin: 0;">Криминалистический анализ географической кучности и ротации
-                прокси-узлов.</p>
-        </div>
+    <div>
+        <h2>Метрика географического вовлечения</h3>
+            <p class="text-muted">Отслеживание динамики и общего количества задействованных стран (глобального охвата) в
+                заданном временном интервале.</p>
+    </div>
+    <div class="card-header-row" style="justify-content: flex-end;">
         <select id="geoWindowSelect" class="control-btn" style="padding: 8px 16px;">
             {{range .TimeWindows}}
             <option value="{{.Name}}">{{.Label}}</option>
@@ -53,7 +53,7 @@
         </select>
     </div>
 
-    <h3 style="margin-top: 20px;">Кол-во стран за период</h3>
+    <h3>Количество стран за период</h3>
     <div class="chart-container">
         <canvas id="geoChart"></canvas>
     </div>
@@ -257,7 +257,7 @@
     // ==========================================================================
     const geoWindowSelect = document.getElementById('geoWindowSelect');
     if (geoWindowSelect) {
-        geoWindowSelect.value = '1h'; // установка значения ДО первого вызова updateGeoPulse
+        geoWindowSelect.value = '24h'; // установка значения ДО первого вызова updateGeoPulse
     }
     let geoChart = null;
 
