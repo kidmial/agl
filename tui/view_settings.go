@@ -5,6 +5,7 @@ import (
 	// Добавлен для маршалинга структуры в текстовый JSON-формат
 	"fmt"
 	"os" // Добавлен для нативной работы с дескрипторами и POSIX Atomic Rename
+	"time"
 
 	// "path/filepath" // Добавлен для вычисления абсолютных траекторий config.json
 	"agl/config"
@@ -35,6 +36,10 @@ var (
 	ActiveRowIndex   = 0
 	IsEditMode       = false
 	CurrentInputBuf  = ""
+
+	// (v8.6.2): Задержки отображения alert-сообщений
+	alertMessageTime time.Time
+	lastAlertMessage string
 )
 
 var digitOnlyRegex = regexp.MustCompile(`^[0-9]+$`)
@@ -161,6 +166,23 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	InitSettingsRegistry()
 	ensureActiveRowSelectable() // ФИКС v8.4.1: курсор всегда на выбираемом пункте
 
+	// НОВОЕ: Логика задержки отображения alert-сообщений (3 секунды)
+	// Если пришло новое сообщение - запоминаем его и время
+	if alertMessage != "" && alertMessage != lastAlertMessage {
+		lastAlertMessage = alertMessage
+		alertMessageTime = time.Now()
+	}
+
+	// Проверяем, прошло ли 3 секунды
+	effectiveAlertMessage := ""
+	if !alertMessageTime.IsZero() && time.Since(alertMessageTime) < 3*time.Second {
+		effectiveAlertMessage = lastAlertMessage
+	} else {
+		// Время вышло, сбрасываем
+		alertMessageTime = time.Time{}
+		lastAlertMessage = ""
+	}
+
 	// 1. Сборка верхней информационной шапки
 	header := widgets.NewList()
 	// header.Title = i18n.T.SettingsUiTitleBox
@@ -209,9 +231,9 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 			if item.Key == "lang" || item.Key == "auto_update_enabled" || item.Key == "auto_update_reboot" ||
 				item.Key == "web_server_enabled" ||
 				item.Key == "ssh_allow_in_from_ip" || item.Key == "ssh_ip_web_knock" || item.Key == "web_https_panel_active" {
-				finalRowStr = fmt.Sprintf("%-5s%-55s:  [[ %s ]](fg:yellow,mod:bold)", cursor, label, currentVal)
+				finalRowStr = fmt.Sprintf("%-5s%-65s:  [[ %s ]](fg:yellow,mod:bold)", cursor, label, currentVal)
 			} else {
-				finalRowStr = fmt.Sprintf("%-5s%-55s:  %s", cursor, label, currentVal)
+				finalRowStr = fmt.Sprintf("%-5s%-65s:  %s", cursor, label, currentVal)
 			}
 		}
 		visibleRows = append(visibleRows, finalRowStr)
@@ -229,7 +251,7 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	}
 	formBox.SelectedRow = tuiTargetFocusRow
 
-	// 3. Расширенный нижний бокс консоли (Координаты 23 -> 29, высота ровно 6 символов)
+	// 3. Расширенный нижний бокс консоли
 	statusBox := widgets.NewParagraph()
 	statusBox.SetRect(2, 24, 102, 30)
 	if IsEditMode {
@@ -244,23 +266,26 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 		statusBox.WrapText = false
 	} else {
 		statusBox.Title = i18n.T.SettingsUiStatusConsoleTitle
-		if alertMessage != "" {
+		// ИЗМЕНЕНО: используем effectiveAlertMessage вместо alertMessage
+		if effectiveAlertMessage != "" {
 			// Выводим алармы ошибок или сообщения об успешном сканировании
-			if strings.HasPrefix(alertMessage, "[УСПЕХ]") {
-				statusBox.Text = "\n " + alertMessage
+			if strings.HasPrefix(effectiveAlertMessage, "[ OK ]") {
+				statusBox.Text = "\n " + effectiveAlertMessage
 				statusBox.BorderStyle.Fg = ui.ColorGreen // При успехе рамка становится зеленой
 				statusBox.TextStyle.Fg = ui.ColorWhite
+				statusBox.WrapText = false
 			} else {
-				statusBox.Text = "\n  ⚠️ [ОТКАЗ ЗАПИСИ](fg:red,mod:bold): " + alertMessage
+				statusBox.Text = "\n [[ ERROR ]](fg:red,mod:bold) " + effectiveAlertMessage
 				statusBox.BorderStyle.Fg = ui.ColorRed
 				statusBox.TextStyle.Fg = ui.ColorYellow
+				statusBox.WrapText = false
 			}
 		} else {
 			statusBox.Text = fmt.Sprintf(
 				" %s\n %s\n %s",
 				i18n.T.SettingsUiHintNav1,
 				i18n.T.SettingsUiHintNav2,
-				fmt.Sprintf(i18n.T.SettingsUiHintEsc, "[ESC](fg:yellow,mod:bold)"),
+				fmt.Sprintf(i18n.T.SettingsUiHintEsc, "[ ESC ](fg:yellow,mod:bold)"),
 			)
 			statusBox.BorderStyle.Fg = ui.ColorYellow
 			statusBox.TextStyle.Fg = ui.ColorCyan
@@ -336,10 +361,9 @@ func HandleSettingsNavigation(key string) (bool, string) {
 				newLang = "ru"
 			}
 			// v8.3.0 (6.9): config.Update + i18n.InitLanguage внутри SaveSettingValueToDisk.
-			// Возвращаем true — сигнал циклу событий на полную перерисовку
-			// всех виджетов SETTINGS с новым активным языком.
+			// Возвращаем false — остаёмся в меню, но перерисовываем с новым языком.
 			errStr := SaveSettingValueToDisk("lang", newLang)
-			return true, errStr
+			return false, errStr
 		}
 		// M5 (v8.4.0) + v8.4.7: бинарные тумблеры — инверсия 0/1 стрелками без входа в режим ввода
 		if currentItem.Key == "auto_update_enabled" || currentItem.Key == "auto_update_reboot" ||
@@ -350,7 +374,7 @@ func HandleSettingsNavigation(key string) (bool, string) {
 				newVal = "0"
 			}
 			errStr := SaveSettingValueToDisk(currentItem.Key, newVal)
-			return true, errStr
+			return false, errStr
 		}
 	case "<Enter>":
 		// ФИКС v8.4.1: заголовок группы не выбираем — игнорируем Enter,

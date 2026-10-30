@@ -623,7 +623,6 @@ type UITranslation struct {
 	ViewTarpitLabelRetentionRange    string
 	ViewTarpitLabelSec               string
 	ViewTarpitLabelBotsInTrap        string
-	ViewTarpitLabelAdminIdleCounter  string
 	ViewTarpitLabelMin               string
 	ViewTarpitListTitle              string
 	ViewTarpitRowLiveBoxDesc         string

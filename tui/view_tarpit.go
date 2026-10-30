@@ -134,24 +134,6 @@ func readLogTail(path string, maxLines int) []string {
 	return lines
 }
 
-// getAdminIdleMinutes считывает текущее состояние счётчика простоя
-// Испепелителя `AGL_CRON_WATCHER`. Используется для отображения
-// таймаута сессии администратора в шапке панели.
-//
-// ПУТЬ МАРКЕРА: `/var/lib/amberguard/states/agl_admin_idle_counter`
-// Соответствует регламенту маркеров v6.3.9.
-//
-// ОБНОВЛЕНО В v8.0.1: Без изменений логики.
-func getAdminIdleMinutes() int {
-	data, err := os.ReadFile(config.FileAdminIdleCounter)
-	if err != nil {
-		return 0 // Если файла нет — сессия только началась или активна
-	}
-	var idle int
-	_, _ = fmt.Sscanf(string(data), "%d", &idle)
-	return idle
-}
-
 // ============================================================================
 // ОТРИСОВКА ЭКРАНА ДЕГТЯРНОЙ ЯМЫ
 // ============================================================================
@@ -235,20 +217,6 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	liveBots := tarpit.GetLiveBotsShmCount()
 
 	// -------------------------------------------------------------
-	// ШАГ 6: ИЗВЛЕЧЕНИЕ ТАЙМАУТА СЕССИИ АДМИНА
-	// -------------------------------------------------------------
-	idleMinutes := getAdminIdleMinutes()
-	idleTimeout := config.C.AdminIdleTimeout
-	if idleTimeout <= 0 {
-		idleTimeout = 10
-	}
-	idleLabel := fmt.Sprintf("%d/%d "+i18n.T.ViewTarpitLabelMin, idleMinutes, idleTimeout)
-	if idleMinutes >= idleTimeout-2 {
-		// Подсвечиваем критический простой перед испепелением правил
-		idleLabel = fmt.Sprintf("[%d/%d "+i18n.T.ViewTarpitLabelMin+"](fg:red,mod:bold)", idleMinutes, idleTimeout)
-	}
-
-	// -------------------------------------------------------------
 	// ШАПКА ПАНЕЛИ
 	// Высота: 6 строк (y: 1 - 7)
 	// -------------------------------------------------------------
@@ -260,19 +228,16 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	header.Text = fmt.Sprintf(
 		"  %s %-5s     %s %s\n"+
 			"  %s %2dc ± %-2dc    %s %s\n"+
-			"  %s %d - %-2d %s    %s %d\n"+
-			"  %s %s",
+			"  %s %d - %-2d %s    %s %d",
 		// Строка 01
 		i18n.T.ViewTarpitLabelCurrentSshPort, activeSshPort, i18n.T.ViewTarpitLabelCastling, statusMove,
 		// Строка 02
 		i18n.T.ViewTarpitLabelJitterSec, config.C.DelayStep, config.C.DelayVariance, i18n.T.ViewTarpitLabelEngineStatus, statusEngine,
 		// Строка 03
 		i18n.T.ViewTarpitLabelRetentionRange, minDelay, maxDelay, i18n.T.ViewTarpitLabelSec, i18n.T.ViewTarpitLabelBotsInTrap, liveBots,
-		// Строка 04
-		i18n.T.ViewTarpitLabelAdminIdleCounter, idleLabel,
 	)
 
-	header.SetRect(2, 1, 102, 7)
+	header.SetRect(2, 1, 102, 6)
 	header.BorderStyle.Fg = ui.ColorCyan
 	header.TitleStyle.Fg = ui.ColorYellow
 
@@ -291,7 +256,7 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 		fmt.Sprintf("  HELP        │ %s", i18n.T.ViewTarpitRowHelpDesc),
 		fmt.Sprintf("  BACK        │ %s", i18n.T.ViewTarpitRowBackDesc),
 	}
-	tarpitList.SetRect(2, 7, 102, 14)
+	tarpitList.SetRect(2, 6, 102, 14)
 	tarpitList.BorderStyle.Fg = ui.ColorCyan
 	tarpitList.TitleStyle.Fg = ui.ColorYellow
 	tarpitList.TitleStyle.Modifier = ui.ModifierBold
