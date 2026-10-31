@@ -2,22 +2,34 @@
 {{define "dashboard_overview"}}
 {{template "header" .}}
 
+<div class="page-section-header">
+    <h1>Панель мониторинга киберугроз</h1>
+    <p>Поведенческий анализ недавней активности акторов, их касания инфраструктуры и сдерживания сетевых атак.</p>
+</div>
+
 <div class="control-panel">
     <h3>Статус аналитики</h3>
     <div class="grid" style="margin-bottom: 0;">
         <div class="card">
-            <div class="metric-label">Событий в буфере</div>
-            <div class="metric">{{ .StoreTotal }}</div>
+            <div class="metric-label">Всего событий в буфере</div>
+            <div class="metric">{{ .StoreCounters.TotalEvents }}</div>
             <div class="text-muted">
-                {{ if .HistoryLoaded }}Режим: полная история из лога
-                {{ else if .StoreCounters.FirstEventTime.IsZero }}Режим: живой срез (ожидание первых событий)
-                {{ else }}Режим: живой срез с {{ .StoreCounters.FirstEventTime.Format "02.01 15:04" }}{{ end }}
+                Валидных: {{ .StoreCounters.ValidEvents }} | Битых: {{ .StoreCounters.InvalidEvents }}
+                {{ if .HistoryLoaded }} | Режим: полная история{{ else }} | Режим: живой срез{{ end }}
             </div>
         </div>
         <div class="card">
-            <div class="metric-label">Профилей акторов</div>
-            <div class="metric">{{ .ProfileTotal }}</div>
-            <div class="text-muted">Активных кластеров</div>
+            <div class="metric-label">Активных кластеров профилей акторов</div>
+            <div class="metric">{{ .ProfileCounters.Active }}</div>
+            <div class="text-muted">Низкая уверенность: {{ .ProfileCounters.LowConfidence }} | Просрочено: {{
+                .ProfileCounters.Expired }}</div>
+        </div>
+        <div class="card">
+            <div class="metric-label">Временной охват</div>
+            <div class="metric">{{ if .StoreCounters.HasEventTime }}{{ .StoreCounters.FirstEventTime.Format "02.01" }} -
+                {{
+                .StoreCounters.LastEventTime.Format "02.01" }}{{ else }}Нет данных{{ end }}</div>
+            <div class="text-muted">Обновлено: {{ .CurrentTime }}</div>
         </div>
     </div>
     <p class="text-muted" style="margin-top: 16px; margin-bottom: 0;">
@@ -26,31 +38,9 @@
     </p>
 </div>
 
-<div class="page-section-header">
-    <h1>Панель мониторинга киберугроз</h1>
-    <p>Поведенческий анализ недавней активности акторов, их касания инфраструктуры и сдерживания сетевых атак.</p>
-</div>
-
 <!-- Сводные метрики -->
 <div class="grid">
-    <div class="card">
-        <div class="metric-label">Всего событий в буфере</div>
-        <div class="metric">{{ .StoreCounters.TotalEvents }}</div>
-        <div class="text-muted">Валидных: {{ .StoreCounters.ValidEvents }} | Битых: {{ .StoreCounters.InvalidEvents }}
-        </div>
-    </div>
-    <div class="card">
-        <div class="metric-label">Активных кластеров профилей акторов</div>
-        <div class="metric">{{ .ProfileCounters.Active }}</div>
-        <div class="text-muted">Низкая уверенность: {{ .ProfileCounters.LowConfidence }} | Просрочено: {{
-            .ProfileCounters.Expired }}</div>
-    </div>
-    <div class="card">
-        <div class="metric-label">Временной охват</div>
-        <div class="metric">{{ if .StoreCounters.HasEventTime }}{{ .StoreCounters.FirstEventTime.Format "02.01" }} - {{
-            .StoreCounters.LastEventTime.Format "02.01" }}{{ else }}Нет данных{{ end }}</div>
-        <div class="text-muted">Обновлено: {{ .CurrentTime }}</div>
-    </div>
+
 </div>
 
 <!-- Утилизированное время ботнет сетей -->
