@@ -262,7 +262,7 @@
     let geoChart = null;
 
     function updateGeoPulse() {
-        const windowName = geoWindowSelect.value;  // Переименовано: не затеняем глобальный window
+        const windowName = geoWindowSelect.value;
         const pathParts = window.location.pathname.split('/');
         const prefix = pathParts[1] ? pathParts[1] + '/' : '';
 
@@ -270,37 +270,48 @@
         fetch('/' + prefix + 'api/geo-pulse/history?window=' + windowName)
             .then(res => res.json())
             .then(data => {
-                if (geoChart) geoChart.destroy();
-                geoChart = AGLCharts.createChart('geoChart', 'line', {
-                    labels: data.points.map(p => {
-                        const date = new Date(p.time);
-                        // Метки по ШАГУ точек (data.step), а не по глубине интервала
-                        if (data.step === '1min' || data.step === '5min') {
-                            return date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
-                        } else if (data.step === '1h') {
-                            return date.getHours().toString().padStart(2, '0') + ':00';
-                        } else {
-                            return (date.getMonth() + 1) + '/' + date.getDate();
-                        }
-                    }),
-                    datasets: [{
-                        label: 'Уникальных стран',
-                        data: data.points.map(p => p.unique_countries),
-                        borderColor: colors.amber,
-                        backgroundColor: hexToRgba(colors.amber, 0.1),
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 2
-                    }]
-                }, {
-                    scales: {
-                        x: { ticks: { maxTicksLimit: 12 } },
-                        y: { beginAtZero: true }
+                // 1. Подготавливаем данные заранее
+                const labels = data.points.map(p => {
+                    const date = new Date(p.time);
+                    if (data.step === '1min' || data.step === '5min') {
+                        return date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
+                    } else if (data.step === '1h') {
+                        return date.getHours().toString().padStart(2, '0') + ':00';
+                    } else {
+                        return (date.getMonth() + 1) + '/' + date.getDate();
                     }
                 });
+                const newData = data.points.map(p => p.unique_countries);
+
+                // 2. Логика обновления: тихая или первичная
+                if (geoChart) {
+                    // График уже существует (автообновление или смена окна) — обновляем БЕЗ анимации
+                    geoChart.data.labels = labels;
+                    geoChart.data.datasets[0].data = newData;
+                    geoChart.update('none'); // 'none' отключает анимацию
+                } else {
+                    // Первичная отрисовка — создаём график С анимацией (по умолчанию)
+                    geoChart = AGLCharts.createChart('geoChart', 'line', {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Уникальных стран',
+                            data: newData,
+                            borderColor: colors.amber,
+                            backgroundColor: hexToRgba(colors.amber, 0.1),
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 2
+                        }]
+                    }, {
+                        scales: {
+                            x: { ticks: { maxTicksLimit: 12 } },
+                            y: { beginAtZero: true }
+                        }
+                    });
+                }
             });
 
-        // Загружаем текущие метрики
+        // Загружаем текущие метрики (без изменений)
         fetch('/' + prefix + 'api/geo-pulse?window=' + windowName)
             .then(res => res.json())
             .then(data => {

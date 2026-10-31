@@ -87,6 +87,7 @@ func toTemplateFloat(v interface{}) float64 {
 type profileViewDTO struct {
 	LastEventTime    string  `json:"last_event_time"`
 	PrimaryIP        string  `json:"primary_ip"`
+	EventCount       int     `json:"event_count"`
 	AvgPlannedHold   float64 `json:"avg_planned_hold"`
 	AvgActualHold    float64 `json:"avg_actual_hold"`
 	DominantBehavior string  `json:"dominant_behavior"`
@@ -160,6 +161,7 @@ func getProfilesJSON(manager *analytics.ProfileManager, limit int) []profileView
 		res[i] = profileViewDTO{
 			LastEventTime:    timeStr,
 			PrimaryIP:        primaryIP,
+			EventCount:       p.EventCount,
 			AvgPlannedHold:   avgPlanned,
 			AvgActualHold:    avgActual,
 			DominantBehavior: behavior,

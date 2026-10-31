@@ -222,15 +222,14 @@
 
                 if (tbody) {
                     // ----------------------------------------------------------------
-                    // Состояние сравнения (живёт вне DOM, переживает replaceChildren)
-                    // Инициализируется один раз при первом обновлении.
+                    // Состояние сравнения: единый источник правды (посев из первого API-ответа)
                     // ----------------------------------------------------------------
-                    if (!window._aglSeenProfileIds) {
-                        window._aglSeenProfileIds = new Set();
-                        window._aglProfileSnapshots = new Map();
+                    if (!window._aglProfileFlashState) {
+                        window._aglProfileFlashState = { seen: new Set(), snaps: new Map(), seeded: false };
                     }
-                    const seenIds = window._aglSeenProfileIds;
-                    const snapshots = window._aglProfileSnapshots;
+                    const st = window._aglProfileFlashState;
+                    const firstPass = !st.seeded;
+                    if (firstPass) st.seeded = true;
 
                     // 1. Создаём фрагмент в памяти (вне DOM).
                     const fragment = document.createDocumentFragment();
@@ -257,15 +256,19 @@
                                 events: p.event_count,
                             });
 
-                            if (!seenIds.has(p.id)) {
+                            if (firstPass) {
+                                // ПОСЕВ: запоминаем без вспышек — данные уже видны из Go-отрисовки
+                                st.seen.add(p.id);
+                                st.snaps.set(p.id, currentSnap);
+                            } else if (!st.seen.has(p.id)) {
                                 tr.classList.add('row-flash-new');
-                                seenIds.add(p.id);
-                                snapshots.set(p.id, currentSnap);
+                                st.seen.add(p.id);
+                                st.snaps.set(p.id, currentSnap);
                             } else {
-                                const prevSnap = snapshots.get(p.id);
+                                const prevSnap = st.snaps.get(p.id);
                                 if (prevSnap && prevSnap !== currentSnap) {
                                     tr.classList.add('row-flash-update');
-                                    snapshots.set(p.id, currentSnap);
+                                    st.snaps.set(p.id, currentSnap);
                                 }
                             }
 
@@ -355,7 +358,6 @@
                     tbody.replaceChildren(...fragment.childNodes);
                 }
             })
-            .catch(err => console.error('Auto-refresh error (overview):', err));
     }
 
     // ==========================================================================
@@ -479,7 +481,6 @@
                     tbody.replaceChildren(...fragment.childNodes);
                 }
             })
-            .catch(err => console.error('Auto-refresh error (hourly stats):', err));
     }
 
     // Подключаем к глобальному событию автообновления

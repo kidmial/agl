@@ -112,8 +112,8 @@
                     <td class="text-amber">{{ .HoldSumSec | formatDuration }}</td>
                     <td>{{ .UniqueIPs }}</td>
                     <td>{{ .UniqueCountries }}</td>
-                    <td>{{ .DropCount }}</td>
-                    <td>{{ printf "%.1f" .Efficiency }} сек</td>
+                    <td><agl-private>{{ .DropCount }}</agl-private></td>
+                    <td><agl-private>{{ printf "%.1f" .Efficiency }} сек</agl-private></td>
                 </tr>
                 {{ else }}
                 <tr>
@@ -309,8 +309,8 @@
                     tr.appendChild(cellText(t.hold, 'text-amber'));
                     tr.appendChild(cellText(t.unique_ips));
                     tr.appendChild(cellText(t.unique_countries));
-                    tr.appendChild(cellText(t.drop_count));
-                    tr.appendChild(cellText(t.efficiency + ' сек'));
+                    tr.appendChild(cellPriv(t.drop_count));
+                    tr.appendChild(cellPriv(t.efficiency + ' сек'));
                 }, {
                     stateKey: 'traps',
                     getKey: (t) => t.label,
