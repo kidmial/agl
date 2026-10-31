@@ -554,29 +554,30 @@ type UITranslation struct {
 	// --- v8.4.7: Веб-сервер спасения (физический слушатель) ---
 	SettingsLabelWebServerEnabled string // Тумблер физического HTTP-слушателя
 	// --- v8.5.0: Уровни защиты SSH-доступа и веб-панель ---
-	SettingsLabelSshAllowInFromIp    string // Тумблер постоянного whitelist IP админа
-	SettingsLabelSshIpWebKnock       string // Тумблер временного whitelist через веб-стук
-	SettingsLabelWebHttpsPanelActive string // Тумблер доступности веб-панели
-	SettingsLabelWebPanelPassword    string // Пароль веб-панели статистики
-	SettingsLabelBack                string
-	SettingsUiTitleBox               string
-	SettingsUiHeaderDesc             string
-	SettingsUiFormTitle              string
-	SettingsUiEditingMode            string
-	SettingsUiEnterNew               string
-	SettingsUiInputPrompt            string
-	SettingsUiHintNav1               string
-	SettingsUiHintNav2               string
-	SettingsUiHintEsc                string
-	SettingsUiStatusConsoleTitle     string
-	SettingsUiEmptyVal               string
-	SettingsUiOutOfBounds            string
-	SettingsUiLangSupport            string
-	SettingsGroupLang                string
-	SettingsGroupTarpit              string
-	SettingsGroupLimits              string
-	SettingsGroupSystem              string
-	SettingsGroupDefault             string
+	SettingsLabelSshAllowInFromIp     string // Тумблер постоянного whitelist IP админа
+	SettingsLabelSshIpWebKnock        string // Тумблер временного whitelist через веб-стук
+	SettingsLabelWebHttpsPanelActive  string // Тумблер доступности веб-панели
+	SettingsLabelAnalyticsAutoRebuild string
+	SettingsLabelWebPanelPassword     string // Пароль веб-панели статистики
+	SettingsLabelBack                 string
+	SettingsUiTitleBox                string
+	SettingsUiHeaderDesc              string
+	SettingsUiFormTitle               string
+	SettingsUiEditingMode             string
+	SettingsUiEnterNew                string
+	SettingsUiInputPrompt             string
+	SettingsUiHintNav1                string
+	SettingsUiHintNav2                string
+	SettingsUiHintEsc                 string
+	SettingsUiStatusConsoleTitle      string
+	SettingsUiEmptyVal                string
+	SettingsUiOutOfBounds             string
+	SettingsUiLangSupport             string
+	SettingsGroupLang                 string
+	SettingsGroupTarpit               string
+	SettingsGroupLimits               string
+	SettingsGroupSystem               string
+	SettingsGroupDefault              string
 
 	// --- M5 (v8.4.0): Автообновления сервера ---
 	SettingsLabelAutoUpdateEnabled string // Тумблер автообновлений (0=выкл / 1=вкл)

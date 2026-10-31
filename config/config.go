@@ -317,6 +317,7 @@ func LoadConfig(filePath string) error {
 	if local.WebHttpsPanelActive && local.WebPanelPasswordHash == "" {
 		local.WebHttpsPanelActive = false
 	}
+
 	// v8.2.0 (1.2): есть хэш — plaintext в ОЗУ обязан быть пустым.
 	if local.WebRescuePasswordHash != "" {
 		local.WebRescuePassword = ""

@@ -558,6 +558,7 @@ func init() {
 		SettingsLabelSshAllowInFromIp:            "SSH access: admin IP only (0=off / 1=on)",
 		SettingsLabelSshIpWebKnock:               "SSH access: web-knock with incineration (0=off / 1=on)",
 		SettingsLabelWebHttpsPanelActive:         "Statistics web panel (0=off / 1=on)",
+		SettingsLabelAnalyticsAutoRebuild:        "Auto-load Statistics history (0=off / 1=on)",
 		SettingsLabelWebPanelPassword:            "Setting a password for the web statistics panel",
 		SettingsLabelBack:                        "Back to main menu",
 		SettingsUiTitleBox:                       " Amber Guard Laboratory ",

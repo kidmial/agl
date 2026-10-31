@@ -558,6 +558,7 @@ func init() {
 		SettingsLabelSshAllowInFromIp:            "SSH-доступ: только по IP админа (0=выкл / 1=вкл)",
 		SettingsLabelSshIpWebKnock:               "SSH-доступ: веб-стук с испепелением (0=выкл / 1=вкл)",
 		SettingsLabelWebHttpsPanelActive:         "Веб-панель статистики (0=выкл / 1=вкл)",
+		SettingsLabelAnalyticsAutoRebuild:        "Автозагрузка истории статистики (0=выкл / 1=вкл)",
 		SettingsLabelWebPanelPassword:            "Установка пароля для веб-панели статистики",
 		SettingsLabelBack:                        "Назад в главное меню",
 		SettingsUiTitleBox:                       " Amber Guard Laboratory ",

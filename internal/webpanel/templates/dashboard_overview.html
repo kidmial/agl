@@ -2,17 +2,28 @@
 {{define "dashboard_overview"}}
 {{template "header" .}}
 
-<!-- Блок управления данными -->
 <div class="control-panel">
-    <h3>Управление данными</h3>
-    {{ if .HistoryLoaded }}
-    <button class="control-btn" disabled>История загружена</button>
-    <span class="control-status success">{{ .StoreTotal }} событий в буфере. Перезапустите сервис для повторной
-        загрузки.</span>
-    {{ else }}
-    <button class="control-btn" id="rebuildBtn" onclick="rebuildHistory()">Загрузить историю из лога</button>
-    <span class="control-status" id="rebuildStatus">История не загружена. Нажмите кнопку для загрузки.</span>
-    {{ end }}
+    <h3>Статус аналитики</h3>
+    <div class="grid" style="margin-bottom: 0;">
+        <div class="card">
+            <div class="metric-label">Событий в буфере</div>
+            <div class="metric">{{ .StoreTotal }}</div>
+            <div class="text-muted">
+                {{ if .HistoryLoaded }}Режим: полная история из лога
+                {{ else if .StoreCounters.FirstEventTime.IsZero }}Режим: живой срез (ожидание первых событий)
+                {{ else }}Режим: живой срез с {{ .StoreCounters.FirstEventTime.Format "02.01 15:04" }}{{ end }}
+            </div>
+        </div>
+        <div class="card">
+            <div class="metric-label">Профилей акторов</div>
+            <div class="metric">{{ .ProfileTotal }}</div>
+            <div class="text-muted">Активных кластеров</div>
+        </div>
+    </div>
+    <p class="text-muted" style="margin-top: 16px; margin-bottom: 0;">
+        Данные обновляются в реальном времени. Автообновление страницы:
+        <span id="autorefresh-status" class="text-green">активно (30 сек)</span>
+    </p>
 </div>
 
 <div class="page-section-header">
@@ -29,7 +40,7 @@
         </div>
     </div>
     <div class="card">
-        <div class="metric-label">Активные профили акторов</div>
+        <div class="metric-label">Активных кластеров профилей акторов</div>
         <div class="metric">{{ .ProfileCounters.Active }}</div>
         <div class="text-muted">Низкая уверенность: {{ .ProfileCounters.LowConfidence }} | Просрочено: {{
             .ProfileCounters.Expired }}</div>

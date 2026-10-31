@@ -41,9 +41,9 @@
 <!-- 4. Географический пульс ботнета -->
 <div class="card" style="margin-top: 30px;">
     <div>
-        <h2>Метрика географического вовлечения</h3>
-            <p class="text-muted">Отслеживание динамики и общего количества задействованных стран (глобального охвата) в
-                заданном временном интервале.</p>
+        <h2>Метрика географического вовлечения</h2>
+        <p class="text-muted">Отслеживание динамики и общего количества задействованных стран (глобального охвата) в
+            заданном временном интервале.</p>
     </div>
     <div class="card-header-row" style="justify-content: flex-end;">
         <select id="geoWindowSelect" class="control-btn" style="padding: 8px 16px;">
@@ -340,6 +340,11 @@
     geoWindowSelect.addEventListener('change', updateGeoPulse);
     updateGeoPulse(); // Загрузка при старте
 
+    // Подписка на автообновление
+    window.addEventListener('agl:autorefresh', () => {
+        updateGeoPulse();
+        // TODO: добавить обновление других графиков (burst, phase, velocity, tool)
+    });
     });
 </script>
 

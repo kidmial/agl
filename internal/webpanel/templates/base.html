@@ -560,26 +560,24 @@
         /* --- Privacy mode --- */
         agl-private {
             display: inline-block;
-            /* blur не обрезается по строковым фрагментам */
             transition: filter 0.15s ease;
         }
 
         agl-privated {
             display: inline-block;
-            /* blur не обрезается по строковым фрагментам */
             transition: filter 0.15s ease;
         }
 
         body:has(#privacy-switch:checked) agl-private {
             filter: blur(4px);
             user-select: none;
-            /* барьер от копипасты в privacy-режиме */
+            text-decoration: line-through;
         }
 
         body:has(#privacy-switch:checked) agl-privated {
             filter: blur(15px);
             user-select: none;
-            /* барьер от копипасты в privacy-режиме */
+            text-decoration: line-through;
         }
 
         .privacy-toggle {
@@ -848,10 +846,13 @@
 </head>
 
 <body>
-    <!-- Скрытый чекбокс для управления темой -->
-    <input type="checkbox" id="theme-switch" class="theme-switch" aria-label="Переключить тему">
+
+    <!-- Скрытый чекбокс для ввтообновления данных -->
+    <input type="checkbox" id="autorefresh-switch" class="theme-switch" aria-label="Автообновление">
     <!-- Скрытый чекбокс для управления режимом приватности данных -->
     <input type="checkbox" id="privacy-switch" class="theme-switch" aria-label="Режим приватности">
+    <!-- Скрытый чекбокс для управления темой -->
+    <input type="checkbox" id="theme-switch" class="theme-switch" aria-label="Переключить тему">
 
     <div class="header">
         <div class="header-brand">
@@ -865,21 +866,25 @@
             <a href="{{.Prefix}}dashboard/siem" class="nav-link">SIEM</a>
             <a href="{{.Prefix}}dashboard/reports" class="nav-link accent">Отчёты</a>
 
-            <label for="theme-switch" class="nav-link theme-toggle" title="Переключить тему">
-                <!-- Активна тёмная тема -> показываем солнце (чтобы переключить на светлую) -->
-                <span class="theme-icon-dark" aria-hidden="true">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            <label for="autorefresh-switch" class="nav-link autorefresh-toggle"
+                title="Автообновление данных каждые 30 секунд">
+                <span class="autorefresh-icon-active" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="4" />
-                        <path
-                            d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                        <path d="M21 3v5h-5" />
+                        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                        <path d="M8 16H3v5" />
                     </svg>
                 </span>
-                <!-- Активна светлая тема -> показываем луну (чтобы переключить на тёмную) -->
-                <span class="theme-icon-light" aria-hidden="true">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                <span class="autorefresh-icon-paused" aria-hidden="true" style="display: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                        <path d="M21 3v5h-5" />
+                        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                        <path d="M8 16H3v5" />
+                        <path d="M 2 2 L 22 22" />
                     </svg>
                 </span>
             </label>
@@ -899,6 +904,24 @@
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
                         <circle cx="12" cy="12" r="3" />
+                    </svg>
+                </span>
+            </label>
+            <label for="theme-switch" class="nav-link theme-toggle" title="Переключить тему">
+                <!-- Активна тёмная тема -> показываем солнце (чтобы переключить на светлую) -->
+                <span class="theme-icon-dark" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4" />
+                        <path
+                            d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                    </svg>
+                </span>
+                <!-- Активна светлая тема -> показываем луну (чтобы переключить на тёмную) -->
+                <span class="theme-icon-light" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                     </svg>
                 </span>
             </label>
@@ -1011,6 +1034,76 @@
                 checkbox.addEventListener('change', function () {
                     localStorage.setItem('agl_theme', this.checked ? 'light' : 'dark');
                 });
+            })();
+
+            // ==========================================================================
+            // AUTO-REFRESH (живые страницы)
+            // ==========================================================================
+            (function () {
+                const AUTOREFRESH_INTERVAL = 30000; // 30 секунд
+                const cb = document.getElementById('autorefresh-switch');
+
+                // Восстановление состояния
+                if (localStorage.getItem('agl_autorefresh') === 'off') {
+                    cb.checked = false;
+                } else {
+                    cb.checked = true; // по умолчанию ВКЛ
+                }
+
+                cb.addEventListener('change', function () {
+                    localStorage.setItem('agl_autorefresh', this.checked ? 'on' : 'off');
+                    updateAutorefreshUI();
+                    if (this.checked) {
+                        startAutorefresh();
+                    } else {
+                        stopAutorefresh();
+                    }
+                });
+
+                let autorefreshTimer = null;
+
+                function updateAutorefreshUI() {
+                    const active = document.querySelector('.autorefresh-icon-active');
+                    const paused = document.querySelector('.autorefresh-icon-paused');
+                    const toggle = document.querySelector('.autorefresh-toggle');
+
+                    if (cb.checked) {
+                        active.style.display = 'inline';
+                        paused.style.display = 'none';
+                        toggle.style.color = 'var(--accent-green)';
+                    } else {
+                        active.style.display = 'none';
+                        paused.style.display = 'inline';
+                        toggle.style.color = 'var(--accent-amber)';
+                    }
+
+                    // Обновляем статус в dashboard_overview
+                    const statusEl = document.getElementById('autorefresh-status');
+                    if (statusEl) {
+                        statusEl.textContent = cb.checked ? 'активно (30 сек)' : 'пауза';
+                        statusEl.className = cb.checked ? 'text-green' : 'text-amber';
+                    }
+                }
+
+                function startAutorefresh() {
+                    if (autorefreshTimer) clearInterval(autorefreshTimer);
+                    autorefreshTimer = setInterval(() => {
+                        // Пауза когда вкладка не видна
+                        if (document.visibilityState !== 'visible') return;
+                        // Триггер события для подписчиков (dashboard_vitals, dashboard_overview)
+                        window.dispatchEvent(new CustomEvent('agl:autorefresh'));
+                    }, AUTOREFRESH_INTERVAL);
+                }
+
+                function stopAutorefresh() {
+                    if (autorefreshTimer) {
+                        clearInterval(autorefreshTimer);
+                        autorefreshTimer = null;
+                    }
+                }
+
+                updateAutorefreshUI();
+                if (cb.checked) startAutorefresh();
             })();
 
             // ==========================================================================
