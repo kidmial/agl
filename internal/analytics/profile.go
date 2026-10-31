@@ -2956,6 +2956,37 @@ func (pm *ProfileManager) ProfilesSnapshot(limit int) []ActorProfile {
 	return out
 }
 
+// GetProfile возвращает безопасную копию профиля по ID и флаг его существования.
+//
+// Аргументы:
+//   - id: идентификатор профиля (например, "AGL_PROFILE_...").
+//
+// Возврат:
+//   - указатель на копию профиля (или nil, если не найден).
+//   - bool: true, если профиль существует, false иначе.
+//
+// Поведение:
+//   - использует блокировку чтения (RLock) для потокобезопасности;
+//   - возвращает клон профиля, а не живой указатель (доктрина: "Живые указатели наружу не отдаём");
+//   - защищает веб-панель от гонок данных при чтении.
+func (pm *ProfileManager) GetProfile(id string) (*ActorProfile, bool) {
+	if pm == nil {
+		return nil, false
+	}
+
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+
+	profile, ok := pm.profilesByID[id]
+	if !ok || profile == nil {
+		return nil, false
+	}
+
+	// Возвращаем безопасную копию, как в ProfilesSnapshot
+	cloned := cloneProfile(profile)
+	return &cloned, true
+}
+
 // MergeProfiles сливает профиль-источник в профиль-приёмник.
 //
 // Аргументы:

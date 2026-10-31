@@ -134,7 +134,7 @@
     // ==========================================================================
     // ГРАФИК 1: Хроника атаки (Burst)
     // ==========================================================================
-    AGLCharts.createChart('burstChart', 'line', {
+    window.burstChart = AGLCharts.createChart('burstChart', 'line', {
         labels: burstSeries.map(p => p.label),
         datasets: [{
             label: 'Событий в минуту',
@@ -177,7 +177,7 @@
     });
 
     // Примечание: grid и text цвета подставляются менеджером AGLCharts автоматически!
-    AGLCharts.createChart('phaseChart', 'line', {
+    window.phaseChart = AGLCharts.createChart('phaseChart', 'line', {
         labels: timeLabels,
         datasets: phaseDatasets
     }, {
@@ -190,7 +190,7 @@
     // ==========================================================================
     // ГРАФИК 3: Индекс скорости атаки (Velocity / IAT)
     // ==========================================================================
-    AGLCharts.createChart('velocityChart', 'line', {
+    window.velocityChart = AGLCharts.createChart('velocityChart', 'line', {
         labels: timeLabels,
         datasets: [
             {
@@ -242,7 +242,7 @@
         backgroundColor: toolConfig[code].color
     }));
 
-    AGLCharts.createChart('toolChart', 'bar', {
+    window.toolChart = AGLCharts.createChart('toolChart', 'bar', {
         labels: timeLabels,
         datasets: toolDatasets
     }, {
@@ -340,11 +340,87 @@
     geoWindowSelect.addEventListener('change', updateGeoPulse);
     updateGeoPulse(); // Загрузка при старте
 
-    // Подписка на автообновление
+    // АВТООБНОВЛЕНИЕ ДАННЫХ ТЕЛЕМЕТРИИ (тихое, без анимации)
     window.addEventListener('agl:autorefresh', () => {
+        // Обновляем GeoPulse
         updateGeoPulse();
-        // TODO: добавить обновление других графиков (burst, phase, velocity, tool)
+
+        // Обновляем остальные графики без анимации
+        updateAllChartsSilent();
     });
+
+    function updateAllChartsSilent() {
+        const pathParts = window.location.pathname.split('/');
+        const prefix = pathParts[1] ? pathParts[1] + '/' : '';
+
+        // Загружаем свежие данные
+        fetch('/' + prefix + 'api/stats')
+            .then(res => res.json())
+            .then(data => {
+                const hourStats = data.hourly_stats || [];
+                const burstSeries = data.burst_series || [];
+
+                // Обновляем график 1: Burst
+                if (window.burstChart) {
+                    window.burstChart.data.labels = burstSeries.map(p => p.label);
+                    window.burstChart.data.datasets[0].data = burstSeries.map(p => p.count);
+                    window.burstChart.update('none'); // без анимации
+                }
+
+                // Обновляем график 2: Phase
+                if (window.phaseChart) {
+                    const phaseDatasets = Object.keys(phaseConfig).map(code => {
+                        const config = phaseConfig[code];
+                        return {
+                            label: config.label,
+                            data: hourStats.map(hs => {
+                                const phase = (hs.phase_counts || []).find(p => p.key === code);
+                                return phase ? phase.count : 0;
+                            }),
+                            backgroundColor: config.color,
+                            borderColor: config.borderColor,
+                            fill: true,
+                            tension: 0.3
+                        };
+                    });
+                    window.phaseChart.data.datasets = phaseDatasets;
+                    window.phaseChart.update('none');
+                }
+
+                // Обновляем график 3: Velocity
+                if (window.velocityChart) {
+                    window.velocityChart.data.labels = hourStats.map(hs => {
+                        const date = new Date(hs.hour);
+                        return date.getHours().toString().padStart(2, '0') + ':00';
+                    });
+                    window.velocityChart.data.datasets[0].data = hourStats.map(hs => hs.avg_iat_ms || 0);
+                    // Обновляем и пороговые линии, если длина изменилась
+                    window.velocityChart.data.datasets[1].data = Array(hourStats.length).fill(5);
+                    window.velocityChart.data.datasets[2].data = Array(hourStats.length).fill(100);
+                    window.velocityChart.update('none');
+                }
+
+                // Обновляем график 4: Tool
+                if (window.toolChart) {
+                    window.toolChart.data.labels = hourStats.map(hs => {
+                        const date = new Date(hs.hour);
+                        return date.getHours().toString().padStart(2, '0') + ':00';
+                    });
+                    const toolDatasets = Object.keys(toolConfig).map(code => ({
+                        label: toolConfig[code].label,
+                        data: hourStats.map(hs => {
+                            const item = (hs.tool_profiles || []).find(p => p.key === code);
+                            return item ? item.count : 0;
+                        }),
+                        backgroundColor: toolConfig[code].color
+                    }));
+                    window.toolChart.data.datasets = toolDatasets;
+                    window.toolChart.update('none');
+                }
+            })
+            .catch(err => console.error('Auto-refresh error:', err));
+    }
+
     });
 </script>
 

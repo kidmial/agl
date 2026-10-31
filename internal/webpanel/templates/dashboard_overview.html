@@ -7,29 +7,27 @@
     <p>Поведенческий анализ недавней активности акторов, их касания инфраструктуры и сдерживания сетевых атак.</p>
 </div>
 
+<!-- Статус аналитики -->
 <div class="control-panel">
     <h3>Статус аналитики</h3>
     <div class="grid" style="margin-bottom: 0;">
         <div class="card">
             <div class="metric-label">Всего событий в буфере</div>
-            <div class="metric">{{ .StoreCounters.TotalEvents }}</div>
+            <div class="metric" id="totalEvents">{{ .StoreCounters.TotalEvents }}</div>
             <div class="text-muted">
-                Валидных: {{ .StoreCounters.ValidEvents }} | Битых: {{ .StoreCounters.InvalidEvents }}
-                {{ if .HistoryLoaded }} | Режим: полная история{{ else }} | Режим: живой срез{{ end }}
+                Валидных: <span id="validEvents">{{ .StoreCounters.ValidEvents }}</span> | Битых: <span id="invalidEvents">{{ .StoreCounters.InvalidEvents }}</span>
+                <span id="analyticsMode">{{ if .HistoryLoaded }} | Режим: полная история{{ else }} | Режим: живой срез{{ end }}</span>
             </div>
         </div>
         <div class="card">
             <div class="metric-label">Активных кластеров профилей акторов</div>
-            <div class="metric">{{ .ProfileCounters.Active }}</div>
-            <div class="text-muted">Низкая уверенность: {{ .ProfileCounters.LowConfidence }} | Просрочено: {{
-                .ProfileCounters.Expired }}</div>
+            <div class="metric" id="activeProfiles">{{ .ProfileCounters.Active }}</div>
+            <div class="text-muted">Низкая уверенность: <span id="lowConfidence">{{ .ProfileCounters.LowConfidence }}</span> | Просрочено: <span id="expiredProfiles">{{ .ProfileCounters.Expired }}</span></div>
         </div>
         <div class="card">
             <div class="metric-label">Временной охват</div>
-            <div class="metric">{{ if .StoreCounters.HasEventTime }}{{ .StoreCounters.FirstEventTime.Format "02.01" }} -
-                {{
-                .StoreCounters.LastEventTime.Format "02.01" }}{{ else }}Нет данных{{ end }}</div>
-            <div class="text-muted">Обновлено: {{ .CurrentTime }}</div>
+            <div class="metric" id="timeRange">{{ if .StoreCounters.HasEventTime }}{{ .StoreCounters.FirstEventTime.Format "02.01" }} - {{ .StoreCounters.LastEventTime.Format "02.01" }}{{ else }}Нет данных{{ end }}</div>
+            <div class="text-muted">Обновлено: <span id="updatedTime">{{ .CurrentTime }}</span></div>
         </div>
     </div>
     <p class="text-muted" style="margin-top: 16px; margin-bottom: 0;">
@@ -47,19 +45,19 @@
 <div class="grid" style="margin-top: 20px;">
     <div class="card">
         <div class="metric-label">Утилизировано времени ботнет за текущий час</div>
-        <div class="metric amber">{{ .StolenTime.HourSec | formatDuration }}</div>
+        <div class="metric amber" id="stolenHour">{{ .StolenTime.HourSec | formatDuration }}</div>
     </div>
     <div class="card">
         <div class="metric-label">Утилизировано времени ботнет за 24 часа</div>
-        <div class="metric amber">{{ .StolenTime.DaySec | formatDuration }}</div>
+        <div class="metric amber" id="stolenDay">{{ .StolenTime.DaySec | formatDuration }}</div>
     </div>
     <div class="card">
         <div class="metric-label">Утилизировано времени ботнет за 7 дней</div>
-        <div class="metric amber">{{ .StolenTime.WeekSec | formatDuration }}</div>
+        <div class="metric amber" id="stolenWeek">{{ .StolenTime.WeekSec | formatDuration }}</div>
     </div>
     <div class="card">
         <div class="metric-label">Утилизировано времени ботнет за 30 дней</div>
-        <div class="metric amber">{{ .StolenTime.MonthSec | formatDuration }}</div>
+        <div class="metric amber" id="stolenMonth">{{ .StolenTime.MonthSec | formatDuration }}</div>
     </div>
 </div>
 
@@ -77,7 +75,7 @@
                     <th>Средний RTT</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="hourlyStatsBody">
                 {{ range .HourStats }}
                 <tr>
                     <td>{{ .Hour.Format "15:04" }}</td>
@@ -90,6 +88,7 @@
             </tbody>
         </table>
     </div>
+</div>
 
     <!-- Профили акторов -->
     <div class="card" style="margin-top: 30px;">
@@ -110,7 +109,7 @@
                         <th>Субъект</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="profilesTableBody">
                     {{ range .Profiles }}
                     <tr>
                         <td>{{ .LastEventTime.Format "15:04:05" }}</td>
@@ -139,6 +138,356 @@
         </div>
     </div>
 </div>
+
+<script>
+    // v8.6.2: Фиксируем начальный лимит строк, отрисованных Go-шаблоном.
+    // Это гарантирует, что автообновление запросит ровно столько же строк,
+    // предотвращая визуальное "схлопывание" таблицы.
+    const INITIAL_PROFILES_LIMIT = {{ len .Profiles }};
+
+    // Мини-хелперы для обновления
+    function setText(id, value) {
+        const el = document.getElementById(id);
+        if (el && value !== undefined && value !== null) el.textContent = value;
+    }
+
+    // Аналог Go-функции analytics.FormatDuration
+    function formatDuration(totalSec) {
+        totalSec = Number(totalSec) || 0;
+        const days = Math.floor(totalSec / 86400);
+        const hours = Math.floor((totalSec % 86400) / 3600);
+        const mins = Math.floor((totalSec % 3600) / 60);
+        const secs = totalSec % 60;
+        const pad = (n) => String(n).padStart(2, '0');
+        if (days > 0) return days + 'д ' + pad(hours) + ':' + pad(mins) + ':' + pad(secs);
+        return pad(hours) + ':' + pad(mins) + ':' + pad(secs);
+    }
+
+    // ==========================================================================
+    // АВТООБНОВЛЕНИЕ ТЕЛЕМЕТРИИ ДАННЫХ ТАБЛИЦ (Без моргания через DocumentFragment)
+    // ==========================================================================
+    window.addEventListener('agl:autorefresh', () => {
+        updateOverviewTablesSilent();
+    });
+
+    function updateOverviewTablesSilent() {
+        const pathParts = window.location.pathname.split('/');
+        const prefix = pathParts[1] ? pathParts[1] + '/' : '';
+
+        // Запрашиваем данные с тем же лимитом, что был при первой отрисовке.
+        // В будущем здесь будет переменная из селектора строк.
+        fetch('/' + prefix + 'api/stats?limit=' + INITIAL_PROFILES_LIMIT)
+            .then(res => res.json())
+            .then(data => {
+                // ----------------------------------------------------------------
+                // 0. Обновление КРУПНЫХ ЗНАЧЕНИЙ (карточки метрик и утилизированного времени)
+                // ----------------------------------------------------------------
+                if (data.store_counters) {
+                    const sc = data.store_counters;
+                    setText('totalEvents', sc.TotalEvents);
+                    setText('validEvents', sc.ValidEvents);
+                    setText('invalidEvents', sc.InvalidEvents);
+                    const mode = data.history_loaded ? ' | Режим: полная история' : ' | Режим: живой срез';
+                    setText('analyticsMode', mode);
+                    
+                    if (sc.HasEventTime) {
+                        const fmt = (iso) => {
+                            const d = new Date(iso);
+                            return String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0');
+                        };
+                        setText('timeRange', fmt(sc.FirstEventTime) + ' - ' + fmt(sc.LastEventTime));
+                    } else {
+                        setText('timeRange', 'Нет данных');
+                    }
+                }
+                if (data.profile_counters) {
+                    const pc = data.profile_counters;
+                    setText('activeProfiles', pc.Active);
+                    setText('lowConfidence', pc.LowConfidence);
+                    setText('expiredProfiles', pc.Expired);
+                }
+                if (data.current_time) {
+                    setText('updatedTime', data.current_time);
+                }
+                if (data.stolen_time) {
+                    const st = data.stolen_time;
+                    setText('stolenHour', st.HourFormatted);
+                    setText('stolenDay', st.DayFormatted);
+                    setText('stolenWeek', st.WeekFormatted);
+                    setText('stolenMonth', st.MonthFormatted);
+                }
+
+                const profiles = data.profiles || [];
+                const tbody = document.getElementById('profilesTableBody');
+
+                if (tbody) {
+                    // ----------------------------------------------------------------
+                    // Состояние сравнения (живёт вне DOM, переживает replaceChildren)
+                    // Инициализируется один раз при первом обновлении.
+                    // ----------------------------------------------------------------
+                    if (!window._aglSeenProfileIds) {
+                        window._aglSeenProfileIds = new Set();
+                        window._aglProfileSnapshots = new Map();
+                    }
+                    const seenIds = window._aglSeenProfileIds;
+                    const snapshots = window._aglProfileSnapshots;
+
+                    // 1. Создаём фрагмент в памяти (вне DOM).
+                    const fragment = document.createDocumentFragment();
+
+                    if (profiles.length === 0) {
+                        const tr = document.createElement('tr');
+                        const td = document.createElement('td');
+                        td.colSpan = 10;
+                        td.className = 'text-muted';
+                        td.textContent = 'Нет активных профилей';
+                        tr.appendChild(td);
+                        fragment.appendChild(tr);
+                    } else {
+                        profiles.forEach(p => {
+                            const tr = document.createElement('tr');
+
+                            // --- Определение статуса строки (вспышки) ---
+                            const currentSnap = JSON.stringify({
+                                phase: p.current_phase,
+                                predicted: p.predicted_vector,
+                                plan: p.hold_count > 0 ? Math.round(p.avg_planned_hold) : null,
+                                actual: p.hold_count > 0 ? Math.round(p.avg_actual_hold) : null,
+                                drift: p.token_drift_valid ? p.token_drift_ms : null,
+                                events: p.event_count,
+                            });
+
+                            if (!seenIds.has(p.id)) {
+                                tr.classList.add('row-flash-new');
+                                seenIds.add(p.id);
+                                snapshots.set(p.id, currentSnap);
+                            } else {
+                                const prevSnap = snapshots.get(p.id);
+                                if (prevSnap && prevSnap !== currentSnap) {
+                                    tr.classList.add('row-flash-update');
+                                    snapshots.set(p.id, currentSnap);
+                                }
+                            }
+
+                            // ====================================================
+                            // ПОРЯДОК ЯЧЕЕК ДОЛЖЕН СТРОГО СОВПАДАТЬ С <thead>:
+                            // ВРЕМЯ | IP | СОБЫТИЙ | ТИП | ПЛАН | ФАКТ |
+                            // ФАЗА | ПРОГНОЗ | ДРЕЙФ | СУБЪЕКТ
+                            // При изменении заголовков — править здесь синхронно!
+                            // ====================================================
+
+                            // 1. ВРЕМЯ ЗАВЕРШЕНИЯ
+                            const tdTime = document.createElement('td');
+                            tdTime.textContent = p.last_event_time;
+                            tr.appendChild(tdTime);
+
+                            // 2. IP
+                            const tdIP = document.createElement('td');
+                            const code = document.createElement('code');
+                            const privIP = document.createElement('agl-private');
+                            privIP.textContent = p.primary_ip || '—';
+                            code.appendChild(privIP);
+                            tdIP.appendChild(code);
+                            tr.appendChild(tdIP);
+
+                            // 3. СОБЫТИЙ
+                            const tdEvents = document.createElement('td');
+                            tdEvents.textContent = p.event_count;
+                            tr.appendChild(tdEvents);
+
+                            // 4. ТИП
+                            const tdType = document.createElement('td');
+                            let typeClass = 'text-muted';
+                            if (p.dominant_behavior === 'AGGR') typeClass = 'status-aggr';
+                            else if (p.dominant_behavior === 'PASS') typeClass = 'status-pass';
+                            else if (p.dominant_behavior === 'MIXED') typeClass = 'status-mixed';
+                            const spanType = document.createElement('span');
+                            spanType.className = typeClass;
+                            spanType.textContent = p.dominant_behavior === 'UNK' ? '—' : p.dominant_behavior;
+                            tdType.appendChild(spanType);
+                            tr.appendChild(tdType);
+
+                            // 5. ПЛАН (СЕК)
+                            const tdPlan = document.createElement('td');
+                            const privPlan = document.createElement('agl-private');
+                            privPlan.textContent = p.hold_count > 0 ? Math.round(p.avg_planned_hold) : '—';
+                            tdPlan.appendChild(privPlan);
+                            tr.appendChild(tdPlan);
+
+                            // 6. ФАКТ (СЕК)
+                            const tdFact = document.createElement('td');
+                            const privFact = document.createElement('agl-private');
+                            privFact.textContent = p.hold_count > 0 ? Math.round(p.avg_actual_hold) : '—';
+                            tdFact.appendChild(privFact);
+                            tr.appendChild(tdFact);
+
+                            // 7. ФАЗА (АЛГ.3)
+                            const tdPhase = document.createElement('td');
+                            tdPhase.className = 'phase-text';
+                            tdPhase.textContent = p.current_phase || '—';
+                            tr.appendChild(tdPhase);
+
+                            // 8. ПРОГНОЗ (АЛГ.4)
+                            const tdPred = document.createElement('td');
+                            tdPred.className = 'prediction-text';
+                            tdPred.textContent = p.predicted_vector || '—';
+                            tr.appendChild(tdPred);
+
+                            // 9. ДРЕЙФ (АЛГ.2)
+                            const tdDrift = document.createElement('td');
+                            tdDrift.textContent = p.token_drift_valid ? p.token_drift_ms + ' мс' : '—';
+                            tr.appendChild(tdDrift);
+
+                            // 10. СУБЪЕКТ
+                            const tdDossier = document.createElement('td');
+                            const link = document.createElement('a');
+                            link.href = '/' + prefix + 'dashboard/profile/' + p.id;
+                            link.className = 'profile-link';
+                            link.textContent = 'ДОСЬЕ';
+                            tdDossier.appendChild(link);
+                            tr.appendChild(tdDossier);
+
+                            fragment.appendChild(tr);
+                        });
+                    }
+
+                    // 2. Атомарная замена содержимого (один рефлоу, ноль моргания)
+                    tbody.replaceChildren(...fragment.childNodes);
+                }
+            })
+            .catch(err => console.error('Auto-refresh error (overview):', err));
+    }
+
+    // ==========================================================================
+    // ИНИЦИАЛИЗАЦИЯ СОСТОЯНИЯ ДЛЯ ПОДСВЕТКИ СТРОК HOURLY STATS
+    // ==========================================================================
+    const initialHourStats = {{ .HourStats | json }};
+    window._aglSeenHourKeys = new Set();
+    window._aglHourSnapshots = new Map();
+    
+    // Заполняем состояние уже существующими часами из первичной загрузки
+    initialHourStats.forEach(hs => {
+        const date = new Date(hs.hour);
+        const key = date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
+        const snap = JSON.stringify({
+            events: hs.events,
+            unique_ips: hs.unique_ips,
+            aggressive: hs.aggressive_events,
+            rtt: Math.round(hs.rtt_avg_ms || 0)
+        });
+        window._aglSeenHourKeys.add(key);
+        window._aglHourSnapshots.set(key, snap);
+    });
+
+    // ==========================================================================
+    // АВТООБНОВЛЕНИЕ HOURLY STATS (Без моргания через DocumentFragment)
+    // ==========================================================================
+    function updateHourlyStatsSilent() {
+        const pathParts = window.location.pathname.split('/');
+        const prefix = pathParts[1] ? pathParts[1] + '/' : '';
+
+        fetch('/' + prefix + 'api/stats')
+            .then(res => res.json())
+            .then(data => {
+                const hourStats = data.hourly_stats || [];
+                const tbody = document.getElementById('hourlyStatsBody');
+
+                if (tbody) {
+                    // ----------------------------------------------------------------
+                    // Состояние сравнения (живёт вне DOM, переживает replaceChildren)
+                    // ----------------------------------------------------------------
+                    if (!window._aglSeenHourKeys) {
+                        window._aglSeenHourKeys = new Set();
+                        window._aglHourSnapshots = new Map();
+                    }
+                    const seenKeys = window._aglSeenHourKeys;
+                    const snapshots = window._aglHourSnapshots;
+
+                    // Создаём фрагмент в памяти (вне DOM). Это ключ к отсутствию моргания.
+                    const fragment = document.createDocumentFragment();
+
+                    if (hourStats.length === 0) {
+                        const tr = document.createElement('tr');
+                        const td = document.createElement('td');
+                        td.colSpan = 5;
+                        td.className = 'text-muted';
+                        td.textContent = 'Нет данных за последние 24 часа';
+                        tr.appendChild(td);
+                        fragment.appendChild(tr);
+                    } else {
+                        hourStats.forEach(hs => {
+                            const date = new Date(hs.hour);
+                            const key = date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
+                            const timeFormatted = key;
+
+                            const tr = document.createElement('tr');
+
+                            // --- Определение статуса строки ---
+                            const currentSnap = JSON.stringify({
+                                events: hs.events,
+                                unique_ips: hs.unique_ips,
+                                aggressive: hs.aggressive_events,
+                                rtt: Math.round(hs.rtt_avg_ms || 0)
+                            });
+
+                            if (!seenKeys.has(key)) {
+                                // НОВЫЙ час (появился впервые — начался новый час)
+                                tr.classList.add('row-flash-new');
+                                seenKeys.add(key);
+                                snapshots.set(key, currentSnap);
+                            } else {
+                                // Час известен — проверяем активность
+                                const prevSnap = snapshots.get(key);
+                                if (prevSnap && prevSnap !== currentSnap) {
+                                    tr.classList.add('row-flash-update');
+                                    snapshots.set(key, currentSnap);
+                                }
+                            }
+
+                            // --- Создание ячеек ---
+
+                            // 1. Время
+                            const tdTime = document.createElement('td');
+                            tdTime.textContent = timeFormatted;
+                            tr.appendChild(tdTime);
+
+                            // 2. Событий
+                            const tdEvents = document.createElement('td');
+                            tdEvents.textContent = hs.events;
+                            tr.appendChild(tdEvents);
+
+                            // 3. Уник. IP
+                            const tdUniqIP = document.createElement('td');
+                            tdUniqIP.textContent = hs.unique_ips;
+                            tr.appendChild(tdUniqIP);
+
+                            // 4. Агрессивных
+                            const tdAggr = document.createElement('td');
+                            tdAggr.textContent = hs.aggressive_events;
+                            tr.appendChild(tdAggr);
+
+                            // 5. Средний RTT
+                            const tdRTT = document.createElement('td');
+                            tdRTT.textContent = Math.round(hs.rtt_avg_ms || 0) + ' ms';
+                            tr.appendChild(tdRTT);
+
+                            fragment.appendChild(tr);
+                        });
+                    }
+
+                    // Атомарная замена содержимого (один рефлоу, ноль моргания)
+                    tbody.replaceChildren(...fragment.childNodes);
+                }
+            })
+            .catch(err => console.error('Auto-refresh error (hourly stats):', err));
+    }
+
+    // Подключаем к глобальному событию автообновления
+    window.addEventListener('agl:autorefresh', () => {
+        updateHourlyStatsSilent();
+    });
+
+</script>
 
 {{template "footer" .}}
 {{end}}

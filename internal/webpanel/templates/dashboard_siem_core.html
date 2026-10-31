@@ -23,7 +23,7 @@
                     <th>Доказательства</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="siemDetectionsBody">
                 {{ range .Detections }}
                 <tr>
                     <td><strong>{{ .Label }}</strong></td>
@@ -81,14 +81,14 @@
             <p class="text-muted" style="margin: 0 0 10px 0; font-size: 13px;">
                 Несоответствие физического пинга (RTT) и прикладной задержки (WriteLatencyMs).
             </p>
-            <p class="{{ if gt .ProxyCount 0 }}text-red{{ else }}text-muted{{ end }} metric-large">
+            <p id="proxyCount" class="{{ if gt .ProxyCount 0 }}text-red{{ else }}text-muted{{ end }} metric-large">
                 {{ .ProxyCount }}
                 {{ if eq .ProxyCount 1 }}обнаружение{{ else if and (ge .ProxyCount 2) (le .ProxyCount 4) }}обнаружения{{
                 else }}обнаружений{{ end }}
             </p>
 
             {{ if .ProxyDetails }}
-            <ul class="list-unstyled" style="margin-top: 12px;">
+            <ul id="proxyDetailsList" class="list-unstyled" style="margin-top: 12px;">
                 {{ range .ProxyDetails }}
                 <li class="list-item-sm">
                     <code><agl-private>{{ .Subject }}</agl-private></code>
@@ -108,7 +108,7 @@
             <p class="text-muted" style="margin: 0 0 10px 0; font-size: 13px;">
                 Несоответствие физики стека L4 (IoT) прикладной логике L7 (Server).
             </p>
-            <p class="{{ if gt .SpoofCount 0 }}text-amber{{ else }}text-muted{{ end }} metric-large">
+            <p id="spoofCount" class="{{ if gt .SpoofCount 0 }}text-amber{{ else }}text-muted{{ end }} metric-large">
                 {{ .SpoofCount }}
                 {{ if eq .SpoofCount 1 }}обнаружение{{ else if and (ge .SpoofCount 2) (le .SpoofCount 4) }}обнаружения{{
                 else }}обнаружений{{ end }}
@@ -119,8 +119,206 @@
 </div>
 
 <script>
-    // Если в будущем понадобится JS-логика для SIEM, данные уже готовы:
-    const detections = {{ .Detections | json }};
+    // ==========================================================================
+    // АВТООБНОВЛЕНИЕ ТЕЛЕМЕТРИИ ДАННЫХ SIEM (Без моргания)
+    // ==========================================================================
+    window.addEventListener('agl:autorefresh', () => {
+        updateSIEMSilent();
+    });
+
+    function updateSIEMSilent() {
+        const pathParts = window.location.pathname.split('/');
+        const prefix = pathParts[1] ? pathParts[1] + '/' : '';
+
+        fetch('/' + prefix + 'api/siem')
+            .then(res => res.json())
+            .then(data => {
+                // 1. Обновление таблицы детекций
+                const tbody = document.getElementById('siemDetectionsBody');
+                if (tbody) {
+                    // === Сохраняем открытые блоки ПЕРЕД заменой ===
+                    // Идентичность держим по метке паттерна: она стабильна между
+                    // пересчётами детектора, в отличие от StartTime (который «съезжает»,
+                    // когда в окно попадают новые события).
+                    const openLabels = new Set();
+                    document.querySelectorAll('#siemDetectionsBody tr').forEach(tr => {
+                        const det = tr.querySelector('details');
+                        if (det && det.open && tr.cells.length > 0) {
+                            openLabels.add(tr.cells[0].textContent.trim());
+                        }
+                    });
+
+                    // Отладка
+                    // console.log('Сохранённые открытые ключи:', Array.from(openKeys));
+
+                    const fragment = document.createDocumentFragment();
+                    const dets = data.detections || [];
+
+                    if (dets.length === 0) {
+                        const tr = document.createElement('tr');
+                        const td = document.createElement('td');
+                        td.colSpan = 5;
+                        td.className = 'text-muted';
+                        td.textContent = 'За последний час ботнет-паттернов не обнаружено.';
+                        tr.appendChild(td);
+                        fragment.appendChild(tr);
+                    } else {
+                        dets.forEach(det => {
+                            const tr = document.createElement('tr');
+
+                            // Паттерн
+                            const tdLabel = document.createElement('td');
+                            const strong = document.createElement('strong');
+                            strong.textContent = det.label;
+                            tdLabel.appendChild(strong);
+                            tr.appendChild(tdLabel);
+
+                            // Уверенность
+                            const tdConf = document.createElement('td');
+                            const span = document.createElement('span');
+                            span.className = det.confidence === 'HIGH' ? 'status-aggr' : (det.confidence === 'MEDIUM' ? 'status-mixed' : 'status-pass');
+                            span.textContent = det.confidence;
+                            tdConf.appendChild(span);
+                            tr.appendChild(tdConf);
+
+                            // IP вовлечено
+                            const tdIPs = document.createElement('td');
+                            tdIPs.textContent = det.ips_involved ? det.ips_involved.length : 0;
+                            tr.appendChild(tdIPs);
+
+                            // Время
+                            const tdTime = document.createElement('td');
+                            tdTime.textContent = det.start_time || '—';
+                            tr.appendChild(tdTime);
+
+                            // Доказательства (Details)
+                            const tdEv = document.createElement('td');
+                            const details = document.createElement('details');
+
+                            // Если этот паттерн был раскрыт до обновления — рождаем строку раскрытой.
+                            // Состояние задаётся ДО вставки в DOM, поэтому схлопывания нет вообще.
+                            if (openLabels.has(det.label)) {
+                                details.open = true;
+                            }
+
+                            const summary = document.createElement('summary');
+                            const totalItems = (det.ips_involved ? det.ips_involved.length : 0) + (det.evidence ? det.evidence.length : 0);
+                            summary.textContent = `Показать (${totalItems})`;
+                            details.appendChild(summary);
+
+                            const ul = document.createElement('ul');
+                            ul.className = 'details-list';
+
+                            if (det.ips_involved) {
+                                det.ips_involved.forEach(ip => {
+                                    const li = document.createElement('li');
+                                    const code = document.createElement('code');
+                                    const privIP = document.createElement('agl-private');
+                                    privIP.textContent = ip;
+                                    code.appendChild(privIP);
+                                    li.appendChild(code);
+
+                                    const country = det.country_by_ip ? det.country_by_ip[ip] : null;
+                                    if (country) {
+                                        li.appendChild(document.createTextNode(' — '));
+                                        const privCountry = document.createElement('agl-private');
+                                        privCountry.textContent = country;
+                                        li.appendChild(privCountry);
+                                    }
+                                    ul.appendChild(li);
+                                });
+                            }
+
+                            if (det.evidence) {
+                                det.evidence.forEach(ev => {
+                                    const li = document.createElement('li');
+                                    li.textContent = ev;
+                                    ul.appendChild(li);
+                                });
+                            }
+
+                            details.appendChild(ul);
+                            tdEv.appendChild(details);
+                            tr.appendChild(tdEv);
+
+                            fragment.appendChild(tr);
+                        });
+                    }
+                    // Атомарная замена содержимого
+                    tbody.replaceChildren(...fragment.childNodes);
+
+                    // Отладка
+                    // console.log('Восстановлено открытых блоков:', openKeys.size);
+
+                }
+
+                // 2. Обновление Proxy/Tunnel
+                updateMetricCard('proxyCount', 'proxyDetailsList', data.proxy_count, data.proxy_details, 'text-red', 'border-red');
+
+                // 3. Обновление OS Spoofing
+                updateMetricCard('spoofCount', null, data.spoof_count, null, 'text-amber', 'border-amber');
+            })
+            .catch(err => console.error('Auto-refresh error (siem):', err));
+    }
+
+    // Вспомогательная функция для обновления карточек метрик
+    function updateMetricCard(countId, listId, count, details, activeColor, activeBorder) {
+        const countEl = document.getElementById(countId);
+        if (countEl) {
+            const plural = getRussianPlural(count, ['обнаружение', 'обнаружения', 'обнаружений']);
+            countEl.textContent = count + ' ' + plural;
+            countEl.className = (count > 0 ? activeColor + ' ' : 'text-muted ') + 'metric-large';
+
+            const card = countEl.closest('.card');
+            if (card) {
+                card.className = 'card ' + (count > 0 ? activeBorder : '');
+                const h4 = card.querySelector('h4');
+                if (h4) {
+                    h4.className = (count > 0 ? activeColor + ' ' : 'text-muted ') + 'mb-8';
+                    // Сохраняем инлайн-стили, если они были
+                    h4.style.fontSize = '14px';
+                    h4.style.textTransform = 'uppercase';
+                    h4.style.letterSpacing = '0.05em';
+                }
+            }
+        }
+
+        if (listId && details) {
+            const listEl = document.getElementById(listId);
+            if (listEl) {
+                const fragment = document.createDocumentFragment();
+                details.forEach(d => {
+                    const li = document.createElement('li');
+                    li.className = 'list-item-sm';
+                    const code = document.createElement('code');
+                    const priv = document.createElement('agl-private');
+                    priv.textContent = d.subject;
+                    code.appendChild(priv);
+                    li.appendChild(code);
+
+                    const div = document.createElement('div');
+                    div.className = 'text-muted';
+                    div.style.fontSize = '11px';
+                    div.style.marginTop = '2px';
+                    div.textContent = d.facts;
+                    li.appendChild(div);
+
+                    fragment.appendChild(li);
+                });
+                listEl.replaceChildren(...fragment.childNodes);
+            }
+        }
+    }
+
+    // Хелпер для склонения (1 обнаружение, 2 обнаружения, 5 обнаружений)
+    function getRussianPlural(n, forms) {
+        n = Math.abs(n) % 100;
+        const n1 = n % 10;
+        if (n > 10 && n < 20) return forms[2];
+        if (n1 > 1 && n1 < 5) return forms[1];
+        if (n1 === 1) return forms[0];
+        return forms[2];
+    }
 </script>
 
 {{template "footer" .}}

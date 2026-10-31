@@ -39,7 +39,7 @@
             --bg-primary: #0f141c;
             --bg-secondary: #111827;
             --bg-tertiary: #1e293b;
-            --bg-elevated: #0b101f;
+            --bg-elevated: #1a1f2e;
 
             --text-primary: #e2e8f0;
             --text-secondary: #94a3b8;
@@ -344,6 +344,46 @@
             background: var(--bg-tertiary);
         }
 
+        /* --- Подсветка строк при автообновлении --- */
+        /* Новая строка — янтарная вспышка */
+        @keyframes rowFlashNew {
+            0% {
+                background: color-mix(in srgb, var(--accent-amber) 35%, transparent);
+            }
+
+            100% {
+                background: transparent;
+            }
+        }
+
+        /* Изменённая строка — зелёная вспышка (более сдержанная) */
+        @keyframes rowFlashUpdate {
+            0% {
+                background: color-mix(in srgb, var(--accent-green) 22%, transparent);
+            }
+
+            100% {
+                background: transparent;
+            }
+        }
+
+        tbody tr.row-flash-new td {
+            animation: rowFlashNew 2.4s ease-out;
+        }
+
+        tbody tr.row-flash-update td {
+            animation: rowFlashUpdate 2.4s ease-out;
+        }
+
+        /* Отключаем вспышку для тех, кто предпочитает reduced-motion */
+        @media (prefers-reduced-motion: reduce) {
+
+            tbody tr.row-flash-new td,
+            tbody tr.row-flash-update td {
+                animation: none;
+            }
+        }
+
         /* --- Контейнер прокрутки таблиц --- */
         /* На десктопе НЕ скролл-контейнер: sticky-шапки работают как прежде */
         .table-scroll {
@@ -458,7 +498,6 @@
 
         /* --- Control Panel --- */
         .control-panel {
-            margin: 0 0 24px 0;
             padding: 20px;
             background: var(--bg-elevated);
             border: 1px solid var(--border-secondary);
@@ -848,7 +887,7 @@
 <body>
 
     <!-- Скрытый чекбокс для ввтообновления данных -->
-    <input type="checkbox" id="autorefresh-switch" class="theme-switch" aria-label="Автообновление">
+    <input type="checkbox" id="autorefresh-switch" class="theme-switch" aria-label="Автообновление телеметрии">
     <!-- Скрытый чекбокс для управления режимом приватности данных -->
     <input type="checkbox" id="privacy-switch" class="theme-switch" aria-label="Режим приватности">
     <!-- Скрытый чекбокс для управления темой -->
@@ -867,7 +906,7 @@
             <a href="{{.Prefix}}dashboard/reports" class="nav-link accent">Отчёты</a>
 
             <label for="autorefresh-switch" class="nav-link autorefresh-toggle"
-                title="Автообновление данных каждые 30 секунд">
+                title="Автообновление телеметрии каждые 30 секунд">
                 <span class="autorefresh-icon-active" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

@@ -70,7 +70,7 @@
     const avgPlanned = hourStats.map(hs => hs.hold_count > 0 ? (hs.planned_hold_sum_sec / hs.hold_count) : 0);
     const avgActual = hourStats.map(hs => hs.hold_count > 0 ? (hs.actual_hold_sum_sec / hs.hold_count) : 0);
 
-    AGLCharts.createChart('holdChart', 'line', {
+    window.holdChart = AGLCharts.createChart('holdChart', 'line', {
         labels: labels,
         datasets: [
             {
@@ -112,7 +112,7 @@
         backgroundColor: closeReasonConfig[code].color
     }));
 
-    AGLCharts.createChart('closeReasonChart', 'bar', {
+    window.closeReasonChart = AGLCharts.createChart('closeReasonChart', 'bar', {
         labels: labels,
         datasets: closeReasonDatasets
     }, {
@@ -125,7 +125,7 @@
     // ==========================================================================
     // 3. RTT ДИНАМИКА
     // ==========================================================================
-    AGLCharts.createChart('rttChart', 'line', {
+    window.rttChart = AGLCharts.createChart('rttChart', 'line', {
         labels: labels,
         datasets: [{
             label: 'Средний RTT (мс)',
@@ -140,7 +140,7 @@
     // ==========================================================================
     // 4. АГРЕССИВНОСТЬ VS ПАССИВНОСТЬ
     // ==========================================================================
-    AGLCharts.createChart('behaviorChart', 'bar', {
+    window.behaviorChart = AGLCharts.createChart('behaviorChart', 'bar', {
         labels: labels,
         datasets: [
             {
@@ -155,6 +155,67 @@
             }
         ]
     });
+
+    // ==========================================================================
+    // АВТООБНОВЛЕНИЕ ДАННЫХ ТЕЛЕМЕТРИИ (Тихое, без анимации)
+    // ==========================================================================
+    window.addEventListener('agl:autorefresh', () => {
+        updateTarpitSilent();
+    });
+
+    function updateTarpitSilent() {
+        const pathParts = window.location.pathname.split('/');
+        const prefix = pathParts[1] ? pathParts[1] + '/' : '';
+
+        fetch('/' + prefix + 'api/stats')
+            .then(res => res.json())
+            .then(data => {
+                const hourStats = data.hourly_stats || [];
+                const labels = hourStats.map(hs => {
+                    const date = new Date(hs.hour);
+                    return date.getHours().toString().padStart(2, '0') + ':00';
+                });
+
+                // 1. Обновляем график План vs Факт
+                if (window.holdChart) {
+                    window.holdChart.data.labels = labels;
+                    window.holdChart.data.datasets[0].data = hourStats.map(hs => hs.hold_count > 0 ? (hs.planned_hold_sum_sec / hs.hold_count) : 0);
+                    window.holdChart.data.datasets[1].data = hourStats.map(hs => hs.hold_count > 0 ? (hs.actual_hold_sum_sec / hs.hold_count) : 0);
+                    window.holdChart.update('none');
+                }
+
+                // 2. Обновляем график причин закрытия
+                if (window.closeReasonChart) {
+                    window.closeReasonChart.data.labels = labels;
+                    window.closeReasonChart.data.datasets = Object.keys(closeReasonConfig).map(code => ({
+                        label: closeReasonConfig[code].label,
+                        data: hourStats.map(hs => {
+                            const item = (hs.close_reasons || []).find(cr => cr.key === code);
+                            return item ? item.count : 0;
+                        }),
+                        backgroundColor: closeReasonConfig[code].color
+                    }));
+                    window.closeReasonChart.update('none');
+                }
+
+                // 3. Обновляем график RTT
+                if (window.rttChart) {
+                    window.rttChart.data.labels = labels;
+                    window.rttChart.data.datasets[0].data = hourStats.map(hs => hs.rtt_avg_ms || 0);
+                    window.rttChart.update('none');
+                }
+
+                // 4. Обновляем график Агрессивность vs Пассивность
+                if (window.behaviorChart) {
+                    window.behaviorChart.data.labels = labels;
+                    window.behaviorChart.data.datasets[0].data = hourStats.map(hs => hs.aggressive_events || 0);
+                    window.behaviorChart.data.datasets[1].data = hourStats.map(hs => hs.passive_events || 0);
+                    window.behaviorChart.update('none');
+                }
+            })
+            .catch(err => console.error('Auto-refresh error (tarpit):', err));
+    }
+
     });
 </script>
 

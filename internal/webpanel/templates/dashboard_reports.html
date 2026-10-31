@@ -42,34 +42,36 @@
     <div class="grid">
         <div class="card">
             <div class="metric-label">Всего событий</div>
-            <div class="metric">{{ .Macro.Events }}</div>
-            <div class="text-muted">Валидных событий: {{ .Macro.ValidEvents }}</div>
+            <div class="metric" id="macroEvents">{{ .Macro.Events }}</div>
+            <div class="text-muted">Валидных событий: <span id="macroValidEvents">{{ .Macro.ValidEvents }}</span></div>
         </div>
         <div class="card">
             <div class="metric-label">Утилизировано времени</div>
-            <div class="metric text-amber">{{ .Macro.HoldSumSec | formatDuration }}</div>
+            <div class="metric text-amber" id="macroHold">{{ .Macro.HoldSumSec | formatDuration }}</div>
             <div class="text-muted">Сумма фактического утилизированного времени ботнет в интервале за {{ $rangeDesc }}
             </div>
         </div>
         <div class="card">
             <div class="metric-label">Уникальных стран / IP</div>
-            <div class="metric">{{ .Macro.UniqueCountries }} / {{ .Macro.UniqueIPs }}</div>
+            <div class="metric" id="macroGeo">{{ .Macro.UniqueCountries }} / {{ .Macro.UniqueIPs }}</div>
             <div class="text-muted">Географический охват</div>
         </div>
         <div class="card">
             <div class="metric-label">Avg Drop Second</div>
             <div class="metric text-green">
-                <agl-privated>{{ if gt .Macro.DropCount 0 }}{{ printf "%.1f" .Macro.AvgDropSec }} сек{{ else }}—{{ end
+                <agl-privated id="macroAvgDrop">{{ if gt .Macro.DropCount 0 }}{{ printf "%.1f" .Macro.AvgDropSec }}
+                    сек{{ else }}—{{ end
                     }}</agl-privated>
             </div>
-            <div class="text-muted">Средняя секунда сброса атакующим (FIN/RST). Дроп-сессий: <agl-private>{{
+            <div class="text-muted">Средняя секунда сброса атакующим (FIN/RST). Дроп-сессий: <agl-private
+                    id="macroDropCount">{{
                     .Macro.DropCount }}</agl-private>
             </div>
         </div>
     </div>
 
     {{ if .Macro.BehaviorDisplay }}
-    <div style="margin-top: 20px;">
+    <div style="margin-top: 20px;" id="behaviorBlock">
         <div class="metric-label">Распределение тактик</div>
         <div style="display: flex; gap: 20px; margin-top: 10px; flex-wrap: wrap;">
             {{ range .Macro.BehaviorDisplay }}
@@ -102,7 +104,7 @@
                     <th>Ср. удержание за атаку</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="trapsTableBody">
                 {{ range .Traps }}
                 <tr>
                     <td><agl-private>{{ .Label }}</agl-private></td>
@@ -125,7 +127,8 @@
 
 <!-- Блок - Топ стран -->
 <div class="card" style="margin-top: 20px;">
-    <h3>Блок 1. Геопрофилирование агрессивной сетевой активности — Топ-{{ len .Countries }} стран</h3>
+    <h3>Блок 1. Геопрофилирование агрессивной сетевой активности — Топ-<span id="countriesCount">{{ len .Countries
+            }}</span> стран</h3>
     <p class="text-muted">Детализация глобальных векторов ботнета и анализ концентрации событий по географическому
         распределению.</p>
     <div class="table-scroll">
@@ -141,7 +144,7 @@
                     <th>Концентрация</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="countriesTableBody">
                 {{ range $i, $c := .Countries }}
                 <tr>
                     <td>{{ add $i 1 }}</td>
@@ -166,7 +169,8 @@
 
 <!-- Блок 2: Топ IP -->
 <div class="card" style="margin-top: 20px;">
-    <h3>Блок 2. Профилирование агрессивной сетевой активности — Топ-{{ len .IPs }} атакующих</h3>
+    <h3>Блок 2. Профилирование агрессивной сетевой активности — Топ-<span id="ipsCount">{{ len .IPs }}</span> атакующих
+    </h3>
     <p class="text-muted">Профилирование агрессивного трафика: Индикаторы оперативного анализа для приоритизации угроз и
         принятия стратегических решений.</p>
     <div class="table-scroll">
@@ -185,7 +189,7 @@
                     <th>Последняя активность</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="ipsTableBody">
                 {{ range $i, $ip := .IPs }}
                 <tr>
                     <td>{{ add $i 1 }}</td>
@@ -220,6 +224,231 @@
         полная история каждого касания хранится в журнале.
     </p>
 </div>
+
+<script>
+    // ==========================================================================
+    // АВТООБНОВЛЕНИЕ ДАННЫХ ОТЧЁТОВ (Без моргания, с уважением к периоду)
+    // ==========================================================================
+    window.addEventListener('agl:autorefresh', () => {
+        updateReportsSilent();
+    });
+
+    // Реестр состояний подсветки: одно место, переживает все обновления
+    window._aglFlashState = window._aglFlashState || {};
+    function getFlashState(cfg) {
+        let st = window._aglFlashState[cfg.stateKey];
+        if (!st) {
+            st = { seen: new Set(), snaps: new Map(), seeded: false };
+            window._aglFlashState[cfg.stateKey] = st;
+        }
+        return st;
+    }
+
+    function updateReportsSilent() {
+        const rangeParam = new URLSearchParams(window.location.search).get('range') || '24h';
+        const pathParts = window.location.pathname.split('/');
+        const prefix = pathParts[1] ? pathParts[1] + '/' : '';
+
+        fetch('/' + prefix + 'api/reports?range=' + rangeParam)
+            .then(res => res.json())
+            .then(data => {
+                // 1. Макро-карточки
+                setText('macroEvents', data.macro.events);
+                setText('macroValidEvents', data.macro.valid_events);
+                setText('macroHold', data.macro.hold);
+                setText('macroGeo', data.macro.unique_countries + ' / ' + data.macro.unique_ips);
+                setText('macroAvgDrop', data.macro.avg_drop === '—' ? '—' : data.macro.avg_drop + ' сек');
+                setText('macroDropCount', data.macro.drop_count);
+                setText('countriesCount', data.countries.length);
+                setText('ipsCount', data.ips.length);
+
+                // Блок тактик
+                const behaviorBlock = document.getElementById('behaviorBlock');
+                if (behaviorBlock) {
+                    if (!data.macro.behaviors || data.macro.behaviors.length === 0) {
+                        behaviorBlock.style.display = 'none';
+                    } else {
+                        behaviorBlock.style.display = '';
+                        behaviorBlock.innerHTML = '';
+                        const label = document.createElement('div');
+                        label.className = 'metric-label';
+                        label.textContent = 'Распределение тактик';
+                        behaviorBlock.appendChild(label);
+                        const flex = document.createElement('div');
+                        flex.style.cssText = 'display: flex; gap: 20px; margin-top: 10px; flex-wrap: wrap;';
+                        data.macro.behaviors.forEach(b => {
+                            const wrap = document.createElement('div');
+                            const name = document.createElement('span');
+                            name.textContent = b.name + ':';
+                            const count = document.createElement('span');
+                            count.className = 'text-primary';
+                            const privCount = document.createElement('agl-private');
+                            privCount.textContent = b.count;
+                            count.appendChild(privCount);
+                            const pct = document.createElement('span');
+                            pct.className = 'status-mixed';
+                            const privPct = document.createElement('agl-private');
+                            privPct.textContent = '(' + b.percent + '%)';
+                            pct.appendChild(privPct);
+
+                            wrap.appendChild(name);
+                            wrap.appendChild(document.createTextNode(' '));
+                            wrap.appendChild(count);
+                            wrap.appendChild(document.createTextNode(' '));
+                            wrap.appendChild(pct);
+                            flex.appendChild(wrap);
+                        });
+                        behaviorBlock.appendChild(flex);
+                    }
+                }
+
+                // 2. Таблица ловушек
+                rebuildTable('trapsTableBody', data.traps, 7, (tr, t) => {
+                    tr.appendChild(cellPriv(t.label));
+                    tr.appendChild(cellText(t.events));
+                    tr.appendChild(cellText(t.hold, 'text-amber'));
+                    tr.appendChild(cellText(t.unique_ips));
+                    tr.appendChild(cellText(t.unique_countries));
+                    tr.appendChild(cellText(t.drop_count));
+                    tr.appendChild(cellText(t.efficiency + ' сек'));
+                }, {
+                    stateKey: 'traps',
+                    getKey: (t) => t.label,
+                    getSnapshot: (t) => JSON.stringify({
+                        events: t.events, hold: t.hold,
+                        unique_ips: t.unique_ips, unique_countries: t.unique_countries,
+                        drop_count: t.drop_count, efficiency: t.efficiency
+                    })
+                });
+
+                // 3. Таблица стран
+                rebuildTable('countriesTableBody', data.countries, 7, (tr, c, i) => {
+                    tr.appendChild(cellText(i + 1));
+                    tr.appendChild(cellText(c.code, 'text-primary'));
+                    tr.appendChild(cellPriv(c.top_trap));
+                    tr.appendChild(cellText(c.events));
+                    tr.appendChild(cellText(c.unique_ips));
+                    tr.appendChild(cellText(c.hold, 'text-amber'));
+                    tr.appendChild(cellText(c.concentration, 'text-muted'));
+                }, {
+                    stateKey: 'countries',
+                    getKey: (c) => c.code,
+                    getSnapshot: (c) => JSON.stringify({
+                        events: c.events, unique_ips: c.unique_ips,
+                        hold: c.hold, concentration: c.concentration
+                    })
+                });
+
+                // 4. Таблица IP
+                rebuildTable('ipsTableBody', data.ips, 10, (tr, ip, i) => {
+                    const tdIP = document.createElement('td');
+                    const code = document.createElement('code');
+                    code.appendChild(privEl(ip.ip));
+                    tdIP.appendChild(code);
+                    tr.appendChild(tdIP);
+
+                    tr.appendChild(cellText(ip.country));
+                    tr.appendChild(cellPriv(ip.trap));
+                    tr.appendChild(cellText(ip.events));
+                    tr.appendChild(cellText(ip.hold, 'text-amber'));
+                    tr.appendChild(cellText(ip.rtt === '—' ? '—' : ip.rtt + ' мс'));
+                    tr.appendChild(cellPriv(ip.drop_count));
+
+                    const tdCR = document.createElement('td');
+                    const span = document.createElement('span');
+                    if (ip.close_reason === 'TIMEOUT') span.className = 'status-pass';
+                    else if (ip.close_reason === 'RST') span.className = 'status-aggr';
+                    else if (ip.close_reason === 'FIN') span.className = 'status-mixed';
+                    else span.className = 'text-muted';
+                    span.textContent = ip.close_reason;
+                    tdCR.appendChild(span);
+                    tr.appendChild(tdCR);
+
+                    tr.appendChild(cellText(ip.last_seen, 'text-muted'));
+                    tr.insertBefore(cellText(i + 1), tr.firstChild);
+                }, {
+                    stateKey: 'ips',
+                    getKey: (ip) => ip.ip,
+                    getSnapshot: (ip) => JSON.stringify({
+                        events: ip.events, hold: ip.hold, rtt: ip.rtt,
+                        drop_count: ip.drop_count, close_reason: ip.close_reason,
+                        last_seen: ip.last_seen
+                    })
+                });
+            })
+            .catch(err => console.error('Auto-refresh error (reports):', err));
+    }
+
+    // --- Мини-хелперы построения ячеек ---
+    function privEl(text) {
+        const el = document.createElement('agl-private');
+        el.textContent = text;
+        return el;
+    }
+    function cellText(text, cls) {
+        const td = document.createElement('td');
+        if (cls) td.className = cls;
+        td.textContent = text;
+        return td;
+    }
+    function cellPriv(text) {
+        const td = document.createElement('td');
+        td.appendChild(privEl(text));
+        return td;
+    }
+    function setText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    }
+    function rebuildTable(tbodyId, rows, colspan, rowBuilder, flashConfig) {
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        const fragment = document.createDocumentFragment();
+
+        if (!rows || rows.length === 0) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = colspan;
+            td.className = 'text-muted';
+            td.textContent = 'Нет данных за выбранный период.';
+            tr.appendChild(td);
+            fragment.appendChild(tr);
+        } else {
+            let st = null;
+            let firstPass = false;
+            if (flashConfig) {
+                st = getFlashState(flashConfig);
+                firstPass = !st.seeded;
+                if (firstPass) st.seeded = true;
+            }
+
+            rows.forEach((row, i) => {
+                const tr = document.createElement('tr');
+
+                if (st) {
+                    const key = flashConfig.getKey(row);
+                    const snap = flashConfig.getSnapshot(row);
+
+                    if (firstPass) {
+                        st.seen.add(key);
+                        st.snaps.set(key, snap);
+                    } else if (!st.seen.has(key)) {
+                        tr.classList.add('row-flash-new');
+                        st.seen.add(key);
+                        st.snaps.set(key, snap);
+                    } else if (st.snaps.get(key) !== snap) {
+                        tr.classList.add('row-flash-update');
+                        st.snaps.set(key, snap);
+                    }
+                }
+
+                rowBuilder(tr, row, i);
+                fragment.appendChild(tr);
+            });
+        }
+        tbody.replaceChildren(...fragment.childNodes);
+    }
+</script>
 
 {{template "footer" .}}
 {{end}}

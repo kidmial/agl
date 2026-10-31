@@ -81,6 +81,100 @@ func toTemplateFloat(v interface{}) float64 {
 	}
 }
 
+// profileViewDTO — облегчённая структура профиля для JSON-API.
+// Методы ActorProfile (TopIPs, UniqueIPCount и т.д.) не маршалятся в JSON,
+// поэтому мы вычисляем их здесь один раз при запросе.
+type profileViewDTO struct {
+	LastEventTime    string  `json:"last_event_time"`
+	PrimaryIP        string  `json:"primary_ip"`
+	AvgPlannedHold   float64 `json:"avg_planned_hold"`
+	AvgActualHold    float64 `json:"avg_actual_hold"`
+	DominantBehavior string  `json:"dominant_behavior"`
+	ID               string  `json:"id"`
+	UniqueIPCount    int     `json:"unique_ip_count"`
+	CurrentPhase     string  `json:"current_phase"`
+	PredictedVector  string  `json:"predicted_vector"`
+	TokenDriftMs     int64   `json:"token_drift_ms"`
+	TokenDriftValid  bool    `json:"token_drift_valid"`
+	HoldCount        uint64  `json:"hold_count"`
+}
+
+func getProfilesJSON(manager *analytics.ProfileManager, limit int) []profileViewDTO {
+	if manager == nil {
+		return nil
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	profiles := manager.ProfilesSnapshot(limit)
+	res := make([]profileViewDTO, len(profiles))
+
+	// 1. Определяем витринную локацию (точно так же, как в renderDashboard)
+	loc := time.Local
+	if tz := config.C.WebPanelTimezone; tz != "" {
+		if tz == "UTC" {
+			loc = time.UTC
+		} else if tz != "local" {
+			if loaded, err := time.LoadLocation(tz); err == nil {
+				loc = loaded
+			}
+		}
+	}
+
+	for i, p := range profiles {
+		// Находим Primary IP
+		primaryIP := ""
+		maxCount := 0
+		for ip, count := range p.IPCounts {
+			if count > maxCount {
+				maxCount = count
+				primaryIP = ip
+			}
+		}
+
+		// Считаем средние значения
+		avgPlanned, avgActual := 0.0, 0.0
+		if p.HoldCount > 0 {
+			avgPlanned = float64(p.PlannedHoldSumSec) / float64(p.HoldCount)
+			avgActual = float64(p.ActualHoldSumSec) / float64(p.HoldCount)
+		}
+
+		// Определяем поведение
+		behavior := "UNK"
+		aggr := p.BehaviorCounts["AGGRESSIVE"]
+		pass := p.BehaviorCounts["PASSIVE"]
+		if aggr > 0 && pass > 0 {
+			behavior = "MIXED"
+		} else if aggr > 0 {
+			behavior = "AGGR"
+		} else if pass > 0 {
+			behavior = "PASS"
+		}
+
+		// 2. Форматируем время с учётом витринной локации!
+		timeStr := "—"
+		if !p.LastEventTime.IsZero() {
+			timeStr = p.LastEventTime.In(loc).Format("15:04:05")
+		}
+
+		res[i] = profileViewDTO{
+			LastEventTime:    timeStr,
+			PrimaryIP:        primaryIP,
+			AvgPlannedHold:   avgPlanned,
+			AvgActualHold:    avgActual,
+			DominantBehavior: behavior,
+			ID:               p.ID,
+			UniqueIPCount:    len(p.IPCounts),
+			CurrentPhase:     p.CurrentPhase,
+			PredictedVector:  p.PredictedVector,
+			TokenDriftMs:     p.TokenDriftMs,
+			TokenDriftValid:  p.TokenDriftValid,
+			HoldCount:        p.HoldCount,
+		}
+	}
+	return res
+}
+
 // renderDashboard рендерит любой дашборд с полной поддержкой данных и таймзоны.
 //
 // Аргументы:

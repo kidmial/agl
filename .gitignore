@@ -28,3 +28,6 @@ repomix.config.json
 repository.txt
 
 dist/
+
+# Настройки VS Code
+/.vscode
