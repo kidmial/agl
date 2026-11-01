@@ -60,6 +60,18 @@ var panelTmpl = template.Must(
 				}
 				return toTemplateFloat(a) / bv
 			},
+			// floorDiv — целочисленное деление с округлением вниз.
+			// Используется для консервативных метрик (например, "IP на страну"),
+			// где дробная часть не имеет оперативной ценности.
+			// 20.9 → 20, 20.1 → 20. Никогда не завышаем.
+			"floorDiv": func(a, b interface{}) int64 {
+				av := toTemplateFloat(a)
+				bv := toTemplateFloat(b)
+				if bv == 0 {
+					return 0
+				}
+				return int64(av / bv) // Для положительных чисел целочисленное деление = округление вниз
+			},
 		}).
 		ParseFS(templateFS, "templates/*.html"),
 )

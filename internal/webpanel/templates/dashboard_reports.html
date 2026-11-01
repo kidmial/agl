@@ -60,7 +60,7 @@
             <div class="card-macrometric">
                 <div class="metric-label">IP-адресов на страну (прибл.)</div>
                 <div class="metric metric-md" id="macroIPsPerCountry">
-                    {{ if .Macro.UniqueCountries }}{{ printf "%.1f" (divf .Macro.UniqueIPs .Macro.UniqueCountries) }}{{ else }}—{{ end }}
+                    {{ if .Macro.UniqueCountries }}{{ floorDiv .Macro.UniqueIPs .Macro.UniqueCountries }}{{ else }}—{{ end }}
                 </div>
             </div>
         </div>
@@ -256,6 +256,17 @@
 
     function updateReportsSilent() {
         const rangeParam = new URLSearchParams(window.location.search).get('range') || '24h';
+        
+        // Гигиена памяти: удаляем состояния других периодов
+        const validKeys = ['traps_' + rangeParam, 'countries_' + rangeParam, 'ips_' + rangeParam];
+        for (const key of Object.keys(window._aglFlashState)) {
+            if (key.startsWith('traps_') || key.startsWith('countries_') || key.startsWith('ips_')) {
+                if (!validKeys.includes(key)) {
+                    delete window._aglFlashState[key];
+                }
+            }
+        }
+        
         const pathParts = window.location.pathname.split('/');
         const prefix = pathParts[1] ? pathParts[1] + '/' : '';
 
@@ -322,7 +333,7 @@
                     tr.appendChild(cellPriv(t.drop_count));
                     tr.appendChild(cellPriv(t.efficiency + ' сек'));
                 }, {
-                    stateKey: 'traps',
+                    stateKey: 'traps_' + rangeParam,
                     getKey: (t) => t.label,
                     getSnapshot: (t) => JSON.stringify({
                         events: t.events, hold: t.hold,
@@ -341,7 +352,7 @@
                     tr.appendChild(cellText(c.hold, 'text-amber'));
                     tr.appendChild(cellText(c.concentration, 'text-muted'));
                 }, {
-                    stateKey: 'countries',
+                    stateKey: 'countries_' + rangeParam,
                     getKey: (c) => c.code,
                     getSnapshot: (c) => JSON.stringify({
                         events: c.events, unique_ips: c.unique_ips,
@@ -376,14 +387,6 @@
 
                     tr.appendChild(cellText(ip.last_seen, 'text-muted'));
                     tr.insertBefore(cellText(i + 1), tr.firstChild);
-                }, {
-                    stateKey: 'ips',
-                    getKey: (ip) => ip.ip,
-                    getSnapshot: (ip) => JSON.stringify({
-                        events: ip.events, hold: ip.hold, rtt: ip.rtt,
-                        drop_count: ip.drop_count, close_reason: ip.close_reason,
-                        last_seen: ip.last_seen
-                    })
                 });
             })
             .catch(err => console.error('Auto-refresh error (reports):', err));
