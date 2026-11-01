@@ -178,39 +178,76 @@
 
                 // 1. Обновляем график План vs Факт
                 if (window.holdChart) {
-                    window.holdChart.data.labels = labels;
-                    window.holdChart.data.datasets[0].data = hourStats.map(hs => hs.hold_count > 0 ? (hs.planned_hold_sum_sec / hs.hold_count) : 0);
-                    window.holdChart.data.datasets[1].data = hourStats.map(hs => hs.hold_count > 0 ? (hs.actual_hold_sum_sec / hs.hold_count) : 0);
-                    window.holdChart.update('none');
+                    AGLCharts.updateData('holdChart', {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Средний план (сек)',
+                                data: hourStats.map(hs => hs.hold_count > 0 ? (hs.planned_hold_sum_sec / hs.hold_count) : 0),
+                                borderColor: colors.blue,
+                                backgroundColor: hexToRgba(colors.blue, 0.1),
+                                fill: false,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Средний факт (сек)',
+                                data: hourStats.map(hs => hs.hold_count > 0 ? (hs.actual_hold_sum_sec / hs.hold_count) : 0),
+                                borderColor: colors.red,
+                                backgroundColor: hexToRgba(colors.red, 0.1),
+                                fill: false,
+                                tension: 0.3
+                            }
+                        ]
+                    });
                 }
 
                 // 2. Обновляем график причин закрытия
                 if (window.closeReasonChart) {
-                    window.closeReasonChart.data.labels = labels;
-                    window.closeReasonChart.data.datasets = Object.keys(closeReasonConfig).map(code => ({
-                        label: closeReasonConfig[code].label,
-                        data: hourStats.map(hs => {
-                            const item = (hs.close_reasons || []).find(cr => cr.key === code);
-                            return item ? item.count : 0;
-                        }),
-                        backgroundColor: closeReasonConfig[code].color
-                    }));
-                    window.closeReasonChart.update('none');
+                    AGLCharts.updateData('closeReasonChart', {
+                        labels: labels,
+                        datasets: Object.keys(closeReasonConfig).map(code => ({
+                            label: closeReasonConfig[code].label,
+                            data: hourStats.map(hs => {
+                                const item = (hs.close_reasons || []).find(cr => cr.key === code);
+                                return item ? item.count : 0;
+                            }),
+                            backgroundColor: closeReasonConfig[code].color
+                        }))
+                    });
                 }
 
                 // 3. Обновляем график RTT
                 if (window.rttChart) {
-                    window.rttChart.data.labels = labels;
-                    window.rttChart.data.datasets[0].data = hourStats.map(hs => hs.rtt_avg_ms || 0);
-                    window.rttChart.update('none');
+                    AGLCharts.updateData('rttChart', {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Средний RTT (мс)',
+                            data: hourStats.map(hs => hs.rtt_avg_ms || 0),
+                            borderColor: colors.green,
+                            backgroundColor: hexToRgba(colors.green, 0.1),
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    });
                 }
 
                 // 4. Обновляем график Агрессивность vs Пассивность
                 if (window.behaviorChart) {
-                    window.behaviorChart.data.labels = labels;
-                    window.behaviorChart.data.datasets[0].data = hourStats.map(hs => hs.aggressive_events || 0);
-                    window.behaviorChart.data.datasets[1].data = hourStats.map(hs => hs.passive_events || 0);
-                    window.behaviorChart.update('none');
+                    AGLCharts.updateData('behaviorChart', {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Агрессивные события',
+                                data: hourStats.map(hs => hs.aggressive_events || 0),
+                                backgroundColor: hexToRgba(colors.red, 0.7)
+                            },
+                            {
+                                label: 'Пассивные события',
+                                data: hourStats.map(hs => hs.passive_events || 0),
+                                backgroundColor: hexToRgba(colors.amber, 0.7)
+                            }
+                        ]
+                    });
                 }
             })
             .catch(err => console.error('Auto-refresh error (tarpit):', err));

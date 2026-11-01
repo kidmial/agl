@@ -256,8 +256,49 @@
                     fpBody.replaceChildren(...fragment.childNodes);
                 }
 
-                // --- Здесь можно добавить обновление графиков readChart и dispersionChart ---
-                // (по аналогии с тем, как мы делали раньше, если они ещё не обновляются)
+                // 6. Обновляем график 1: Гистограмма распределения чтений
+                if (window.readChart) {
+                    const readTotals = { 'tiny (0-64)': 0, 'small (65-256)': 0, 'medium (257-1024)': 0, 'large (>1024)': 0 };
+                    hourStats.forEach(hs => {
+                        (hs.read_distribution || []).forEach(item => {
+                            if (readTotals[item.key] !== undefined) {
+                                readTotals[item.key] += item.count;
+                            }
+                        });
+                    });
+                    AGLCharts.updateData('readChart', {
+                        labels: Object.keys(readTotals),
+                        datasets: [{
+                            label: 'Количество чтений',
+                            data: Object.values(readTotals),
+                            backgroundColor: [
+                                hexToRgba(colors.green, 0.7),
+                                hexToRgba(colors.blue, 0.7),
+                                hexToRgba(colors.amber, 0.7),
+                                hexToRgba(colors.red, 0.7)
+                            ]
+                        }]
+                    });
+                }
+
+                // 7. Обновляем график 2: Дисперсия IAT
+                if (window.dispersionChart) {
+                    const newLabels = hourStats.map(hs => {
+                        const date = new Date(hs.hour);
+                        return date.getHours().toString().padStart(2, '0') + ':00';
+                    });
+                    AGLCharts.updateData('dispersionChart', {
+                        labels: newLabels,
+                        datasets: [{
+                            label: 'Средняя дисперсия IAT',
+                            data: hourStats.map(hs => hs.avg_iat_dispersion || 0),
+                            borderColor: colors.purple,
+                            backgroundColor: hexToRgba(colors.purple, 0.1),
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    });
+                }
             })
             .catch(err => console.error('Auto-refresh error (fingerprints):', err));
     }

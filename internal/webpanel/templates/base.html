@@ -169,6 +169,36 @@
                     return this.instances[canvasId];
                 },
 
+                // updateData — обновляет данные графика с сохранением пользовательских настроек.
+                // Ключевая фича: обновляем только labels и data внутри датасетов,
+                // сохраняя все остальные свойства (цвета, fill, tension, hidden-состояние).
+                // Это позволяет:
+                // - пользователю свободно включать/выключать легенду;
+                // - всплывающим подсказкам работать корректно (метаданные сохраняются).
+                updateData(canvasId, newData) {
+                    const chart = this.instances[canvasId];
+                    if (!chart) return;
+
+                    // 1. Обновляем labels (если они изменились)
+                    if (newData.labels) {
+                        chart.data.labels = newData.labels;
+                    }
+
+                    // 2. Обновляем данные датасетов инкрементально (без потери метаданных)
+                    if (newData.datasets) {
+                        newData.datasets.forEach((newDataset, i) => {
+                            if (chart.data.datasets[i]) {
+                                // Обновляем ТОЛЬКО поле data, сохраняя все остальные свойства датасета
+                                // (цвета, fill, tension, hidden-состояние и т.д.)
+                                chart.data.datasets[i].data = newDataset.data;
+                            }
+                        });
+                    }
+
+                    // 3. Обновляем без анимации (тихое обновление)
+                    chart.update('none');
+                },
+
                 updateAllThemes() {
                     const colors = this.getThemeColors();
                     Object.values(this.instances).forEach(chart => {

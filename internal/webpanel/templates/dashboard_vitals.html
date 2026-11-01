@@ -289,10 +289,19 @@
 
                 // 2. Логика обновления: тихая или первичная
                 if (geoChart) {
-                    // График уже существует (автообновление или смена окна) — обновляем БЕЗ анимации
-                    geoChart.data.labels = labels;
-                    geoChart.data.datasets[0].data = newData;
-                    geoChart.update('none'); // 'none' отключает анимацию
+                    // График уже существует — обновляем через менеджер с сохранением настроек
+                    AGLCharts.updateData('geoChart', {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Уникальных стран',
+                            data: newData,
+                            borderColor: colors.amber,
+                            backgroundColor: hexToRgba(colors.amber, 0.7),
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 2
+                        }]
+                    });
                 } else {
                     // Первичная отрисовка — создаём график С анимацией (по умолчанию)
                     geoChart = AGLCharts.createChart('geoChart', 'bar', {
@@ -377,13 +386,26 @@
 
                 // Обновляем график 1: Burst
                 if (window.burstChart) {
-                    window.burstChart.data.labels = burstSeries.map(p => p.label);
-                    window.burstChart.data.datasets[0].data = burstSeries.map(p => p.count);
-                    window.burstChart.update('none'); // без анимации
+                    AGLCharts.updateData('burstChart', {
+                        labels: burstSeries.map(p => p.label),
+                        datasets: [{
+                            label: 'Событий в минуту',
+                            data: burstSeries.map(p => p.count),
+                            borderColor: colors.amber,
+                            backgroundColor: hexToRgba(colors.amber, 0.1),
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 0
+                        }]
+                    });
                 }
 
                 // Обновляем график 2: Phase
                 if (window.phaseChart) {
+                    const timeLabels = hourStats.map(hs => {
+                        const date = new Date(hs.hour);
+                        return date.getHours().toString().padStart(2, '0') + ':00';
+                    });
                     const phaseDatasets = Object.keys(phaseConfig).map(code => {
                         const config = phaseConfig[code];
                         return {
@@ -398,26 +420,52 @@
                             tension: 0.3
                         };
                     });
-                    window.phaseChart.data.datasets = phaseDatasets;
-                    window.phaseChart.update('none');
+                    AGLCharts.updateData('phaseChart', {
+                        labels: timeLabels,
+                        datasets: phaseDatasets
+                    });
                 }
 
                 // Обновляем график 3: Velocity
                 if (window.velocityChart) {
-                    window.velocityChart.data.labels = hourStats.map(hs => {
+                    const timeLabels = hourStats.map(hs => {
                         const date = new Date(hs.hour);
                         return date.getHours().toString().padStart(2, '0') + ':00';
                     });
-                    window.velocityChart.data.datasets[0].data = hourStats.map(hs => hs.avg_iat_ms || 0);
-                    // Обновляем и пороговые линии, если длина изменилась
-                    window.velocityChart.data.datasets[1].data = Array(hourStats.length).fill(5);
-                    window.velocityChart.data.datasets[2].data = Array(hourStats.length).fill(100);
-                    window.velocityChart.update('none');
+                    AGLCharts.updateData('velocityChart', {
+                        labels: timeLabels,
+                        datasets: [
+                            {
+                                label: 'Средний IAT (мс)',
+                                data: hourStats.map(hs => hs.avg_iat_ms || 0),
+                                borderColor: colors.purple,
+                                backgroundColor: hexToRgba(colors.purple, 0.1),
+                                fill: true,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Порог: Скрипт (<5 мс)',
+                                data: Array(hourStats.length).fill(5),
+                                borderColor: colors.green,
+                                borderDash: [5, 5],
+                                fill: false,
+                                pointRadius: 0
+                            },
+                            {
+                                label: 'Порог: Человек (>100 мс)',
+                                data: Array(hourStats.length).fill(100),
+                                borderColor: colors.red,
+                                borderDash: [5, 5],
+                                fill: false,
+                                pointRadius: 0
+                            }
+                        ]
+                    });
                 }
 
                 // Обновляем график 4: Tool
                 if (window.toolChart) {
-                    window.toolChart.data.labels = hourStats.map(hs => {
+                    const timeLabels = hourStats.map(hs => {
                         const date = new Date(hs.hour);
                         return date.getHours().toString().padStart(2, '0') + ':00';
                     });
@@ -429,8 +477,10 @@
                         }),
                         backgroundColor: toolConfig[code].color
                     }));
-                    window.toolChart.data.datasets = toolDatasets;
-                    window.toolChart.update('none');
+                    AGLCharts.updateData('toolChart', {
+                        labels: timeLabels,
+                        datasets: toolDatasets
+                    });
                 }
             })
             .catch(err => console.error('Auto-refresh error:', err));
