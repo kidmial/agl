@@ -149,7 +149,7 @@ type Rollup struct {
 
 type TrapReport struct {
 	Port            string
-	Label           string // "CORE" для 22, "Порт 2222" для остальных
+	Label           string // "CORE" для 22, "2222" для остальных
 	Events          uint64
 	HoldSumSec      uint64
 	UniqueIPs       int

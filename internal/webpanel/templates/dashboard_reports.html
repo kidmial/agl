@@ -13,12 +13,12 @@
     {{ $c24 := "" }}
     {{ $c7 := "" }}
     {{ $c30 := "" }}
-    {{ if eq .Range "24h" }}{{ $c24 = "active-green" }}{{ end }}
-    {{ if eq .Range "7d" }}{{ $c7 = "active-green" }}{{ end }}
-    {{ if eq .Range "30d" }}{{ $c30 = "active-green" }}{{ end }}
+    {{ if eq .Range "24h" }}{{ $c24 = "active" }}{{ end }}
+    {{ if eq .Range "7d" }}{{ $c7 = "active" }}{{ end }}
+    {{ if eq .Range "30d" }}{{ $c30 = "active" }}{{ end }}
 
     <!-- Переключатель периода -->
-    <div style="display: flex; gap: 10px;">
+    <div class="period-range-buttons">
         <a href="{{.Prefix}}dashboard/reports?range=24h" class="nav-link {{ $c24 }}">Сутки (24 ч)</a>
         <a href="{{.Prefix}}dashboard/reports?range=7d" class="nav-link {{ $c7 }}">Неделя (7 д)</a>
         <a href="{{.Prefix}}dashboard/reports?range=30d" class="nav-link {{ $c30 }}">Месяц (30 д)</a>
@@ -43,18 +43,26 @@
         <div class="card">
             <div class="metric-label">Всего событий</div>
             <div class="metric" id="macroEvents">{{ .Macro.Events }}</div>
-            <div class="text-muted">Валидных событий: <span id="macroValidEvents">{{ .Macro.ValidEvents }}</span></div>
+            <div class="card-macrometric">
+                <div class="text-muted">Валидных событий: <span id="macroValidEvents">{{ .Macro.ValidEvents }}</span></div>
+            </div>
         </div>
         <div class="card">
             <div class="metric-label">Утилизировано времени</div>
             <div class="metric text-amber" id="macroHold">{{ .Macro.HoldSumSec | formatDuration }}</div>
-            <div class="text-muted">Сумма фактического утилизированного времени ботнет в интервале за {{ $rangeDesc }}
+            <div class="card-macrometric">
+                <div class="text-muted">Сумма фактического утилизированного времени ботнет в интервале за {{ $rangeDesc }}</div>
             </div>
         </div>
         <div class="card">
             <div class="metric-label">Уникальных стран / IP</div>
             <div class="metric" id="macroGeo">{{ .Macro.UniqueCountries }} / {{ .Macro.UniqueIPs }}</div>
-            <div class="text-muted">Географический охват</div>
+            <div class="card-macrometric">
+                <div class="metric-label">IP-адресов на страну (прибл.)</div>
+                <div class="metric metric-md" id="macroIPsPerCountry">
+                    {{ if .Macro.UniqueCountries }}{{ printf "%.1f" (divf .Macro.UniqueIPs .Macro.UniqueCountries) }}{{ else }}—{{ end }}
+                </div>
+            </div>
         </div>
         <div class="card">
             <div class="metric-label">Avg Drop Second</div>
@@ -63,15 +71,17 @@
                     сек{{ else }}—{{ end
                     }}</agl-privated>
             </div>
-            <div class="text-muted">Средняя секунда сброса атакующим (FIN/RST). Дроп-сессий: <agl-private
-                    id="macroDropCount">{{
-                    .Macro.DropCount }}</agl-private>
+            <div class="card-macrometric">
+                <div class="text-muted">Средняя секунда сброса атакующим (FIN/RST). Дроп-сессий: <agl-private
+                        id="macroDropCount">{{
+                        .Macro.DropCount }}</agl-private>
+                </div>
             </div>
         </div>
     </div>
 
     {{ if .Macro.BehaviorDisplay }}
-    <div style="margin-top: 20px;" id="behaviorBlock">
+    <div id="behaviorBlock">
         <div class="metric-label">Распределение тактик</div>
         <div style="display: flex; gap: 20px; margin-top: 10px; flex-wrap: wrap;">
             {{ range .Macro.BehaviorDisplay }}

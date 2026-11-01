@@ -422,10 +422,37 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 	})
 
 	// 1.7. Раздача статических файлов (CSS, JS)
-	// StripPrefix убирает ТОЛЬКО крипто-префикс: внутри embed.FS пути
-	// остаются пакетно-относительными ("assets/js/chart.min.js"),
-	// поэтому остаток URL обязан совпадать с embed-путём целиком.
-	mux.Handle(prefix+"assets/", http.StripPrefix(prefix, http.FileServer(http.FS(assetsFS))))
+	// StripPrefix убирает ТОЛЬКО крипто-префикс.
+	// Кастомный хендлер проверяет наличие файла в embed.FS.
+	// Если файл не найден или запрошена директория — отдаём стилизованный panel404Stub,
+	// чтобы избежать разнобоя в UI и дефолтных ответов Go (Fail-closed в едином стиле).
+	mux.Handle(prefix+"assets/", http.StripPrefix(prefix, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// embed.FS не принимает ведущий слэш в путях, поэтому убираем его.
+		cleanPath := strings.TrimPrefix(r.URL.Path, "/")
+
+		// Пытаемся открыть файл в нашей встроенной файловой системе.
+		f, err := assetsFS.Open(cleanPath)
+		if err != nil {
+			// Файла не существует — отдаём единую 404 страницу проекта.
+			panel404Stub(w, r)
+			return
+		}
+
+		stat, err := f.Stat()
+		f.Close() // Закрываем здесь. Стандартный FileServer сам откроет его ниже при необходимости.
+
+		if err != nil || stat.IsDir() {
+			// Произошла ошибка при чтении метаданных или запрошена директория (защита от листинга).
+			panel404Stub(w, r)
+			return
+		}
+
+		// Файл существует и это точно не директория.
+		// Передаём управление стандартному http.FileServer.
+		// Это важно, чтобы корректно отработали Content-Type, Range-запросы,
+		// If-Modified-Since и браузерное кэширование.
+		http.FileServer(http.FS(assetsFS)).ServeHTTP(w, r)
+	})))
 
 	// 2. API: Общая статистика
 	mux.HandleFunc(prefix+"api/stats", func(w http.ResponseWriter, r *http.Request) {

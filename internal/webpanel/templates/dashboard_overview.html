@@ -14,20 +14,26 @@
         <div class="card">
             <div class="metric-label">Всего событий в буфере</div>
             <div class="metric" id="totalEvents">{{ .StoreCounters.TotalEvents }}</div>
-            <div class="text-muted">
-                Валидных: <span id="validEvents">{{ .StoreCounters.ValidEvents }}</span> | Битых: <span id="invalidEvents">{{ .StoreCounters.InvalidEvents }}</span>
-                <span id="analyticsMode">{{ if .HistoryLoaded }} | Режим: полная история{{ else }} | Режим: живой срез{{ end }}</span>
+            <div class="card-macrometric">
+                <div class="text-muted">
+                    Валидных: <span id="validEvents">{{ .StoreCounters.ValidEvents }}</span> | Битых: <span id="invalidEvents">{{ .StoreCounters.InvalidEvents }}</span>
+                    <span id="analyticsMode">{{ if .HistoryLoaded }} | Режим: полная история{{ else }} | Режим: живой срез{{ end }}</span>
+                </div>
             </div>
         </div>
         <div class="card">
             <div class="metric-label">Активных кластеров профилей акторов</div>
             <div class="metric" id="activeProfiles">{{ .ProfileCounters.Active }}</div>
-            <div class="text-muted">Низкая уверенность: <span id="lowConfidence">{{ .ProfileCounters.LowConfidence }}</span> | Просрочено: <span id="expiredProfiles">{{ .ProfileCounters.Expired }}</span></div>
+            <div class="card-macrometric">
+                <div class="text-muted">Низкая уверенность: <span id="lowConfidence">{{ .ProfileCounters.LowConfidence }}</span> | Просрочено: <span id="expiredProfiles">{{ .ProfileCounters.Expired }}</span></div>
+            </div>
         </div>
         <div class="card">
             <div class="metric-label">Временной охват</div>
             <div class="metric" id="timeRange">{{ if .StoreCounters.HasEventTime }}{{ .StoreCounters.FirstEventTime.Format "02.01" }} - {{ .StoreCounters.LastEventTime.Format "02.01" }}{{ else }}Нет данных{{ end }}</div>
-            <div class="text-muted">Обновлено: <span id="updatedTime">{{ .CurrentTime }}</span></div>
+            <div class="card-macrometric">    
+                <div class="text-muted">Обновлено: <span id="updatedTime">{{ .CurrentTime }}</span></div>
+            </div>
         </div>
     </div>
     <p class="text-muted" style="margin-top: 16px; margin-bottom: 0;">
@@ -71,16 +77,18 @@
                     <th>Час ({{ .TimezoneLabel }})</th>
                     <th>Событий</th>
                     <th>Уник. IP</th>
+                    <th>Уник. Стран</th> <!-- НОВОЕ -->
                     <th>Агрессивных</th>
                     <th>Средний RTT</th>
                 </tr>
             </thead>
             <tbody id="hourlyStatsBody">
-                {{ range .HourStats }}
+                {{ range .HourStatsDesc }} 
                 <tr>
                     <td>{{ .Hour.Format "15:04" }}</td>
                     <td>{{ .Events }}</td>
                     <td>{{ .UniqueIPs }}</td>
+                    <td>{{ .UniqueCountries }}</td>
                     <td>{{ .AggressiveEvents }}</td>
                     <td>{{ printf "%.0f" .RTTAvgMs }} ms</td>
                 </tr>
@@ -374,6 +382,7 @@
         const snap = JSON.stringify({
             events: hs.events,
             unique_ips: hs.unique_ips,
+            countries: hs.unique_countries,
             aggressive: hs.aggressive_events,
             rtt: Math.round(hs.rtt_avg_ms || 0)
         });
@@ -392,6 +401,12 @@
             .then(res => res.json())
             .then(data => {
                 const hourStats = data.hourly_stats || [];
+
+                // НОВОЕ: Создаем копию и переворачиваем для отображения свежих сверху.
+                // .slice() создает копию, чтобы не мутировать исходный массив, 
+                // который может использоваться другими частями кода.
+                const reversedStats = hourStats.slice().reverse();
+
                 const tbody = document.getElementById('hourlyStatsBody');
 
                 if (tbody) {
@@ -408,16 +423,16 @@
                     // Создаём фрагмент в памяти (вне DOM). Это ключ к отсутствию моргания.
                     const fragment = document.createDocumentFragment();
 
-                    if (hourStats.length === 0) {
+                    if (reversedStats.length === 0) {
                         const tr = document.createElement('tr');
                         const td = document.createElement('td');
-                        td.colSpan = 5;
+                        td.colSpan = 6;
                         td.className = 'text-muted';
                         td.textContent = 'Нет данных за последние 24 часа';
                         tr.appendChild(td);
                         fragment.appendChild(tr);
                     } else {
-                        hourStats.forEach(hs => {
+                        reversedStats.forEach(hs => {
                             const date = new Date(hs.hour);
                             const key = date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
                             const timeFormatted = key;
@@ -428,6 +443,7 @@
                             const currentSnap = JSON.stringify({
                                 events: hs.events,
                                 unique_ips: hs.unique_ips,
+                                countries: hs.unique_countries,
                                 aggressive: hs.aggressive_events,
                                 rtt: Math.round(hs.rtt_avg_ms || 0)
                             });
@@ -463,12 +479,17 @@
                             tdUniqIP.textContent = hs.unique_ips;
                             tr.appendChild(tdUniqIP);
 
-                            // 4. Агрессивных
+                            // 4 Уник. Стран (НОВОЕ)
+                            const tdCountries = document.createElement('td');
+                            tdCountries.textContent = hs.unique_countries || 0;
+                            tr.appendChild(tdCountries);
+
+                            // 5. Агрессивных
                             const tdAggr = document.createElement('td');
                             tdAggr.textContent = hs.aggressive_events;
                             tr.appendChild(tdAggr);
 
-                            // 5. Средний RTT
+                            // 6. Средний RTT
                             const tdRTT = document.createElement('td');
                             tdRTT.textContent = Math.round(hs.rtt_avg_ms || 0) + ' ms';
                             tr.appendChild(tdRTT);

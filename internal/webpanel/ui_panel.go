@@ -243,6 +243,13 @@ func renderDashboard(w http.ResponseWriter, templateName string, prefix string, 
 		convertedCounters.LastEventTime = counters.LastEventTime.In(loc)
 	}
 
+	// Создаем копию слайса в обратном порядке СПЕЦИАЛЬНО для таблицы.
+	// Оригинальный convertedHourStats остается хронологическим для графиков.
+	hourStatsDesc := make([]analytics.HourStat, len(convertedHourStats))
+	for i, hs := range convertedHourStats {
+		hourStatsDesc[len(convertedHourStats)-1-i] = hs
+	}
+
 	// 3. Формируем данные для шаблона.
 	data := map[string]interface{}{
 		"Prefix":          prefix,
@@ -250,6 +257,7 @@ func renderDashboard(w http.ResponseWriter, templateName string, prefix string, 
 		"StoreCounters":   convertedCounters,
 		"ProfileCounters": profileCounters,
 		"HourStats":       convertedHourStats,
+		"HourStatsDesc":   hourStatsDesc, // Для таблицы События за 24 часа (свежие сверху)
 		"Profiles":        convertedProfiles,
 		"TimezoneLabel":   timezoneLabel,
 		"CurrentTime":     time.Now().In(loc).Format("2006-01-02 15:04:05 MST"),

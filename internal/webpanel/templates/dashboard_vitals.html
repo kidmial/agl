@@ -94,12 +94,16 @@
         <div class="card">
             <div class="metric-label">Упущенные события касания</div>
             <div class="metric">{{ .PipelineHealth.DroppedConnectionEvents }}</div>
-            <div class="text-muted">Макс. латентность: {{ .PipelineHealth.MaxConnWriteLatencyMs }} мс</div>
+            <div class="card-macrometric">
+                <div class="text-muted">Макс. латентность: {{ .PipelineHealth.MaxConnWriteLatencyMs }} мс</div>
+            </div>
         </div>
         <div class="card">
             <div class="metric-label">Упущенные отчёты</div>
             <div class="metric">{{ .PipelineHealth.DroppedReportEntries }}</div>
-            <div class="text-muted">Макс. латентность: {{ .PipelineHealth.MaxReportWriteLatencyMs }} мс</div>
+            <div class="card-macrometric">
+                <div class="text-muted">Макс. латентность: {{ .PipelineHealth.MaxReportWriteLatencyMs }} мс</div>
+            </div>
         </div>
     </div>
     <p class="text-muted" style="margin-top: 16px; margin-bottom: 0;">Данные с момента старта процесса. Ненулевые
@@ -139,8 +143,8 @@
         datasets: [{
             label: 'Событий в минуту',
             data: burstSeries.map(p => p.count),
-            borderColor: colors.red,
-            backgroundColor: hexToRgba(colors.red, 0.1), // 10% прозрачности
+            borderColor: colors.amber,
+            backgroundColor: hexToRgba(colors.amber, 0.1), // 10% прозрачности
             fill: true,
             tension: 0.3,
             pointRadius: 0
@@ -291,13 +295,13 @@
                     geoChart.update('none'); // 'none' отключает анимацию
                 } else {
                     // Первичная отрисовка — создаём график С анимацией (по умолчанию)
-                    geoChart = AGLCharts.createChart('geoChart', 'line', {
+                    geoChart = AGLCharts.createChart('geoChart', 'bar', {
                         labels: labels,
                         datasets: [{
                             label: 'Уникальных стран',
                             data: newData,
                             borderColor: colors.amber,
-                            backgroundColor: hexToRgba(colors.amber, 0.1),
+                            backgroundColor: hexToRgba(colors.amber, 0.7),
                             fill: true,
                             tension: 0.3,
                             pointRadius: 2
