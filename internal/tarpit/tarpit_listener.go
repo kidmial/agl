@@ -236,7 +236,7 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 	defer func() {
 		if r := recover(); r != nil {
 			sys.LogAction("TARPIT", "WORKER_PANIC", "RECOVERED",
-				fmt.Sprintf(i18n.TrEvent("worker.panic.recovered"), port, tarpitID, r)
+				fmt.Sprintf(i18n.TrEvent("worker.panic.recovered"), port, tarpitID, r))
 		}
 		// ОЧИСТКА (0 наносекунд CPU)
 		DecrementLiveBots()
