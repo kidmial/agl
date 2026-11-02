@@ -20,17 +20,17 @@
                 {{ else if eq .Profile.State "MERGED" }}<span class="text-blue">{{ .Profile.State }}</span>
                 {{ else }}{{ .Profile.State }}{{ end }}
             </div>
-            <div class="text-muted">Уверенность: <span id="profileConfidence">{{ .Profile.Confidence }}</span>% | Риск склейки: <span id="profileFPRisk">{{ .Profile.FalsePositiveRisk }}</span></div>
+            <div class="text-muted card-macrometric row">Уверенность:<div class="text-primary"><span id="profileConfidence">{{ .Profile.Confidence }}</span>%</div> | Риск склейки:<div class="text-primary"><span id="profileFPRisk">{{ .Profile.FalsePositiveRisk }}</span></div></div>
         </div>
         <div class="card">
             <div class="metric-label">Временной охват</div>
             <div class="metric metric-sm" id="profileTimeframe">{{ .Profile.FirstEventTime.Format "02.01 15:04" }} — {{ .Profile.LastEventTime.Format "02.01 15:04" }}</div>
-            <div class="text-muted">Последняя активность: <span id="profileLastSeen">{{ .Profile.LastSeen.Format "02.01 15:04:05" }}</span></div>
+            <div class="text-muted card-macrometric row">Последняя активность:<div class="text-primary"><span id="profileLastSeen">{{ .Profile.LastSeen.Format "02.01 15:04:05" }}</span></div></div>
         </div>
         <div class="card">
             <div class="metric-label">Всего событий</div>
             <div class="metric metric-md" id="profileEventCount">{{ .Profile.EventCount }}</div>
-            <div class="text-muted">Валидных: <span id="profileValidCount">{{ .Profile.ValidEventCount }}</span> | Битых: <span id="profileInvalidCount">{{ .Profile.InvalidEventCount }}</span></div>
+            <div class="text-muted card-macrometric row">Валидных:<div class="text-primary"><span id="profileValidCount">{{ .Profile.ValidEventCount }}</span></div> | Битых:<div class="text-primary"><span id="profileInvalidCount">{{ .Profile.InvalidEventCount }}</span></div></div>
         </div>
     </div>
 
@@ -39,17 +39,17 @@
         <div class="card">
             <div class="metric-label">Текущая фаза (Алг.3)</div>
             <div class="metric metric-sm phase-text" id="profilePhase">{{ if .Profile.CurrentPhase }}{{ .Profile.CurrentPhase }}{{ else }}—{{ end }}</div>
-            <div class="text-muted">Уровень угрозы: <span id="profileThreatLevel">{{ if .Profile.ThreatLevel }}{{ .Profile.ThreatLevel }}{{ else }}—{{ end }}</span></div>
+            <div class="text-muted card-macrometric row">Уровень угрозы:<div class="text-primary"><span id="profileThreatLevel">{{ if .Profile.ThreatLevel }}{{ .Profile.ThreatLevel }}{{ else }}—{{ end }}</span></div></div>
         </div>
         <div class="card">
             <div class="metric-label">Прогноз (Алг.4)</div>
             <div class="metric metric-sm prediction-text" id="profilePredVector">{{ if .Profile.PredictedVector }}{{ .Profile.PredictedVector }}{{ else }}—{{ end }}</div>
-            <div class="text-muted">Вероятность: <span id="profilePredProb">{{ if .Profile.PredictedProbability }}{{ .Profile.PredictedProbability }}{{ else }}—{{ end }}</span></div>
+            <div class="text-muted card-macrometric row">Вероятность:<div class="text-primary"><span id="profilePredProb">{{ if .Profile.PredictedProbability }}{{ .Profile.PredictedProbability }}{{ else }}—{{ end }}</span></div></div>
         </div>
         <div class="card">
             <div class="metric-label">Дрейф времени (Алг.2)</div>
             <div class="metric metric-sm" id="profileDrift">{{ if .Profile.TokenDriftValid }}{{ .Profile.TokenDriftMs }} мс{{ else }}—{{ end }}</div>
-            <div class="text-muted">Порт из токена: <span id="profileClientPort">{{ if .Profile.TokenClientPort }}{{ .Profile.TokenClientPort }}{{ else }}—{{ end }}</span></div>
+            <div class="text-muted card-macrometric row">Порт из токена:<div class="text-primary"><span id="profileClientPort">{{ if .Profile.TokenClientPort }}{{ .Profile.TokenClientPort }}{{ else }}—{{ end }}</span></div></div>
         </div>
     </div>
 
@@ -58,13 +58,13 @@
         <h3>Сетевой отпечаток (Stack Fingerprint)</h3>
         <div id="stackValidBlock" style="{{ if not .Profile.StackValid }}display:none;{{ end }}">
             <div class="grid" style="margin-top: 10px;">
-                <div><span class="metric-label">MSS:</span> <span class="text-primary" id="stackMSS">{{ .Profile.Stack.MSS }}</span></div>
-                <div><span class="metric-label">RcvSpace:</span> <span class="text-primary" id="stackRcvSpace">{{ .Profile.Stack.RcvSpace }}</span></div>
-                <div><span class="metric-label">SndWscale:</span> <span class="text-primary" id="stackSndWscale">{{ .Profile.Stack.SndWscale }}</span></div>
-                <div><span class="metric-label">RcvWscale:</span> <span class="text-primary" id="stackRcvWscale">{{ .Profile.Stack.RcvWscale }}</span></div>
+                <div><span class="metric-label">MSS:</span><span class="text-primary" id="stackMSS">{{ .Profile.Stack.MSS }}</span></div>
+                <div><span class="metric-label">RcvSpace:</span><span class="text-primary" id="stackRcvSpace">{{ .Profile.Stack.RcvSpace }}</span></div>
+                <div><span class="metric-label">SndWscale:</span><span class="text-primary" id="stackSndWscale">{{ .Profile.Stack.SndWscale }}</span></div>
+                <div><span class="metric-label">RcvWscale:</span><span class="text-primary" id="stackRcvWscale">{{ .Profile.Stack.RcvWscale }}</span></div>
             </div>
         </div>
-        <p id="stackMissingMsg" class="text-muted" style="{{ if .Profile.StackValid }}display:none;{{ end }}">Сетевой отпечаток неполный или отсутствует.</p>
+        <p id="stackMissingMsg" class="text-muted card-macrometric row" style="{{ if .Profile.StackValid }}display:none;{{ end }}">Сетевой отпечаток неполный или отсутствует.</p>
     </div>
 
     <!-- Топ IP и Страны -->
@@ -126,17 +126,17 @@
         <div class="card">
             <h3>Метрики удержания</h3>
             <div class="grid" style="margin-top: 10px;">
-                <div><span class="metric-label">Средний план:</span> <span class="text-primary" id="holdPlanned"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgPlannedHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
-                <div><span class="metric-label">Средний факт:</span> <span class="text-primary" id="holdActual"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgActualHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
-                <div><span class="metric-label">Всего сессий:</span> <span class="text-primary" id="holdCount">{{ .Profile.HoldCount }}</span></div>
+                <div><span class="metric-label">Средний план:</span><span class="text-primary" id="holdPlanned"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgPlannedHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
+                <div><span class="metric-label">Средний факт:</span><span class="text-primary" id="holdActual"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgActualHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
+                <div><span class="metric-label">Всего сессий:</span><span class="text-primary" id="holdCount">{{ .Profile.HoldCount }}</span></div>
             </div>
         </div>
         <div class="card">
             <h3>Сетевая задержка (RTT)</h3>
             <div class="grid" style="margin-top: 10px;">
-                <div><span class="metric-label">Средний:</span> <span class="text-primary" id="rttAvg">{{ if .Profile.RTTCount }}{{ printf "%.0f" .Profile.RTTAvgMs }} мс{{ else }}—{{ end }}</span></div>
-                <div><span class="metric-label">Мин:</span> <span class="text-primary" id="rttMin">{{ if .Profile.RTTCount }}{{ .Profile.RTTMinMs }} мс{{ else }}—{{ end }}</span></div>
-                <div><span class="metric-label">Макс:</span> <span class="text-primary" id="rttMax">{{ if .Profile.RTTCount }}{{ .Profile.RTTMaxMs }} мс{{ else }}—{{ end }}</span></div>
+                <div><span class="metric-label">Средний:</span><span class="text-primary" id="rttAvg">{{ if .Profile.RTTCount }}{{ printf "%.0f" .Profile.RTTAvgMs }} мс{{ else }}—{{ end }}</span></div>
+                <div><span class="metric-label">Мин:</span><span class="text-primary" id="rttMin">{{ if .Profile.RTTCount }}{{ .Profile.RTTMinMs }} мс{{ else }}—{{ end }}</span></div>
+                <div><span class="metric-label">Макс:</span><span class="text-primary" id="rttMax">{{ if .Profile.RTTCount }}{{ .Profile.RTTMaxMs }} мс{{ else }}—{{ end }}</span></div>
             </div>
         </div>
     </div>

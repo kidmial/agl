@@ -14,25 +14,25 @@
         <div class="card">
             <div class="metric-label">Всего событий в буфере</div>
             <div class="metric" id="totalEvents">{{ .StoreCounters.TotalEvents }}</div>
-            <div class="card-macrometric">
+            <div class="card-macrometric row">
                 <div class="text-muted">
-                    Валидных: <span id="validEvents">{{ .StoreCounters.ValidEvents }}</span> | Битых: <span id="invalidEvents">{{ .StoreCounters.InvalidEvents }}</span>
-                    <span id="analyticsMode">{{ if .HistoryLoaded }} | Режим: полная история{{ else }} | Режим: живой срез{{ end }}</span>
+                    Валидных:<span class="macro-value" id="validEvents">{{ .StoreCounters.ValidEvents }}</span> | Битых:<span class="macro-value" id="invalidEvents">{{ .StoreCounters.InvalidEvents }}</span>
+                    | Режим:<span class="macro-value" id="analyticsMode">{{ if .HistoryLoaded }}Полная история{{ else }}Живой срез{{ end }}</span>
                 </div>
             </div>
         </div>
         <div class="card">
             <div class="metric-label">Активных кластеров профилей акторов</div>
             <div class="metric" id="activeProfiles">{{ .ProfileCounters.Active }}</div>
-            <div class="card-macrometric">
-                <div class="text-muted">Низкая уверенность: <span id="lowConfidence">{{ .ProfileCounters.LowConfidence }}</span> | Просрочено: <span id="expiredProfiles">{{ .ProfileCounters.Expired }}</span></div>
+            <div class="card-macrometric row">
+                <div class="text-muted">Низкая уверенность:<span class="macro-value" id="lowConfidence">{{ .ProfileCounters.LowConfidence }}</span> | Просрочено:<span class="macro-value" id="expiredProfiles">{{ .ProfileCounters.Expired }}</span></div>
             </div>
         </div>
         <div class="card">
             <div class="metric-label">Временной охват</div>
             <div class="metric" id="timeRange">{{ if .StoreCounters.HasEventTime }}{{ .StoreCounters.FirstEventTime.Format "02.01" }} - {{ .StoreCounters.LastEventTime.Format "02.01" }}{{ else }}Нет данных{{ end }}</div>
-            <div class="card-macrometric">    
-                <div class="text-muted">Обновлено: <span id="updatedTime">{{ .CurrentTime }}</span></div>
+            <div class="card-macrometric row">
+                <div class="text-muted">Обновлено:<span class="macro-value" id="updatedTime">{{ .CurrentTime }}</span></div>
             </div>
         </div>
     </div>
@@ -195,7 +195,7 @@
                     setText('totalEvents', sc.TotalEvents);
                     setText('validEvents', sc.ValidEvents);
                     setText('invalidEvents', sc.InvalidEvents);
-                    const mode = data.history_loaded ? ' | Режим: полная история' : ' | Режим: живой срез';
+                    const mode = data.history_loaded ? 'Полная история' : 'Живой срез';
                     setText('analyticsMode', mode);
                     
                     if (sc.HasEventTime) {

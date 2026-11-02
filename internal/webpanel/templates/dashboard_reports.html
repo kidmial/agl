@@ -43,38 +43,32 @@
         <div class="card">
             <div class="metric-label">Всего событий</div>
             <div class="metric" id="macroEvents">{{ .Macro.Events }}</div>
-            <div class="card-macrometric">
-                <div class="text-muted">Валидных событий: <span id="macroValidEvents">{{ .Macro.ValidEvents }}</span></div>
+            <div class="card-macrometric row">
+                <div class="text-muted">Валидных событий:<span class="macro-value" id="macroValidEvents">{{ .Macro.ValidEvents }}</span></div>
             </div>
         </div>
         <div class="card">
             <div class="metric-label">Утилизировано времени</div>
             <div class="metric text-amber" id="macroHold">{{ .Macro.HoldSumSec | formatDuration }}</div>
-            <div class="card-macrometric">
-                <div class="text-muted">Сумма фактического утилизированного времени ботнет в интервале за {{ $rangeDesc }}</div>
+            <div class="card-macrometric row">
+                <div class="text-muted">Сумма фактического утилизированного времени ботнет в интервале за<span class="macro-value">{{ $rangeDesc }}</span></div>
             </div>
         </div>
         <div class="card">
             <div class="metric-label">Уникальных стран / IP</div>
             <div class="metric" id="macroGeo">{{ .Macro.UniqueCountries }} / {{ .Macro.UniqueIPs }}</div>
-            <div class="card-macrometric">
-                <div class="metric-label">IP-адресов на страну (прибл.)</div>
-                <div class="metric metric-md" id="macroIPsPerCountry">
-                    {{ if .Macro.UniqueCountries }}{{ floorDiv .Macro.UniqueIPs .Macro.UniqueCountries }}{{ else }}—{{ end }}
-                </div>
+            <div class="card-macrometric row">
+                <div class="metric-label">IP-адресов на страну (прибл.):</div>
+                <div class="macro-value" id="macroIPsPerCountry">{{ if .Macro.UniqueCountries }}{{ floorDiv .Macro.UniqueIPs .Macro.UniqueCountries }}{{ else }}—{{ end }}</div>
             </div>
         </div>
         <div class="card">
-            <div class="metric-label">Avg Drop Second</div>
+            <div class="metric-label">Средняя секунда сброса атакующим (FIN/RST). Avg Drop Second</div>
             <div class="metric text-green">
-                <agl-privated id="macroAvgDrop">{{ if gt .Macro.DropCount 0 }}{{ printf "%.1f" .Macro.AvgDropSec }}
-                    сек{{ else }}—{{ end
-                    }}</agl-privated>
+                <agl-privated id="macroAvgDrop">{{ if gt .Macro.DropCount 0 }}{{ printf "%.1f" .Macro.AvgDropSec }} сек{{ else }}—{{ end }}</agl-privated>
             </div>
-            <div class="card-macrometric">
-                <div class="text-muted">Средняя секунда сброса атакующим (FIN/RST). Дроп-сессий: <agl-private
-                        id="macroDropCount">{{
-                        .Macro.DropCount }}</agl-private>
+            <div class="card-macrometric row">
+                <div class="text-muted">Дроп-сессий:<agl-private class="macro-value" id="macroDropCount">{{ .Macro.DropCount }}</agl-private>
                 </div>
             </div>
         </div>
@@ -98,7 +92,7 @@
 
 <!-- Блок - Эффективность ловушек -->
 <div class="card" style="margin-top: 20px;">
-    <h3>Анализ эффективности ловушек</h3>
+    <h3 class="mb-0">Анализ эффективности ловушек</h3>
     <p class="text-muted">Анализ трафика и среднего утилизированного времени ботнета в конкретной из ловушек.
     </p>
     <div class="table-scroll">
@@ -137,7 +131,7 @@
 
 <!-- Блок - Топ стран -->
 <div class="card" style="margin-top: 20px;">
-    <h3>Блок 1. Геопрофилирование агрессивной сетевой активности — Топ-<span id="countriesCount">{{ len .Countries
+    <h3 class="mb-0">Блок 1. Геопрофилирование агрессивной сетевой активности — Топ-<span id="countriesCount">{{ len .Countries
             }}</span> стран</h3>
     <p class="text-muted">Детализация глобальных векторов ботнета и анализ концентрации событий по географическому
         распределению.</p>
@@ -179,8 +173,7 @@
 
 <!-- Блок 2: Топ IP -->
 <div class="card" style="margin-top: 20px;">
-    <h3>Блок 2. Профилирование агрессивной сетевой активности — Топ-<span id="ipsCount">{{ len .IPs }}</span> атакующих
-    </h3>
+    <h3 class="mb-0">Блок 2. Профилирование агрессивной сетевой активности — Топ-<span id="ipsCount">{{ len .IPs }}</span> атакующих</h3>
     <p class="text-muted">Профилирование агрессивного трафика: Индикаторы оперативного анализа для приоритизации угроз и
         принятия стратегических решений.</p>
     <div class="table-scroll">

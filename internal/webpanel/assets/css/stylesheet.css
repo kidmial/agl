@@ -28,6 +28,7 @@
             --bg-tertiary: #1e293b;
             --bg-elevated: #1a1f2e;
 
+            --text-metric: #f1f5f9;
             --text-primary: #e2e8f0;
             --text-secondary: #94a3b8;
             --text-muted: #64748b;
@@ -65,6 +66,7 @@
             --bg-tertiary: #f1f5f9;
             --bg-elevated: #ffffff;
 
+            --text-metric: #0b1220;
             --text-primary: #111a30;
             --text-secondary: #475569;
             --text-muted: #94a3b8;
@@ -98,13 +100,13 @@
         h3 {
             color: var(--text-heading);
             font-weight: normal;
-            margin: 0 0 16px 0;
+            margin: 0 0 15px 0;
         }
 
         h2 {
             font-size: 18px;
             border-bottom: 1px solid var(--border-primary);
-            padding-bottom: 12px;
+            padding-bottom: 15px;
         }
 
         h3 {
@@ -256,8 +258,7 @@
         }
 
         .card-macrometric {
-            display: flex;
-            align-items: center;
+            display: block;
             padding-top: 12px;
             border-top: 1px solid var(--border-primary);
         }
@@ -268,11 +269,16 @@
             justify-content: center;
         }
 
+        .row {
+            display: flex;
+            align-items: baseline;
+        }
+
         /* --- Metrics --- */
         .metric {
             font-size: 28px;
             font-weight: 700;
-            color: var(--text-primary);
+            color: var(--text-metric);
             margin: 8px 0;
         }
 
@@ -280,8 +286,12 @@
             color: var(--accent-amber);
         }
 
+        .macro-value {
+            margin: 0 0 0 5px;
+            color: var(--text-primary);
+        }
+
         .metric-label {
-            margin: 0 10px 0 0;
             font-size: 12px;
             color: var(--text-muted);
             text-transform: uppercase;
@@ -652,6 +662,7 @@
 
         .text-primary {
             color: var(--text-primary);
+            margin: 0 0 0 5px;
         }
 
         .status-aggr {

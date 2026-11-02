@@ -94,14 +94,14 @@
         <div class="card">
             <div class="metric-label">Упущенные события касания</div>
             <div class="metric">{{ .PipelineHealth.DroppedConnectionEvents }}</div>
-            <div class="card-macrometric">
+            <div class="card-macrometric row">
                 <div class="text-muted">Макс. латентность: {{ .PipelineHealth.MaxConnWriteLatencyMs }} мс</div>
             </div>
         </div>
         <div class="card">
             <div class="metric-label">Упущенные отчёты</div>
             <div class="metric">{{ .PipelineHealth.DroppedReportEntries }}</div>
-            <div class="card-macrometric">
+            <div class="card-macrometric row">
                 <div class="text-muted">Макс. латентность: {{ .PipelineHealth.MaxReportWriteLatencyMs }} мс</div>
             </div>
         </div>
