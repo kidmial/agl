@@ -10,7 +10,7 @@
 
 <!-- 1. Гистограмма распределения чтений -->
 <div class="card" style="margin-top: 20px;">
-    <h3>Распределение прикладных чтений</h3>
+    <h3 class="mb-0">Распределение прикладных чтений</h3>
     <p class="text-muted">Категории: tiny (0-64 байт), small (65-256), medium (257-1024), large (>1024)</p>
     <div class="chart-container">
         <canvas id="readChart"></canvas>
@@ -19,7 +19,7 @@
 
 <!-- 2. Топ TCP-отпечатков -->
 <div class="card" style="margin-top: 20px;">
-    <h3>Топ TCP-отпечатков (p0f-логика)</h3>
+    <h3 class="mb-0">Топ TCP-отпечатков (p0f-логика)</h3>
     <p class="text-muted">Уникальные комбинации MSS|RcvSpace|SndWscale|RcvWscale идентифицируют ОС. Агрегат за 24 часа.
     </p>
     <div class="table-scroll">
@@ -40,7 +40,7 @@
 
 <!-- 3. Дисперсия IAT -->
 <div class="card" style="margin-top: 20px;">
-    <h3>Дисперсия ритма IAT</h3>
+    <h3 class="mb-0">Дисперсия ритма IAT</h3>
     <p class="text-muted">Средний дисперсионный след по часам. Высокая дисперсия = рваный ритм (человек/прокси).</p>
     <div class="chart-container">
         <canvas id="dispersionChart"></canvas>
