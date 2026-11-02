@@ -222,7 +222,16 @@ func init() {
 			"rescue.moved_rule_type_fallback": "Moved-port rule type marker missing: conservative type limit applied for port %s. Perform reverse castling and castling again to record the reference type.",
 
 			// --- internal/tarpit/tarpit_listener.go ---
-			"geo.restored": "event=geo.restored Geo analytics available again.",
+			"geo.restored":           "event=geo.restored Geo analytics available again.",
+			"worker.panic.recovered": "event=worker.panic.recovered Worker recovered from panic: port=%d, trap=%s, reason=%v",
+			"worker.started":         "event=worker.started Worker started: port=%d, IP=%s, trap=%s",
+			"worker.completed":       "event=worker.completed Worker completed: port=%d, IP=%s, behavior=%s, close_reason=%s, duration=%ds",
+
+			// --- internal/tarpit/tarpit_logger.go ---
+			"conn_log_writer.started":   "event=conn_log_writer.started Connection log writer started: %s",
+			"conn_log_writer.retry":     "event=conn_log_writer.retry Failed to open connection log, retrying in 5s: %s",
+			"report_log_writer.started": "event=report_log_writer.started Report log writer started: %s",
+			"report_log_writer.retry":   "event=report_log_writer.retry Failed to open report log, retrying in 5s: %s",
 
 			// --- internal/tarpit/tarpit_manager.go ---
 			"tarpit_manager.fuse_reject":                "Trap %s rejected: %s",

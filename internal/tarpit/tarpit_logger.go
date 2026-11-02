@@ -43,6 +43,8 @@
 package tarpit
 
 import (
+	"agl/i18n"
+	"agl/internal/sys"
 	"fmt"
 	"os"
 	"os/signal"
@@ -402,9 +404,21 @@ func LogReportEntry(en RawLogEntry) {
 // - Добавлен предохранитель: если `PlannedDelay == 0`, используется дефолт.
 // - `Timestamp` передаётся как `startTime` (момент касания), а не конец удержания.
 func ConnectionLogWriter(logFilePath string) {
-	f, err := openLogWithRetry(logFilePath)
-	if err != nil {
-		return
+	// АУДИТ v8.6.2: писатель не должен умирать при старте, если файл временно недоступен.
+	// Вместо return — бесконечный retry-цикл с паузой 5 секунд.
+	// Это защищает от тихой смерти при I/O ошибках (диск занят, монтирование не готово).
+	var f *os.File
+	for {
+		var err error
+		f, err = openLogWithRetry(logFilePath)
+		if err == nil {
+			sys.LogAction("TARPIT", "CONN_LOG_WRITER_START", "SUCCESS",
+				fmt.Sprintf(i18n.TrEvent("conn_log_writer.started"), logFilePath))
+			break
+		}
+		sys.LogAction("TARPIT", "CONN_LOG_WRITER_START_FAILED", "RETRYING",
+			fmt.Sprintf(i18n.TrEvent("conn_log_writer.retry"), err))
+		time.Sleep(5 * time.Second)
 	}
 	defer f.Close()
 
@@ -514,9 +528,19 @@ func ConnectionLogWriter(logFilePath string) {
 // - `SourcePort` = реальный порт атакующего (не 0).
 // - Все TCP-метрики (MSS, SndCwnd, RcvSpace, RTT) заполнены из `TCP_INFO`.
 func ReportLogWriter(logFilePath string) {
-	f, err := openLogWithRetry(logFilePath)
-	if err != nil {
-		return
+	// АУДИТ v8.6.2: писатель не должен умирать при старте.
+	var f *os.File
+	for {
+		var err error
+		f, err = openLogWithRetry(logFilePath)
+		if err == nil {
+			sys.LogAction("TARPIT", "REPORT_LOG_WRITER_START", "SUCCESS",
+				fmt.Sprintf(i18n.TrEvent("report_log_writer.started"), logFilePath))
+			break
+		}
+		sys.LogAction("TARPIT", "REPORT_LOG_WRITER_START_FAILED", "RETRYING",
+			fmt.Sprintf(i18n.TrEvent("report_log_writer.retry"), err))
+		time.Sleep(5 * time.Second)
 	}
 	defer f.Close()
 

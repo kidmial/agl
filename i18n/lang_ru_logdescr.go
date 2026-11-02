@@ -222,7 +222,16 @@ func init() {
 			"rescue.moved_rule_type_fallback": "Маркер типа правила перенесённого порта отсутствует: применён консервативный тип limit для порта %s. Выполните обратную рокировку и рокировку заново для записи эталонного типа.",
 
 			// --- internal/tarpit/tarpit_listener.go ---
-			"geo.restored": "event=geo.restored Гео-аналитика снова доступна.",
+			"geo.restored":           "event=geo.restored Гео-аналитика снова доступна.",
+			"worker.panic.recovered": "event=worker.panic.recovered Воркер восстановлен после паники: порт=%d, ловушка=%s, причина=%v",
+			"worker.started":         "event=worker.started Воркер запущен: порт=%d, IP=%s, ловушка=%s",
+			"worker.completed":       "event=worker.completed Воркер завершил работу: порт=%d, IP=%s, поведение=%s, причина_закрытия=%s, длительность=%dс",
+
+			// --- internal/tarpit/tarpit_logger.go ---
+			"conn_log_writer.started":   "event=conn_log_writer.started Писатель логов касаний запущен: %s",
+			"conn_log_writer.retry":     "event=conn_log_writer.retry Ошибка открытия лога касаний, повтор через 5с: %s",
+			"report_log_writer.started": "event=report_log_writer.started Писатель криминалистических отчётов запущен: %s",
+			"report_log_writer.retry":   "event=report_log_writer.retry Ошибка открытия лога отчётов, повтор через 5с: %s",
 
 			// --- internal/tarpit/tarpit_manager.go ---
 			"tarpit_manager.fuse_reject":                "Ловушка %s отклонена: %s",

@@ -229,10 +229,20 @@ func extractTcpInfo(conn net.Conn) TcpInfoMetrics {
 func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.TarpitConfig) {
 	// 1. ВЗВОД СЧЕТЧИКА (0 наносекунд CPU)
 	IncrementLiveBots()
+
+	// АУДИТ v8.6.2: защита от тихой смерти воркера при панике.
+	// Любая паника (nil-pointer, index out of range, syscall error) теперь логируется,
+	// а не убивает горутину молча. Это предотвращает 95-часовое молчание при крафтовых атаках.
 	defer func() {
+		if r := recover(); r != nil {
+			sys.LogAction("TARPIT", "WORKER_PANIC", "RECOVERED",
+				fmt.Sprintf(i18n.TrEvent("worker.panic.recovered"), port, tarpitID, r)
+		}
 		// ОЧИСТКА (0 наносекунд CPU)
 		DecrementLiveBots()
-		conn.Close()
+		if conn != nil {
+			conn.Close()
+		}
 	}()
 
 	remoteAddr := conn.RemoteAddr().String()
@@ -253,6 +263,12 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 	// Это момент ПЕРВОГО КАСАНИЯ ботом сокета ловушки.
 	// ОБНОВЛЕНО В v8.0.1.
 	startTime := time.Now()
+
+	// АУДИТ v8.6.2: логирование старта воркера для форензики.
+	// Позволяет отследить, когда воркер начал работу и сколько времени удерживал бота.
+	sys.LogAction("TARPIT", "WORKER_START", "INFO",
+		fmt.Sprintf(i18n.TrEvent("worker.started"), port, clientIP, tarpitID))
+
 	// tokenHex := fmt.Sprintf("%X_%d", startTime.UnixNano(), sourcePort)
 
 	// Вычисляем джиттер на основе персональных параметров воркера из инвентаря.
@@ -509,4 +525,15 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 		// ReadLarge: Чтений размером >1024 байта (резерв: буфер 1024).
 		ReadLarge: readLarge,
 	})
+
+	// АУДИТ v8.6.2: логирование завершения воркера для форензики.
+	// Позволяет отследить, что воркер успешно завершил работу.
+	sys.LogAction("TARPIT", "WORKER_END", "SUCCESS",
+		fmt.Sprintf("Worker completed: port=%d, ip=%s, behavior=%s, closeReason=%s, duration=%ds",
+			port, clientIP, behaviorTag, closeReason, int(realTrapped)))
+
+	// АУДИТ v8.6.2: логирование завершения воркера для форензики.
+	sys.LogAction("TARPIT", "WORKER_END", "SUCCESS",
+		fmt.Sprintf(i18n.TrEvent("worker.completed"), port, clientIP, behaviorTag, closeReason, int(realTrapped)))
+
 }
