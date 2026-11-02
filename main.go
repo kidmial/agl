@@ -103,16 +103,17 @@ func ensureDefaultConfig(configPath string) {
 		DelayVariance:       8,
 		TarpitMaxConn:       100,
 		TarpitBacklog:       1024,
-		AdminIdleTimeout:    10,                       // M2: дефолт 10 минут
-		WebRescueEnabled:    true,                     // M3: канал спасения включён по умолчанию
-		WebRescuePort:       55111,                    // M3b: порт автономного HTTP-сервера
-		WebServerEnabled:    true,                     // v8.4.7: физический HTTP-слушатель включён по умолчанию
-		SshAllowInFromIp:    false,                    // v8.5.0: опция A выключена по умолчанию — защита только по явной декларации
-		SshIpWebKnock:       false,                    // v8.5.0: опция B выключена по умолчанию — защита только по явной декларации
-		WebHttpsPanelActive: false,                    // v8.5.0: опция C выключена по умолчанию
-		TarpitConnLog:       config.FileTarpitConnLog, // БЛОК 4.4: Константа пути
-		TarpitRptLog:        config.FileTarpitRptLog,  // БЛОК 4.4: Константа пути
-		AglLogarchiveDir:    config.DirLog,            // БЛОК 4.4: Константа пути
+		AdminIdleTimeout:    10,                           // M2: дефолт 10 минут
+		WebRescueEnabled:    true,                         // M3: канал спасения включён по умолчанию
+		WebRescuePort:       55111,                        // M3b: порт автономного HTTP-сервера
+		WebServerEnabled:    true,                         // v8.4.7: физический HTTP-слушатель включён по умолчанию
+		SshAllowInFromIp:    false,                        // v8.5.0: опция A выключена по умолчанию — защита только по явной декларации
+		SshIpWebKnock:       false,                        // v8.5.0: опция B выключена по умолчанию — защита только по явной декларации
+		WebHttpsPanelActive: false,                        // v8.5.0: опция C выключена по умолчанию
+		TarpitConnLog:       config.FileTarpitConnLog,     // БЛОК 4.4: Константа пути
+		TarpitRptLog:        config.FileTarpitRptLog,      // БЛОК 4.4: Константа пути
+		AttackersOfPitLog:   config.FileAttackersOfPitLog, // БЛОК 4.4: Константа пути (v8.6.2)
+		AglLogarchiveDir:    config.DirLog,                // БЛОК 4.4: Константа пути
 		BackupRootDir:       "/backup",
 		GeoTool:             "geoiplookup",
 		SysctlCore: config.SysctlCoreConfig{
@@ -398,9 +399,10 @@ func main() {
 		// Запуск централизованных лог-конвейеров демона.
 		// Эти горутины читают из каналов и пишут в лог-файлы на диск.
 		// Только демон пишет логи. TUI только читает файлы.
-		// ОБНОВЛЕНО В v8.0.1.
+		// ОБНОВЛЕНО В v8.6.2.
 		go tarpit.ConnectionLogWriter(config.C.TarpitConnLog)
 		go tarpit.ReportLogWriter(config.C.TarpitRptLog)
+		go tarpit.PitAttackerLogWriter(config.C.AttackersOfPitLog) // писатель "атакующие яму" (v8.6.2)
 
 		// Создание контекста с обработкой сигналов для корректного завершения.
 		// Когда демон получает SIGINT или SIGTERM, контекст отменяется,

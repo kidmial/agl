@@ -48,6 +48,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -126,6 +127,15 @@ type RawConnectionEvent struct {
 // Если файл не открылся после всех попыток — возвращает ошибку,
 // и события будут отбрасываться через `select default` (предохранитель ОЗУ).
 func openLogWithRetry(path string) (*os.File, error) {
+	// (v8.6.2)
+	// Гарантируем существование директории лога.
+	// Это защищает от ситуации, когда комплекс обновлён, но main.go не был активирован
+	// и не создал целевую директорию для логов (например, /var/log/amberguard).
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, err
+	}
+
 	var f *os.File
 	var err error
 	for attempt := 0; attempt < 5; attempt++ {
@@ -245,6 +255,28 @@ type RawLogEntry struct {
 	ReadLarge uint32
 }
 
+// (v8.6.2)
+// RawPitAttackerEvent описывает событие паники воркера ловушки.
+// Генерируется при перехвате паники в defer recover() внутри handleIncomingBotCustom.
+// Содержит контекст атаки для анализа действий фаззеров и реальных хакеров.
+//
+// ИСПОЛЬЗУЕТСЯ: Для записи в `attackers_of_pit.log`.
+// ФОРМАТ (TSV): [0] Дата/Время \t [1] IP \t [2] Страна \t [3] Порт \t [4] Причина паники \t [5] Hex-слепок (32 байта)
+type RawPitAttackerEvent struct {
+	// Timestamp — точный момент паники.
+	Timestamp time.Time
+	// IP — IP-адрес атакующего.
+	IP string
+	// Country — страна источника атаки.
+	Country string
+	// Port — порт ловушки, на котором произошла паника.
+	Port int
+	// PanicReason — текст паники (параметр r из recover()).
+	PanicReason string
+	// HexPayload — первые 32 байта payload, который читал воркер, в hex-формате.
+	HexPayload string
+}
+
 // ============================================================================
 // ГЛОБАЛЬНЫЕ КАНАЛЫ: НЕБЛОКИРУЮЩИЕ ШИНЫ ДАННЫХ
 // ============================================================================
@@ -272,6 +304,12 @@ var (
 	// Буферизация: 5000 элементов.
 	// Потребитель: `ReportLogWriter`.
 	ReportChannel = make(chan RawLogEntry, 5000)
+
+	// (v8.6.2)
+	// PitAttackerChannel — шина для событий паники воркеров (фаззеры, хакеры).
+	// Буферизация: 5000 элементов.
+	// Потребитель: `PitAttackerLogWriter`.
+	PitAttackerChannel = make(chan RawPitAttackerEvent, 5000)
 )
 
 // ============================================================================
@@ -285,11 +323,20 @@ var (
 	droppedConnectionEvents uint64
 	// droppedReportEntries — число отброшенных тяжёлых профилей.
 	droppedReportEntries uint64
+	// droppedPitAttackerEvents — (v8.6.2) число отброшенных событий паники воркеров.
+	droppedPitAttackerEvents uint64
 	// connWriteLatencyMaxMs — максимум латентности писателя касаний (мс).
 	connWriteLatencyMaxMs uint64
 	// reportWriteLatencyMaxMs — максимум латентности писателя отчётов (мс).
 	reportWriteLatencyMaxMs uint64
 )
+
+// (v8.6.2)
+// GetPitAttackerHealth возвращает число отброшенных событий паники воркеров.
+// CONTRACT: read-only atomic; safe to call from TUI/audit goroutines.
+func GetPitAttackerHealth() uint64 {
+	return atomic.LoadUint64(&droppedPitAttackerEvents)
+}
 
 // GetLogHealth returns pipeline health counters:
 // (dropped connection events, dropped report entries,
@@ -379,6 +426,24 @@ func LogReportEntry(en RawLogEntry) {
 		// Предохранитель от переполнения ОЗУ.
 		// СПРИНТ 1 (E): дроп больше не молчаливый — учитывается атомарно.
 		atomic.AddUint64(&droppedReportEntries, 1)
+	}
+}
+
+// (v8.6.2)
+// LogPitAttackerEvent отправляет событие паники воркера в шину логгера.
+// Вызывается из блока defer recover() в handleIncomingBotCustom.
+//
+// НЕБЛОКИРУЮЩИЙ ВЫЗОВ: Если канал переполнен, событие отбрасывается.
+// Это предохранитель от переполнения ОЗУ при массовых атаках, вызывающих панику.
+func LogPitAttackerEvent(ev RawPitAttackerEvent) {
+	select {
+	case PitAttackerChannel <- ev:
+		// Событие успешно помещено в канал.
+		// Фоновый писатель подхватит его и запишет на диск.
+	default:
+		// Канал переполнен — событие отброшено.
+		// Предохранитель от переполнения ОЗУ.
+		atomic.AddUint64(&droppedPitAttackerEvents, 1)
 	}
 }
 
@@ -595,6 +660,86 @@ func ReportLogWriter(logFilePath string) {
 			f.Close()
 			newF, err := openLogWithRetry(logFilePath)
 			if err != nil {
+				continue
+			}
+			f = newF
+		}
+	}
+}
+
+// (v8.6.2)
+// PitAttackerLogWriter непрерывно считывает шину событий паники и пишет
+// их в специализированный лог-файл. Запускается как отдельная горутина.
+//
+// ЗАПУСК: `go tarpit.PitAttackerLogWriter(config.C.AttackersOfPitLog)`
+//
+// ФОРМАТ СТРОКИ (6 колонок через табуляцию):
+//
+//	[0] Дата/Время \t [1] Порт \t [2] IP \t [3] Страна \t [4] Причина паники \t [5] Hex-слепок (32 байта)
+//
+// ПРИМЕР СТРОКИ:
+//
+//	2026-11-02 14:30:05    192.168.1.100   Unknown    8080    runtime error: index out of range    5353482d322e302d4f70656e5353485f
+func PitAttackerLogWriter(logFilePath string) {
+	// АУДИТ v8.6.2: писатель не должен умирать при старте, если файл/директория временно недоступны.
+	// Вместо return — бесконечный retry-цикл с паузой 5 секунд.
+	var f *os.File
+	for {
+		var err error
+		f, err = openLogWithRetry(logFilePath)
+		if err == nil {
+			sys.LogAction("TARPIT", "PIT_ATTACKER_LOG_WRITER_START", "SUCCESS",
+				fmt.Sprintf(i18n.TrEvent("pit_attacker_log_writer.started"), logFilePath))
+			break
+		}
+		sys.LogAction("TARPIT", "PIT_ATTACKER_LOG_WRITER_START_FAILED", "RETRYING",
+			fmt.Sprintf(i18n.TrEvent("pit_attacker_log_writer.retry"), err))
+		time.Sleep(5 * time.Second)
+	}
+	defer f.Close()
+
+	// Обработка SIGHUP для корректной ротации логов.
+	sighupChan := make(chan os.Signal, 1)
+	signal.Notify(sighupChan, syscall.SIGHUP)
+	defer signal.Stop(sighupChan)
+
+	ticker := time.NewTicker(syncFlushInterval)
+	defer ticker.Stop()
+	dirty := false
+	writeCount := 0
+	flush := func() {
+		if dirty {
+			_ = f.Sync()
+			dirty = false
+			writeCount = 0
+		}
+	}
+	for {
+		select {
+		case event, ok := <-PitAttackerChannel:
+			if !ok {
+				flush()
+				return
+			}
+			timeStr := event.Timestamp.Format("2006-01-02 15:04:05")
+			// Формат: Дата/Время \t IP \t Страна \t Порт \t Причина паники \t Hex-слепок
+			logLine := fmt.Sprintf("%s\t%s\t%s\t%d\t%s\t%s\n",
+				timeStr, event.IP, event.Country, event.Port, event.PanicReason, event.HexPayload)
+			_, _ = f.WriteString(logLine)
+			dirty = true
+			writeCount++
+			if writeCount >= syncBatchSize {
+				flush()
+			}
+		case <-ticker.C:
+			flush()
+		case <-sighupChan:
+			// Ротация лога: сбрасываем буфер, закрываем старый fd, открываем новый.
+			flush()
+			f.Close()
+			newF, err := openLogWithRetry(logFilePath)
+			if err != nil {
+				// Не смогли переоткрыть — продолжаем со старым fd (лучше писать в старый, чем терять события).
 				continue
 			}
 			f = newF

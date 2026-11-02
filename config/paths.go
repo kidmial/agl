@@ -53,8 +53,9 @@ const (
 	MarkerMovedRuleType = DirLib + "/agl_moved_rule_type"
 
 	// Журналы подсистем
-	FileTarpitConnLog = DirLog + "/tarpit_connection.log" // Журнал подключений дегтярной ямы
-	FileTarpitRptLog  = DirLog + "/tarpit_report.log"     // Отчётный журнал дегтярной ямы
+	FileTarpitConnLog     = DirLog + "/tarpit_connection.log" // Журнал подключений дегтярной ямы
+	FileTarpitRptLog      = DirLog + "/tarpit_report.log"     // Отчётный журнал дегтярной ямы
+	FileAttackersOfPitLog = DirLog + "/attackers_of_pit.log"  // Журнал паник воркеров (фаззеры/хакеры) (v8.6.2)
 
 	// Бинарник и инвентари
 	FileBinary          = DirOpt + "/agl"                   // Исполняемый файл комплекса

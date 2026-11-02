@@ -42,15 +42,16 @@ type Config struct {
 	Lang string `json:"lang"` // Текущий язык интерфейса панели (ru/en)
 
 	// --- Абсолютные пути к лог-файлам и журналам системы ---
-	AuthLog          string `json:"auth_log"`
-	BtmpLog          string `json:"btmp_log"`
-	F2bLog           string `json:"f2b_log"`
-	UfwLog           string `json:"ufw_log"`
-	NginxRadioLog    string `json:"nginx_radio_log"`
-	ApacheLog        string `json:"apache_log"`
-	TarpitConnLog    string `json:"tarpit_conn_log"`
-	TarpitRptLog     string `json:"tarpit_rpt_log"`
-	AglLogarchiveDir string `json:"agl_logarchive_dir"` // РЕБРЕНДИНГ: Изменено под аббревиатуру agl_
+	AuthLog           string `json:"auth_log"`
+	BtmpLog           string `json:"btmp_log"`
+	F2bLog            string `json:"f2b_log"`
+	UfwLog            string `json:"ufw_log"`
+	NginxRadioLog     string `json:"nginx_radio_log"`
+	ApacheLog         string `json:"apache_log"`
+	TarpitConnLog     string `json:"tarpit_conn_log"`
+	TarpitRptLog      string `json:"tarpit_rpt_log"`
+	AttackersOfPitLog string `json:"attackers_of_pit_log"` // путь к логу паник воркеров (v8.6.2)
+	AglLogarchiveDir  string `json:"agl_logarchive_dir"`
 
 	// --- Директории назначения для резервного копирования ---
 	BackupRootDir string `json:"backup_root_dir"`
@@ -281,6 +282,9 @@ func LoadConfig(filePath string) error {
 	}
 	if local.TarpitRptLog == "" {
 		local.TarpitRptLog = FileTarpitRptLog
+	}
+	if local.AttackersOfPitLog == "" {
+		local.AttackersOfPitLog = FileAttackersOfPitLog // БЛОК 4.4: фолбэк на константу пути (v8.6.2)
 	}
 
 	// --- M3g (v8.1.3): миграция plaintext → хэш с затиранием plaintext ---

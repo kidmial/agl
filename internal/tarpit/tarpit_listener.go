@@ -230,13 +230,38 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 	// 1. ВЗВОД СЧЕТЧИКА (0 наносекунд CPU)
 	IncrementLiveBots()
 
-	// АУДИТ v8.6.2: защита от тихой смерти воркера при панике.
-	// Любая паника (nil-pointer, index out of range, syscall error) теперь логируется,
-	// а не убивает горутину молча. Это предотвращает 95-часовое молчание при крафтовых атаках.
+	// (v8.6.2) Переменные для перехвата контекста при панике (объявлены заранее для замыкания defer)
+	var clientIP string
+	var countryName string
+	var buffer []byte
+
+	// АУДИТ v8.6.2: защита от тихой смерти воркера при панике + логирование в attackers_of_pit.log
 	defer func() {
 		if r := recover(); r != nil {
 			sys.LogAction("TARPIT", "WORKER_PANIC", "RECOVERED",
 				fmt.Sprintf(i18n.TrEvent("worker.panic.recovered"), port, tarpitID, r))
+
+			// (v8.6.2) Формируем hex-слепок первых 32 байт буфера чтения
+			var hexPayload string
+			if len(buffer) > 0 {
+				limit := 32
+				if len(buffer) < limit {
+					limit = len(buffer)
+				}
+				hexPayload = fmt.Sprintf("%X", buffer[:limit])
+			} else {
+				hexPayload = "EMPTY"
+			}
+
+			// Отправляем событие в канал пит-атакующих
+			LogPitAttackerEvent(RawPitAttackerEvent{
+				Timestamp:   time.Now(),
+				Port:        port,
+				IP:          clientIP,
+				Country:     countryName,
+				PanicReason: fmt.Sprintf("%v", r),
+				HexPayload:  hexPayload,
+			})
 		}
 		// ОЧИСТКА (0 наносекунд CPU)
 		DecrementLiveBots()
@@ -253,16 +278,21 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 	}
 	sourcePort, _ := strconv.Atoi(portStr)
 
-	// Очистка IP от IPv6-префикса
-	clientIP := rawClientIP
+	// Очистка IP от IPv6-префикса (теперь присваивание, а не объявление)
+	clientIP = rawClientIP
 	if strings.HasPrefix(clientIP, "::ffff:") {
 		clientIP = strings.TrimPrefix(clientIP, "::ffff:")
 	}
 
+	startTime := time.Now()
+
+	sys.LogAction("TARPIT", "WORKER_START", "INFO",
+		fmt.Sprintf(i18n.TrEvent("worker.started"), port, clientIP, tarpitID))
+
 	// Эталонный объект времени для сквозного SIEM-хронометража
 	// Это момент ПЕРВОГО КАСАНИЯ ботом сокета ловушки.
 	// ОБНОВЛЕНО В v8.0.1.
-	startTime := time.Now()
+	startTime = time.Now()
 
 	// АУДИТ v8.6.2: логирование старта воркера для форензики.
 	// Позволяет отследить, когда воркер начал работу и сколько времени удерживал бота.
@@ -322,7 +352,7 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 
 	// Гео-идентификация источника атаки — второй эшелон.
 	// Выполняется ПОСЛЕ отправки баннера.
-	countryName := "Unknown"
+	countryName = "Unknown" // Теперь присваивание
 	if ipRegex.MatchString(clientIP) {
 		countryName = getCountryFromGeoTool(clientIP, config.C.GeoTool)
 	}
@@ -351,8 +381,8 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 	// без массивов, O(1) памяти на сессию.
 	currentTick := 0
 	behaviorTag := "PASSIVE_SCANNER"
-	closeReason := "TIMEOUT" // дефолт: сессию закрыли мы по таймеру
-	buffer := make([]byte, 1024)
+	closeReason := "TIMEOUT"    // дефолт: сессию закрыли мы по таймеру
+	buffer = make([]byte, 1024) // присваивание
 	// === Running-статистика IAT (интервалы между успешными чтениями) ===
 	// time.Now() здесь — vDSO clock_gettime, НЕ syscall: в горячем пути допустимо.
 	var lastRead time.Time
