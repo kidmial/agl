@@ -284,20 +284,17 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 		clientIP = strings.TrimPrefix(clientIP, "::ffff:")
 	}
 
-	startTime := time.Now()
-
-	sys.LogAction("TARPIT", "WORKER_START", "INFO",
-		fmt.Sprintf(i18n.TrEvent("worker.started"), port, clientIP, tarpitID))
-
 	// Эталонный объект времени для сквозного SIEM-хронометража
 	// Это момент ПЕРВОГО КАСАНИЯ ботом сокета ловушки.
 	// ОБНОВЛЕНО В v8.0.1.
-	startTime = time.Now()
+	startTime := time.Now()
 
-	// АУДИТ v8.6.2: логирование старта воркера для форензики.
+	// ================= АУДИТ СОБЫТИЙ ВОРКЕРА (v8.6.2) =================
+	// Логирование старта воркера для форензики.
 	// Позволяет отследить, когда воркер начал работу и сколько времени удерживал бота.
-	sys.LogAction("TARPIT", "WORKER_START", "INFO",
-		fmt.Sprintf(i18n.TrEvent("worker.started"), port, clientIP, tarpitID))
+	// sys.LogAction("TARPIT", "WORKER_START", "INFO",
+	// fmt.Sprintf(i18n.TrEvent("worker.started"), port, clientIP, tarpitID))
+	// // ================== АУДИТ СОБЫТИЙ ВОРКЕРА ======================
 
 	// tokenHex := fmt.Sprintf("%X_%d", startTime.UnixNano(), sourcePort)
 
@@ -556,14 +553,10 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 		ReadLarge: readLarge,
 	})
 
-	// АУДИТ v8.6.2: логирование завершения воркера для форензики.
+	// ================= АУДИТ СОБЫТИЙ ВОРКЕРА (v8.6.2) =================
+	// Логирование завершения воркера для форензики.
 	// Позволяет отследить, что воркер успешно завершил работу.
-	sys.LogAction("TARPIT", "WORKER_END", "SUCCESS",
-		fmt.Sprintf("Worker completed: port=%d, ip=%s, behavior=%s, closeReason=%s, duration=%ds",
-			port, clientIP, behaviorTag, closeReason, int(realTrapped)))
-
-	// АУДИТ v8.6.2: логирование завершения воркера для форензики.
-	sys.LogAction("TARPIT", "WORKER_END", "SUCCESS",
-		fmt.Sprintf(i18n.TrEvent("worker.completed"), port, clientIP, behaviorTag, closeReason, int(realTrapped)))
-
+	// sys.LogAction("TARPIT", "WORKER_END", "SUCCESS",
+	// 	fmt.Sprintf(i18n.TrEvent("worker.completed"), port, clientIP, behaviorTag, closeReason, int(realTrapped)))
+	// // ================== АУДИТ СОБЫТИЙ ВОРКЕРА ======================
 }
