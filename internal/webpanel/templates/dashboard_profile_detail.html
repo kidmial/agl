@@ -13,15 +13,23 @@
     <!-- Основная информация -->
     <div class="grid">
         <div class="card">
-            <div class="metric-label">Состояние</div>
-            <div class="metric metric-md" id="profileState">
-                {{ if eq .Profile.State "ACTIVE" }}<span class="text-green">{{ .Profile.State }}</span>
-                {{ else if eq .Profile.State "LOW_CONFIDENCE" }}<span class="text-amber">{{ .Profile.State }}</span>
-                {{ else if eq .Profile.State "EXPIRED" }}<span class="text-red">{{ .Profile.State }}</span>
-                {{ else if eq .Profile.State "MERGED" }}<span class="text-blue">{{ .Profile.State }}</span>
-                {{ else }}{{ .Profile.State }}{{ end }}
+            <div class="metric-label">Состояние и уверенность</div>
+            <div class="state-confidence-row">
+                <div class="metric metric-md" id="profileState">
+                    {{ if eq .Profile.State "ACTIVE" }}<span class="text-green">{{ .Profile.State }}</span>
+                    {{ else if eq .Profile.State "LOW_CONFIDENCE" }}<span class="text-amber">{{ .Profile.State }}</span>
+                    {{ else if eq .Profile.State "EXPIRED" }}<span class="text-red">{{ .Profile.State }}</span>
+                    {{ else if eq .Profile.State "MERGED" }}<span class="text-blue">{{ .Profile.State }}</span>
+                    {{ else }}{{ .Profile.State }}{{ end }}
+                </div>
+                <div class="confidence-value"><span id="profileConfidence">{{ .Profile.Confidence }}</span>%</div>
+                <div class="progress-bar progress-bar--inline" id="confidenceBar" style="--p: {{ .Profile.Confidence }}%">
+                    <div class="progress-bar__fill"></div>
+                </div>
             </div>
-            <div class="text-muted card-macrometric row">Уверенность:<div class="text-primary"><span id="profileConfidence">{{ .Profile.Confidence }}</span>%</div> | Риск склейки:<div class="text-primary"><span id="profileFPRisk">{{ .Profile.FalsePositiveRisk }}</span></div></div>
+            <div class="text-muted card-macrometric card-macrometric--bare row">
+                Риск склейки:<div class="text-primary"><span id="profileFPRisk">{{ .Profile.FalsePositiveRisk }}</span></div>
+            </div>
         </div>
         <div class="card">
             <div class="metric-label">Временной охват</div>
@@ -36,40 +44,63 @@
     </div>
 
     <!-- Угроза и Прогноз -->
-    <div class="grid" style="margin-top: 20px;">
+    <div class="section-divider"></div>
+    <div class="grid">
         <div class="card">
             <div class="metric-label">Текущая фаза (Алг.3)</div>
             <div class="metric metric-sm phase-text" id="profilePhase">{{ if .Profile.CurrentPhase }}{{ .Profile.CurrentPhase }}{{ else }}—{{ end }}</div>
-            <div class="text-muted card-macrometric row">Уровень угрозы:<div class="text-primary"><span id="profileThreatLevel">{{ if .Profile.ThreatLevel }}{{ .Profile.ThreatLevel }}{{ else }}—{{ end }}</span></div></div>
+            <div class="text-muted card-macrometric row">
+                Уровень угрозы:
+                <div>
+                    {{ if .Profile.ThreatLevel }}
+                        {{ if eq .Profile.ThreatLevel "UNKNOWN" }}
+                            <span id="profileThreatLevel" class="danger-level danger-level--unknown">{{ .Profile.ThreatLevel }}</span>
+                        {{ else if eq .Profile.ThreatLevel "LOW" }}
+                            <span id="profileThreatLevel" class="danger-level danger-level--low">{{ .Profile.ThreatLevel }}</span>
+                        {{ else if eq .Profile.ThreatLevel "MEDIUM" }}
+                            <span id="profileThreatLevel" class="danger-level danger-level--medium">{{ .Profile.ThreatLevel }}</span>
+                        {{ else if eq .Profile.ThreatLevel "HIGH" }}
+                            <span id="profileThreatLevel" class="danger-level danger-level--high">{{ .Profile.ThreatLevel }}</span>
+                        {{ else }}
+                            <span id="profileThreatLevel" class="danger-level">{{ .Profile.ThreatLevel }}</span>
+                        {{ end }}
+                    {{ else }}
+                        <span id="profileThreatLevel">—</span>
+                    {{ end }}
+                </div>
+            </div>
         </div>
         <div class="card">
             <div class="metric-label">Прогноз (Алг.4)</div>
             <div class="metric metric-sm prediction-text" id="profilePredVector">{{ if .Profile.PredictedVector }}{{ .Profile.PredictedVector }}{{ else }}—{{ end }}</div>
             <div class="text-muted card-macrometric row">Вероятность:<div class="text-primary"><span id="profilePredProb">{{ if .Profile.PredictedProbability }}{{ .Profile.PredictedProbability }}{{ else }}—{{ end }}</span></div></div>
         </div>
+    </div>
+
+    <!-- Сетевые свидетельства: стек-отпечаток + дрейф токена -->
+    <div class="grid" style="margin-top: 20px;">
         <div class="card">
-            <div class="metric-label">Дрейф времени (Алг.2)</div>
+            <h3>Сетевой отпечаток (Stack Fingerprint)</h3>
+            <div id="stackValidBlock" style="{{ if not .Profile.StackValid }}display:none;{{ end }}">
+                <div class="kv-list">
+                    <div class="kv-row"><span class="metric-label">MSS:</span><span class="text-primary" id="stackMSS">{{ .Profile.Stack.MSS }}</span></div>
+                    <div class="kv-row"><span class="metric-label">RcvSpace:</span><span class="text-primary" id="stackRcvSpace">{{ .Profile.Stack.RcvSpace }}</span></div>
+                    <div class="kv-row"><span class="metric-label">SndWscale:</span><span class="text-primary" id="stackSndWscale">{{ .Profile.Stack.SndWscale }}</span></div>
+                    <div class="kv-row"><span class="metric-label">RcvWscale:</span><span class="text-primary" id="stackRcvWscale">{{ .Profile.Stack.RcvWscale }}</span></div>
+                </div>
+            </div>
+            <p id="stackMissingMsg" class="text-muted card-macrometric row" style="{{ if .Profile.StackValid }}display:none;{{ end }}">Сетевой отпечаток неполный или отсутствует.</p>
+        </div>
+        <div class="card">
+            <h3>Дрейф времени (Алг.2)</h3>
             <div class="metric metric-sm" id="profileDrift">{{ if .Profile.TokenDriftValid }}{{ .Profile.TokenDriftMs }} мс{{ else }}—{{ end }}</div>
             <div class="text-muted card-macrometric row">Порт из токена:<div class="text-primary"><span id="profileClientPort">{{ if .Profile.TokenClientPort }}{{ .Profile.TokenClientPort }}{{ else }}—{{ end }}</span></div></div>
         </div>
     </div>
 
-    <!-- Сетевой стек -->
-    <div class="card" style="margin-top: 20px;">
-        <h3>Сетевой отпечаток (Stack Fingerprint)</h3>
-        <div id="stackValidBlock" style="{{ if not .Profile.StackValid }}display:none;{{ end }}">
-            <div class="grid" style="margin-top: 10px;">
-                <div><span class="metric-label">MSS:</span><span class="text-primary" id="stackMSS">{{ .Profile.Stack.MSS }}</span></div>
-                <div><span class="metric-label">RcvSpace:</span><span class="text-primary" id="stackRcvSpace">{{ .Profile.Stack.RcvSpace }}</span></div>
-                <div><span class="metric-label">SndWscale:</span><span class="text-primary" id="stackSndWscale">{{ .Profile.Stack.SndWscale }}</span></div>
-                <div><span class="metric-label">RcvWscale:</span><span class="text-primary" id="stackRcvWscale">{{ .Profile.Stack.RcvWscale }}</span></div>
-            </div>
-        </div>
-        <p id="stackMissingMsg" class="text-muted card-macrometric row" style="{{ if .Profile.StackValid }}display:none;{{ end }}">Сетевой отпечаток неполный или отсутствует.</p>
-    </div>
-
     <!-- Топ IP и Страны -->
-    <div class="grid" style="margin-top: 20px;">
+    <div class="section-divider"></div>
+    <div class="grid">
         <div class="card">
             <h3>Топ IP адресов (<span id="ipsCountHeader">{{ .Profile.UniqueIPCount }}</span>)</h3>
             <div class="table-scroll">
@@ -81,10 +112,10 @@
                         </tr>
                     </thead>
                     <tbody id="ipsTableBody">
-                        {{ range .Profile.TopIPs 10 }}
-                        <tr>
-                            <td><code><agl-private>{{ .Key }}</agl-private></code></td>
-                            <td>{{ .Count }}</td>
+                        {{ range $i, $row := .Profile.TopIPs 10 }}
+                        <tr{{ if eq $i 0 }} class="row-top"{{ end }}>
+                            <td><code><agl-private>{{ $row.Key }}</agl-private></code></td>
+                            <td>{{ $row.Count }}</td>
                         </tr>
                         {{ else }}
                         <tr>
@@ -106,10 +137,10 @@
                         </tr>
                     </thead>
                     <tbody id="countriesTableBody">
-                        {{ range .Profile.TopCountries 10 }}
-                        <tr>
-                            <td>{{ .Key }}</td>
-                            <td>{{ .Count }}</td>
+                        {{ range $i, $row := .Profile.TopCountries 10 }}
+                        <tr{{ if eq $i 0 }} class="row-top"{{ end }}>
+                            <td>{{ $row.Key }}</td>
+                            <td>{{ $row.Count }}</td>
                         </tr>
                         {{ else }}
                         <tr>
@@ -123,30 +154,32 @@
     </div>
 
     <!-- Метрики удержания и RTT -->
-    <div class="grid" style="margin-top: 20px;">
+    <div class="section-divider"></div>
+    <div class="grid">
         <div class="card">
             <h3>Метрики удержания</h3>
-            <div class="grid" style="margin-top: 10px;">
-                <div><span class="metric-label">Средний план:</span><span class="text-primary" id="holdPlanned"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgPlannedHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
-                <div><span class="metric-label">Средний факт:</span><span class="text-primary" id="holdActual"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgActualHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
-                <div><span class="metric-label">Всего сессий:</span><span id="holdCount">{{ .Profile.HoldCount }}</span></div>
+            <div class="kv-list">
+                <div class="kv-row"><span class="metric-label">Средний план:</span><span class="text-primary" id="holdPlanned"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgPlannedHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
+                <div class="kv-row"><span class="metric-label">Средний факт:</span><span class="text-primary" id="holdActual"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgActualHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
+                <div class="kv-row"><span class="metric-label">Всего сессий:</span><span id="holdCount">{{ .Profile.HoldCount }}</span></div>
             </div>
         </div>
         <div class="card">
             <h3>Сетевая задержка (RTT)</h3>
-            <div class="grid" style="margin-top: 10px;">
-                <div><span class="metric-label">Средний:</span><span class="text-primary" id="rttAvg">{{ if .Profile.RTTCount }}{{ printf "%.0f" .Profile.RTTAvgMs }} мс{{ else }}—{{ end }}</span></div>
-                <div><span class="metric-label">Мин:</span><span class="text-primary" id="rttMin">{{ if .Profile.RTTCount }}{{ .Profile.RTTMinMs }} мс{{ else }}—{{ end }}</span></div>
-                <div><span class="metric-label">Макс:</span><span class="text-primary" id="rttMax">{{ if .Profile.RTTCount }}{{ .Profile.RTTMaxMs }} мс{{ else }}—{{ end }}</span></div>
+            <div class="kv-list">
+                <div class="kv-row"><span class="metric-label">Средний:</span><span class="text-primary" id="rttAvg">{{ if .Profile.RTTCount }}{{ printf "%.0f" .Profile.RTTAvgMs }} мс{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">Мин:</span><span class="text-primary" id="rttMin">{{ if .Profile.RTTCount }}{{ .Profile.RTTMinMs }} мс{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">Макс:</span><span class="text-primary" id="rttMax">{{ if .Profile.RTTCount }}{{ .Profile.RTTMaxMs }} мс{{ else }}—{{ end }}</span></div>
             </div>
         </div>
     </div>
 
     <!-- Доказательства и Причины -->
-    <div class="grid" style="margin-top: 20px;">
+    <div class="section-divider"></div>
+    <div class="grid">
         <div class="card">
             <h3>Доказательства (Evidence)</h3>
-            <ul class="details-list" id="evidenceList">
+            <ul class="details-list details-list--evidence" id="evidenceList">
                 {{ range .Profile.Evidence }}
                 <li>{{ . }}</li>
                 {{ else }}
@@ -156,7 +189,7 @@
         </div>
         <div class="card">
             <h3>Причины и оговорки (Reasons)</h3>
-            <ul class="details-list" id="reasonsList">
+            <ul class="details-list details-list--reasons" id="reasonsList">
                 {{ range .Profile.Reasons }}
                 <li>{{ . }}</li>
                 {{ else }}
@@ -196,10 +229,14 @@
                     const p = data.data;
 
                     // Индикатор свежести: момент формирования снимка данных НА СЕРВЕРЕ.
-                    // Единая витринная локация со всеми остальными метками отчёта.
+                // Единая витринная локация со всеми остальными метками отчёта.
                     setText('reportUpdateTime', 'Отчёт обновлён: ' + data.server_time);
 
-                    // 1. Текстовые метрики
+                    // Форматтеры объявлены ДО первого использования (const — TDZ!)
+                    const fmtHold = (val, count) => count > 0 ? Math.round(val) + ' сек' : '—';
+                    const fmtRtt = (val, count) => count > 0 ? Math.round(val) + ' мс' : '—';
+
+                    // 1. Текстовые метрики (публичные поля)
                     setText('profileConfidence', p.confidence);
                     setText('profileFPRisk', p.false_positive_risk);
                     setText('profileTimeframe', p.first_event_time + ' — ' + p.last_event_time);
@@ -208,28 +245,20 @@
                     setText('profileValidCount', p.valid_event_count);
                     setText('profileInvalidCount', p.invalid_event_count);
                     setText('profilePhase', p.current_phase || '—');
-                    setText('profileThreatLevel', p.threat_level || '—');
                     setText('profilePredVector', p.predicted_vector || '—');
                     setText('profilePredProb', p.predicted_probability || '—');
                     setText('profileDrift', p.token_drift_valid ? p.token_drift_ms + ' мс' : '—');
                     setText('profileClientPort', p.token_client_port || '—');
                     setText('ipsCountHeader', p.unique_ip_count);
                     setText('countriesCountHeader', p.unique_country_count);
-                    setText('holdCount', p.hold_count);
 
-                    // Форматирование удержания (сохраняем тег <agl-private> для работы режима приватности)
-                    const fmtHold = (val, count) => count > 0 ? Math.round(val) + ' сек' : '—';
-                    setPrivText('holdPlanned', fmtHold(p.avg_planned_hold, p.hold_count));
-                    setPrivText('holdActual', fmtHold(p.avg_actual_hold, p.hold_count));
-                    setPrivText('holdCount', p.hold_count);
+                    // Прогресс-бар уверенности — ТОЛЬКО внутри .then, где живёт p
+                    const confBar = document.getElementById('confidenceBar');
+                    if (confBar) {
+                        confBar.style.setProperty('--p', p.confidence + '%');
+                    }
 
-                    // Форматирование RTT
-                    const fmtRtt = (val, count) => count > 0 ? Math.round(val) + ' мс' : '—';
-                    setText('rttAvg', fmtRtt(p.rtt_avg_ms, p.rtt_count));
-                    setText('rttMin', fmtRtt(p.rtt_min_ms, p.rtt_count));
-                    setText('rttMax', fmtRtt(p.rtt_max_ms, p.rtt_count));
-
-                    // Состояние (с сохранением цветовых классов)
+                    // Состояние (метрика с цветовым кодом, безопасный способ без innerHTML)
                     const stateEl = document.getElementById('profileState');
                     if (stateEl) {
                         let colorClass = 'text-muted';
@@ -237,8 +266,42 @@
                         else if (p.state === 'LOW_CONFIDENCE') colorClass = 'text-amber';
                         else if (p.state === 'EXPIRED') colorClass = 'text-red';
                         else if (p.state === 'MERGED') colorClass = 'text-blue';
-                        stateEl.innerHTML = `<span class="${colorClass}">${p.state}</span>`;
+
+                        const span = document.createElement('span');
+                        span.className = colorClass;
+                        span.textContent = p.state || 'UNKNOWN';
+
+                        stateEl.textContent = '';
+                        stateEl.appendChild(span);
                     }
+
+                    // Уровень угрозы (через danger-level pill)
+                    const threatEl = document.getElementById('profileThreatLevel');
+                    if (threatEl) {
+                        const threat = p.threat_level;
+                        if (threat) {
+                            let pillClass = 'danger-level';
+                            if (threat === 'UNKNOWN') pillClass += ' danger-level--unknown';
+                            else if (threat === 'LOW') pillClass += ' danger-level--low';
+                            else if (threat === 'MEDIUM') pillClass += ' danger-level--medium';
+                            else if (threat === 'HIGH') pillClass += ' danger-level--high';
+                            threatEl.className = pillClass;
+                            threatEl.textContent = threat;
+                        } else {
+                            threatEl.className = '';
+                            threatEl.textContent = '—';
+                        }
+                    }
+
+                    // Приватные поля (только setPrivText; fmtHold уже объявлен выше)
+                    setPrivText('holdPlanned', fmtHold(p.avg_planned_hold, p.hold_count));
+                    setPrivText('holdActual', fmtHold(p.avg_actual_hold, p.hold_count));
+                    // setPrivText('holdCount', p.hold_count);
+
+                    // RTT
+                    setText('rttAvg', fmtRtt(p.rtt_avg_ms, p.rtt_count));
+                    setText('rttMin', fmtRtt(p.rtt_min_ms, p.rtt_count));
+                    setText('rttMax', fmtRtt(p.rtt_max_ms, p.rtt_count));
 
                     // Сетевой стек
                     const stackBlock = document.getElementById('stackValidBlock');
@@ -257,8 +320,9 @@
                         }
                     }
 
-                    // 2. Таблица Top IP
-                    rebuildSimpleTable('ipsTableBody', p.top_ips, 2, (tr, item) => {
+                    // 2. Таблица Top IP (первая строка подсвечена)
+                    rebuildSimpleTable('ipsTableBody', p.top_ips, 2, (tr, item, index) => {
+                        if (index === 0) tr.className = 'row-top';
                         const tdIP = document.createElement('td');
                         const code = document.createElement('code');
                         code.appendChild(privEl(item.key));
@@ -267,8 +331,9 @@
                         tr.appendChild(cellText(item.count));
                     });
 
-                    // 3. Таблица Top Countries
-                    rebuildSimpleTable('countriesTableBody', p.top_countries, 2, (tr, item) => {
+                    // 3. Таблица Top Countries (первая строка подсвечена)
+                    rebuildSimpleTable('countriesTableBody', p.top_countries, 2, (tr, item, index) => {
+                        if (index === 0) tr.className = 'row-top';
                         tr.appendChild(cellText(item.key));
                         tr.appendChild(cellText(item.count));
                     });
@@ -279,6 +344,7 @@
                 })
                 .catch(err => console.error('Auto-refresh error (profile):', err));
         }
+
 
         // --- Мини-хелперы ---
         function privEl(text) {
@@ -316,9 +382,9 @@
                 tr.appendChild(td);
                 fragment.appendChild(tr);
             } else {
-                rows.forEach(item => {
+                rows.forEach((item, index) => {
                     const tr = document.createElement('tr');
-                    rowBuilder(tr, item);
+                    rowBuilder(tr, item, index);
                     fragment.appendChild(tr);
                 });
             }
