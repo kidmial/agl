@@ -28,6 +28,7 @@
             --bg-tertiary: #1e293b;
             --bg-elevated: #1a1f2e;
 
+            --text-active: #ffffff;
             --text-metric: #f1f5f9;
             --text-primary: #e2e8f0;
             --text-secondary: #94a3b8;
@@ -66,6 +67,7 @@
             --bg-tertiary: #f1f5f9;
             --bg-elevated: #ffffff;
 
+            --text-active: #000000;
             --text-metric: #0b1220;
             --text-primary: #111a30;
             --text-secondary: #475569;
@@ -162,7 +164,7 @@
         }
 
         /* На широких экранах: логотип слева, меню справа (в одну линию) */
-        @media (min-width: 1000px) {
+        @media (min-width: 1100px) {
             .header {
                 flex-direction: row;
                 justify-content: space-between;
@@ -193,7 +195,7 @@
         }
 
         /* На широких экранах меню не нуждается в скролле */
-        @media (min-width: 1000px) {
+        @media (min-width: 1100px) {
             .nav {
                 width: auto;
                 overflow-x: visible;
@@ -302,13 +304,12 @@
         table {
             width: 100%;
             border-collapse: separate;
-            /* обязательно для sticky-шапки */
+            /* для sticky-шапки */
             border-spacing: 0;
             font-size: 13px;
             background: var(--bg-secondary);
             border: 1px solid var(--border-primary);
             border-radius: 8px;
-            /* overflow: hidden НАМЕРЕННО отсутствует: он ломает position: sticky */
         }
 
         /* Скругления углов через угловые ячейки (компенсация за overflow) */
@@ -374,7 +375,7 @@
             }
         }
 
-        /* Изменённая строка — зелёная вспышка (более сдержанная) */
+        /* Изменённая строка — зелёная вспышка */
         @keyframes rowFlashUpdate {
             0% {
                 background: color-mix(in srgb, var(--accent-green) 22%, transparent);
@@ -403,12 +404,11 @@
         }
 
         /* --- Контейнер прокрутки таблиц --- */
-        /* На десктопе НЕ скролл-контейнер: sticky-шапки работают как прежде */
         .table-scroll {
             min-width: 0;
         }
 
-        @media (max-width: 1000px) {
+        @media (max-width: 1100px) {
             th {
                 position: relative;
                 top: 0px;
@@ -500,6 +500,7 @@
         .nav-link.active {
             background: var(--bg-tertiary);
             border-color: var(--accent-green-hover);
+            color: var(--text-active);
         }
 
         .nav-link.active:hover {
@@ -585,7 +586,7 @@
             justify-content: center;
         }
 
-        /* SVG-иконки в кнопках: убираем inline-baseline и "хвост" строки */
+        /* SVG-иконки в кнопках */
         .nav-link svg {
             display: block;
             width: 16px;
@@ -605,6 +606,26 @@
         body:has(#theme-switch:checked) .theme-icon-light,
         body:has(#theme-switch:checked) .theme-text-light {
             display: inline;
+        }
+
+        /* --- Auto-refresh pulse animation svg --- */
+        @keyframes pulse-refresh-svg {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Анимация SVG внутри активного span */
+        .autorefresh-icon-active.pulse svg,
+        .autorefresh-icon-paused.pulse svg {
+            animation: pulse-refresh-svg 1s ease-in-out;
+            transform-origin: center center;
+            animation-iteration-count: 1;
+            animation-fill-mode: forwards;
         }
 
         /* --- Privacy mode --- */
@@ -763,7 +784,7 @@
         /* ==========================================================================
            9. RESPONSIVE DESIGN
            ========================================================================== */
-        @media (max-width: 1000px) {
+        @media (max-width: 1100px) {
             .header {
                 padding: 12px 16px;
             }

@@ -262,9 +262,21 @@ func renderDashboard(w http.ResponseWriter, templateName string, prefix string, 
 		hourStatsDesc[len(convertedHourStats)-1-i] = hs
 	}
 
+	// Определяем текущую страницу для подсветки меню
+	var currentPagePath string
+	switch templateName {
+	case "dashboard_overview":
+		currentPagePath = "dashboard/overview"
+	case "dashboard_fingerprints":
+		currentPagePath = "dashboard/fingerprints"
+	case "dashboard_tarpit":
+		currentPagePath = "dashboard/tarpit"
+	}
+
 	// 3. Формируем данные для шаблона.
 	data := map[string]interface{}{
 		"Prefix":          prefix,
+		"CurrentPagePath": currentPagePath,
 		"ProfileTotal":    profileCounters.Profiles,
 		"StoreCounters":   convertedCounters,
 		"ProfileCounters": profileCounters,
@@ -351,6 +363,7 @@ func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix stri
 	// 3. Формируем данные для шаблона.
 	data := map[string]interface{}{
 		"Prefix":          prefix,
+		"CurrentPagePath": "dashboard/siem",
 		"ProfileTotal":    profileCounters.Profiles,
 		"StoreCounters":   convertedCounters,
 		"ProfileCounters": profileCounters,
@@ -421,6 +434,7 @@ func renderDashboardVitals(w http.ResponseWriter, templateName string, prefix st
 
 	data := map[string]interface{}{
 		"Prefix":          prefix,
+		"CurrentPagePath": "dashboard/vitals",
 		"ProfileTotal":    profileCounters.Profiles,
 		"StoreCounters":   convertedCounters,
 		"ProfileCounters": profileCounters,
@@ -446,14 +460,15 @@ func renderDashboardVitals(w http.ResponseWriter, templateName string, prefix st
 func renderDashboardReports(w http.ResponseWriter, templateName string, prefix string, rng string, countries []analytics.CountryReport, ips []analytics.IPReport, macro analytics.MacroReport, traps []analytics.TrapReport) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	data := map[string]interface{}{
-		"Prefix":       prefix,
-		"ProfileTotal": analytics.GlobalManager.Counters().Profiles,
-		"Range":        rng,
-		"Countries":    countries,
-		"IPs":          ips,
-		"Macro":        macro,
-		"Traps":        traps,
-		"Version":      buildinfo.Version,
+		"Prefix":          prefix,
+		"CurrentPagePath": "dashboard/reports",
+		"ProfileTotal":    analytics.GlobalManager.Counters().Profiles,
+		"Range":           rng,
+		"Countries":       countries,
+		"IPs":             ips,
+		"Macro":           macro,
+		"Traps":           traps,
+		"Version":         buildinfo.Version,
 	}
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
 		http.Error(w, "Template execution error", http.StatusInternalServerError)

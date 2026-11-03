@@ -322,11 +322,12 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		// имеют pointer-receiver. Значение, полученное из map, не addressable,
 		// и шаблон не видит такие методы — ExecuteTemplate прерывался ошибкой.
 		data := map[string]interface{}{
-			"Prefix":     prefix,
-			"Profile":    &profile,
-			"Found":      ok,
-			"Version":    buildinfo.Version,
-			"ServerTime": serverTime, // Момент формирования страницы (витринная локация)
+			"Prefix":          prefix,
+			"CurrentPagePath": "dashboard/profile",
+			"Profile":         &profile,
+			"Found":           ok,
+			"Version":         buildinfo.Version,
+			"ServerTime":      serverTime, // Момент формирования страницы (витринная локация)
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

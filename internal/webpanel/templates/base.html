@@ -28,15 +28,15 @@
             <span class="logo"><span class="amber">Amber</span>&nbsp;<span class="glab">Guard Laboratory</span></span>
         </div>
         <nav class="nav">
-            <a href="{{.Prefix}}dashboard/overview" class="nav-link">Обзор</a>
-            <a href="{{.Prefix}}dashboard/vitals" class="nav-link">Динамика</a>
-            <a href="{{.Prefix}}dashboard/fingerprints" class="nav-link">Отпечатки</a>
-            <a href="{{.Prefix}}dashboard/tarpit" class="nav-link">Алгоритмы</a>
-            <a href="{{.Prefix}}dashboard/siem" class="nav-link">SIEM</a>
-            <a href="{{.Prefix}}dashboard/reports" class="nav-link accent">Отчёты</a>
+            <a href="{{.Prefix}}dashboard/overview" class="nav-link {{if or (eq .CurrentPagePath "dashboard/overview") (eq .CurrentPagePath "dashboard/profile")}}active{{end}}">Обзор</a>
+            <a href="{{.Prefix}}dashboard/vitals" class="nav-link {{if eq .CurrentPagePath "dashboard/vitals"}}active{{end}}">Динамика</a>
+            <a href="{{.Prefix}}dashboard/fingerprints" class="nav-link {{if eq .CurrentPagePath "dashboard/fingerprints"}}active{{end}}">Отпечатки</a>
+            <a href="{{.Prefix}}dashboard/tarpit" class="nav-link {{if eq .CurrentPagePath "dashboard/tarpit"}}active{{end}}">Алгоритмы</a>
+            <a href="{{.Prefix}}dashboard/siem" class="nav-link {{if eq .CurrentPagePath "dashboard/siem"}}active{{end}}">SIEM</a>
+            <a href="{{.Prefix}}dashboard/reports" class="nav-link accent {{if eq .CurrentPagePath "dashboard/reports"}}active{{end}}">Отчёты</a>
 
             <label for="autorefresh-switch" class="nav-link autorefresh-toggle"
-                title="Автообновление телеметрии каждые 30 секунд">
+                title="Автообновление телеметрии каждые 10 секунд">
                 <span class="autorefresh-icon-active" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -239,7 +239,7 @@
             // AUTO-REFRESH (живые страницы)
             // ==========================================================================
             (function () {
-                const AUTOREFRESH_INTERVAL = 10000; // 30 секунд
+                const AUTOREFRESH_INTERVAL = 10000; // 10 секунд
                 const cb = document.getElementById('autorefresh-switch');
 
                 // Восстановление состояния
@@ -279,7 +279,7 @@
                     // Обновляем статус в dashboard_overview
                     const statusEl = document.getElementById('autorefresh-status');
                     if (statusEl) {
-                        statusEl.textContent = cb.checked ? 'активно (30 сек)' : 'пауза';
+                        statusEl.textContent = cb.checked ? 'активно (10 сек)' : 'пауза';
                         statusEl.className = cb.checked ? 'text-green' : 'text-amber';
                     }
                 }
@@ -304,6 +304,44 @@
                 updateAutorefreshUI();
                 if (cb.checked) startAutorefresh();
             })();
+
+            // ==========================================================================
+            // Визуальный фидбек автообновления (Event-driven)
+            // ==========================================================================
+            window.addEventListener('agl:autorefresh', () => {
+                // Находим активную иконку (ту, которая видна)
+                const activeIcon = document.querySelector('.autorefresh-icon-active');
+                const pausedIcon = document.querySelector('.autorefresh-icon-paused');
+                
+                // Определяем, какая иконка сейчас видна
+                let targetIcon = null;
+                if (activeIcon && activeIcon.style.display !== 'none') {
+                    targetIcon = activeIcon;
+                } else if (pausedIcon && pausedIcon.style.display !== 'none') {
+                    targetIcon = pausedIcon;
+                }
+                
+                if (!targetIcon) return;
+                
+                // Если анимация уже запущена, просто перезапускаем её через reflow
+                if (targetIcon.classList.contains('pulse')) {
+                    targetIcon.classList.remove('pulse');
+                    void targetIcon.offsetWidth; // reflow
+                    targetIcon.classList.add('pulse');
+                    return;
+                }
+                
+                // Добавляем класс с анимацией
+                targetIcon.classList.add('pulse');
+                
+                // Слушаем завершение анимации
+                const handleAnimationEnd = () => {
+                    targetIcon.classList.remove('pulse');
+                    targetIcon.removeEventListener('animationend', handleAnimationEnd);
+                };
+                
+                targetIcon.addEventListener('animationend', handleAnimationEnd);
+            });
 
             // ==========================================================================
             // CONCEALMENT OF PERSONAL DATA
