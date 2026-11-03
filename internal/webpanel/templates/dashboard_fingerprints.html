@@ -20,8 +20,7 @@
 <!-- 2. Топ TCP-отпечатков -->
 <div class="card" style="margin-top: 20px;">
     <h3 class="mb-0">Топ TCP-отпечатков (p0f-логика)</h3>
-    <p class="text-muted">Уникальные комбинации MSS|RcvSpace|SndWscale|RcvWscale идентифицируют ОС. Агрегат за 24 часа.
-    </p>
+    <p class="text-muted">Уникальные комбинации MSS|RcvSpace|SndWscale|RcvWscale идентифицируют ОС. Агрегат за 24 часа.</p>
     <div class="table-scroll">
         <table>
             <thead>
@@ -47,6 +46,15 @@
     </div>
 </div>
 
+<!-- 4. RTT динамика (Перенесено из dashboard_tarpit) -->
+<div class="card" style="margin-top: 20px;">
+    <h3 class="mb-0">Средний RTT по часам (мс)</h3>
+    <p class="text-muted">Динамика сетевой задержки (Round Trip Time).</p>
+    <div class="chart-container">
+        <canvas id="rttChart"></canvas>
+    </div>
+</div>
+
 <script>
     // Вспомогательная функция для честной прозрачности (rgba)
     function hexToRgba(hex, alpha) {
@@ -59,259 +67,287 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         const colors = AGLCharts.getThemeColors();
-        const hourStats = {{ .HourStats | json
-    }};
+        const hourStats = {{ .HourStats | json }};
 
-    const labels = hourStats.map(hs => {
-        const date = new Date(hs.hour);
-        return date.getHours().toString().padStart(2, '0') + ':00';
-    });
-
-    // ==========================================================================
-    // 1. ГИСТОГРАММА РАСПРЕДЕЛЕНИЯ ЧТЕНИЙ
-    // ==========================================================================
-    const readTotals = { 'tiny (0-64)': 0, 'small (65-256)': 0, 'medium (257-1024)': 0, 'large (>1024)': 0 };
-    hourStats.forEach(hs => {
-        (hs.read_distribution || []).forEach(item => {
-            if (readTotals[item.key] !== undefined) {
-                readTotals[item.key] += item.count;
-            }
+        const labels = hourStats.map(hs => {
+            const date = new Date(hs.hour);
+            return date.getHours().toString().padStart(2, '0') + ':00';
         });
-    });
 
-    window.readChart = AGLCharts.createChart('readChart', 'bar', {
-        labels: Object.keys(readTotals),
-        datasets: [{
-            label: 'Количество чтений',
-            data: Object.values(readTotals),
-            backgroundColor: [
-                hexToRgba(colors.green, 0.7),
-                hexToRgba(colors.blue, 0.7),
-                hexToRgba(colors.amber, 0.7),
-                hexToRgba(colors.red, 0.7)
-            ]
-        }]
-    });
-
-    // ==========================================================================
-    // 2. ТАБЛИЦА ТОП TCP-ОТПЕЧАТКОВ (Безопасная генерация)
-    // ==========================================================================
-    const fpTotals = {};
-    hourStats.forEach(hs => {
-        (hs.top_stack_fingerprints || []).forEach(item => {
-            fpTotals[item.key] = (fpTotals[item.key] || 0) + item.count;
+        // ==========================================================================
+        // 1. ГИСТОГРАММА РАСПРЕДЕЛЕНИЯ ЧТЕНИЙ
+        // ==========================================================================
+        const readTotals = { 'tiny (0-64)': 0, 'small (65-256)': 0, 'medium (257-1024)': 0, 'large (>1024)': 0 };
+        hourStats.forEach(hs => {
+            (hs.read_distribution || []).forEach(item => {
+                if (readTotals[item.key] !== undefined) {
+                    readTotals[item.key] += item.count;
+                }
+            });
         });
-    });
 
-    const fpEntries = Object.entries(fpTotals).sort((a, b) => b[1] - a[1]).slice(0, 10);
-    const fpTotal = fpEntries.reduce((sum, e) => sum + e[1], 0);
-    const fpBody = document.getElementById('fpTableBody');
+        window.readChart = AGLCharts.createChart('readChart', 'bar', {
+            labels: Object.keys(readTotals),
+            datasets: [{
+                label: 'Количество чтений',
+                data: Object.values(readTotals),
+                backgroundColor: [
+                    hexToRgba(colors.green, 0.7),
+                    hexToRgba(colors.blue, 0.7),
+                    hexToRgba(colors.amber, 0.7),
+                    hexToRgba(colors.red, 0.7)
+                ]
+            }]
+        });
 
-    fpEntries.forEach(entry => {
-        const key = entry[0];
-        const count = entry[1];
-        const share = fpTotal > 0 ? ((count / fpTotal) * 100).toFixed(1) : '0.0';
+        // ==========================================================================
+        // 2. ТАБЛИЦА ТОП TCP-ОТПЕЧАТКОВ (Безопасная генерация)
+        // ==========================================================================
+        const fpTotals = {};
+        hourStats.forEach(hs => {
+            (hs.top_stack_fingerprints || []).forEach(item => {
+                fpTotals[item.key] = (fpTotals[item.key] || 0) + item.count;
+            });
+        });
 
-        const tr = document.createElement('tr');
+        const fpEntries = Object.entries(fpTotals).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        const fpTotal = fpEntries.reduce((sum, e) => sum + e[1], 0);
+        const fpBody = document.getElementById('fpTableBody');
 
-        const tdKey = document.createElement('td');
-        const code = document.createElement('code');
-        const privateKey = document.createElement('agl-private');
-        privateKey.textContent = key; // Защита от XSS
-        code.appendChild(privateKey);
-        tdKey.appendChild(code);
+        fpEntries.forEach(entry => {
+            const key = entry[0];
+            const count = entry[1];
+            const share = fpTotal > 0 ? ((count / fpTotal) * 100).toFixed(1) : '0.0';
 
-        const tdCount = document.createElement('td');
-        tdCount.textContent = count;
+            const tr = document.createElement('tr');
 
-        const tdShare = document.createElement('td');
-        tdShare.textContent = share + '%';
+            const tdKey = document.createElement('td');
+            const code = document.createElement('code');
+            const privateKey = document.createElement('agl-private');
+            privateKey.textContent = key; // Защита от XSS
+            code.appendChild(privateKey);
+            tdKey.appendChild(code);
 
-        tr.appendChild(tdKey);
-        tr.appendChild(tdCount);
-        tr.appendChild(tdShare);
-        fpBody.appendChild(tr);
-    });
+            const tdCount = document.createElement('td');
+            tdCount.textContent = count;
 
-    // ==========================================================================
-    // 3. ГРАФИК ДИСПЕРСИИ IAT
-    // ==========================================================================
-    window.dispersionChart = AGLCharts.createChart('dispersionChart', 'line', {
-        labels: labels,
-        datasets: [{
-            label: 'Средняя дисперсия IAT',
-            data: hourStats.map(hs => hs.avg_iat_dispersion || 0),
-            borderColor: colors.purple,
-            backgroundColor: hexToRgba(colors.purple, 0.1),
-            fill: true,
-            tension: 0.3
-        }]
-    });
+            const tdShare = document.createElement('td');
+            tdShare.textContent = share + '%';
 
-    // ==========================================================================
-    // АВТООБНОВЛЕНИЕ ДАННЫХ ТЕЛЕМЕТРИИ (Без моргания через DocumentFragment)
-    // ==========================================================================
-    window.addEventListener('agl:autorefresh', () => {
-        updateFingerprintsSilent();
-    });
+            tr.appendChild(tdKey);
+            tr.appendChild(tdCount);
+            tr.appendChild(tdShare);
+            fpBody.appendChild(tr);
+        });
 
-    function updateFingerprintsSilent() {
-        const pathParts = window.location.pathname.split('/');
-        const prefix = pathParts[1] ? pathParts[1] + '/' : '';
+        // ==========================================================================
+        // 3. ГРАФИК ДИСПЕРСИИ IAT
+        // ==========================================================================
+        window.dispersionChart = AGLCharts.createChart('dispersionChart', 'line', {
+            labels: labels,
+            datasets: [{
+                label: 'Средняя дисперсия IAT',
+                data: hourStats.map(hs => hs.avg_iat_dispersion || 0),
+                borderColor: colors.purple,
+                backgroundColor: hexToRgba(colors.purple, 0.1),
+                fill: true,
+                tension: 0.3
+            }]
+        });
 
-        fetch('/' + prefix + 'api/stats')
-            .then(res => res.json())
-            .then(data => {
-                const hourStats = data.hourly_stats || [];
+        // ==========================================================================
+        // 4. ГРАФИК RTT ДИНАМИКИ (Перенесено из dashboard_tarpit)
+        // ==========================================================================
+        window.rttChart = AGLCharts.createChart('rttChart', 'line', {
+            labels: labels,
+            datasets: [{
+                label: 'Средний RTT (мс)',
+                data: hourStats.map(hs => hs.rtt_avg_ms || 0),
+                borderColor: colors.green,
+                backgroundColor: hexToRgba(colors.green, 0.1),
+                fill: true,
+                tension: 0.3
+            }]
+        });
 
-                // 1. Агрегация отпечатков (точно такая же, как при первой загрузке)
-                const fpTotals = {};
-                hourStats.forEach(hs => {
-                    (hs.top_stack_fingerprints || []).forEach(item => {
-                        fpTotals[item.key] = (fpTotals[item.key] || 0) + item.count;
+        // ==========================================================================
+        // АВТООБНОВЛЕНИЕ ДАННЫХ ТЕЛЕМЕТРИИ (Без моргания через DocumentFragment)
+        // ==========================================================================
+        window.addEventListener('agl:autorefresh', () => {
+            updateFingerprintsSilent();
+        });
+
+        function updateFingerprintsSilent() {
+            const pathParts = window.location.pathname.split('/');
+            const prefix = pathParts[1] ? pathParts[1] + '/' : '';
+
+            fetch('/' + prefix + 'api/stats')
+                .then(res => res.json())
+                .then(data => {
+                    const hourStats = data.hourly_stats || [];
+
+                    // 1. Агрегация отпечатков
+                    const fpTotals = {};
+                    hourStats.forEach(hs => {
+                        (hs.top_stack_fingerprints || []).forEach(item => {
+                            fpTotals[item.key] = (fpTotals[item.key] || 0) + item.count;
+                        });
                     });
-                });
 
-                // Сортируем по убыванию и берём топ-10 (можно вынести в константу в будущем)
-                const fpEntries = Object.entries(fpTotals).sort((a, b) => b[1] - a[1]).slice(0, 10);
-                const fpTotal = fpEntries.reduce((sum, e) => sum + e[1], 0);
+                    // Сортируем по убыванию и берём топ-10 (можно вынести в константу в будущем)
+                    const fpEntries = Object.entries(fpTotals).sort((a, b) => b[1] - a[1]).slice(0, 10);
+                    const fpTotal = fpEntries.reduce((sum, e) => sum + e[1], 0);
+                    // 2. Находим тело таблицы
+                    const fpBody = document.getElementById('fpTableBody');
 
-                // 2. Находим тело таблицы
-                const fpBody = document.getElementById('fpTableBody');
+                    if (fpBody) {
+                        // 3. Создаём фрагмент в памяти (вне DOM). Это ключ к отсутствию моргания.
+                        const fragment = document.createDocumentFragment();
 
-                if (fpBody) {
-                    // 3. Создаём фрагмент в памяти (вне DOM). Это ключ к отсутствию моргания.
-                    const fragment = document.createDocumentFragment();
-
-                    if (fpEntries.length === 0) {
-                        const tr = document.createElement('tr');
-                        const td = document.createElement('td');
-                        td.colSpan = 3;
-                        td.className = 'text-muted';
-                        td.textContent = 'Нет данных за выбранный период';
-                        tr.appendChild(td);
-                        fragment.appendChild(tr);
-                    } else {
-                        // ----------------------------------------------------------------
-                        // Состояние сравнения (живёт вне DOM, переживает replaceChildren)
-                        // ----------------------------------------------------------------
-                        if (!window._aglSeenFingerprintKeys) {
-                            window._aglSeenFingerprintKeys = new Set();
-                            window._aglFingerprintSnapshots = new Map();
-                        }
-                        const seenKeys = window._aglSeenFingerprintKeys;
-                        const snapshots = window._aglFingerprintSnapshots;
-
-                        // 4. Генерируем новые строки
-                        fpEntries.forEach(entry => {
-                            const key = entry[0];
-                            const count = entry[1];
-                            const share = fpTotal > 0 ? ((count / fpTotal) * 100).toFixed(1) : '0.0';
-
+                        if (fpEntries.length === 0) {
                             const tr = document.createElement('tr');
-
-                            // --- Определение статуса строки ---
-                            const currentSnap = String(count);
-
-                            if (!seenKeys.has(key)) {
-                                // НОВЫЙ отпечаток (появился впервые в топ-10)
-                                tr.classList.add('row-flash-new');
-                                seenKeys.add(key);
-                                snapshots.set(key, currentSnap);
-                            } else {
-                                // Отпечаток известен — проверяем активность
-                                const prevSnap = snapshots.get(key);
-                                if (prevSnap && prevSnap !== currentSnap) {
-                                    tr.classList.add('row-flash-update');
-                                    snapshots.set(key, currentSnap);
-                                }
-                            }
-
-                            // --- Дальше твой код создания ячеек БЕЗ изменений ---
-
-                            // Ячейка 1: Отпечаток (с защитой XSS и privacy-mode)
-                            const tdKey = document.createElement('td');
-                            const code = document.createElement('code');
-                            const privateKey = document.createElement('agl-private');
-                            privateKey.textContent = key;
-                            code.appendChild(privateKey);
-                            tdKey.appendChild(code);
-                            tr.appendChild(tdKey);
-
-                            // Ячейка 2: Количество
-                            const tdCount = document.createElement('td');
-                            tdCount.textContent = count;
-                            tr.appendChild(tdCount);
-
-                            // Ячейка 3: Доля
-                            const tdShare = document.createElement('td');
-                            tdShare.textContent = share + '%';
-                            tr.appendChild(tdShare);
-
+                            const td = document.createElement('td');
+                            td.colSpan = 3;
+                            td.className = 'text-muted';
+                            td.textContent = 'Нет данных за выбранный период';
+                            tr.appendChild(td);
                             fragment.appendChild(tr);
+                        } else {
+                           // ----------------------------------------------------------------
+                           // Состояние сравнения (живёт вне DOM, переживает replaceChildren)
+                           // ----------------------------------------------------------------
+                            if (!window._aglSeenFingerprintKeys) {
+                                window._aglSeenFingerprintKeys = new Set();
+                                window._aglFingerprintSnapshots = new Map();
+                            }
+                            const seenKeys = window._aglSeenFingerprintKeys;
+                            const snapshots = window._aglFingerprintSnapshots;
+
+                            // 4. Генерируем новые строки
+                            fpEntries.forEach(entry => {
+                                const key = entry[0];
+                                const count = entry[1];
+                                const share = fpTotal > 0 ? ((count / fpTotal) * 100).toFixed(1) : '0.0';
+
+                                const tr = document.createElement('tr');
+                                // --- Определение статуса строки ---
+                                const currentSnap = String(count);
+
+                                if (!seenKeys.has(key)) {
+                                    // НОВЫЙ отпечаток (появился впервые в топ-10)
+                                    tr.classList.add('row-flash-new');
+                                    seenKeys.add(key);
+                                    snapshots.set(key, currentSnap);
+                                } else {
+                                    // Отпечаток известен — проверяем активность
+                                    const prevSnap = snapshots.get(key);
+                                    if (prevSnap && prevSnap !== currentSnap) {
+                                        tr.classList.add('row-flash-update');
+                                        snapshots.set(key, currentSnap);
+                                    }
+                                }
+
+                                // Ячейка 1: Отпечаток (с защитой XSS и privacy-mode)
+                                const tdKey = document.createElement('td');
+                                const code = document.createElement('code');
+                                const privateKey = document.createElement('agl-private');
+                                privateKey.textContent = key;
+                                code.appendChild(privateKey);
+                                tdKey.appendChild(code);
+                                tr.appendChild(tdKey);
+
+                                // Ячейка 2: Количество
+                                const tdCount = document.createElement('td');
+                                tdCount.textContent = count;
+                                tr.appendChild(tdCount);
+
+                                // Ячейка 3: Доля
+                                const tdShare = document.createElement('td');
+                                tdShare.textContent = share + '%';
+                                tr.appendChild(tdShare);
+
+                                fragment.appendChild(tr);
+                            });
+                        }
+                        // 5. Атомарная замена содержимого (один рефлоу, ноль моргания)
+                        fpBody.replaceChildren(...fragment.childNodes);
+                    }
+
+                    // 2. Обновляем график: Гистограмма распределения чтений
+                    if (window.readChart) {
+                        const readTotals = { 'tiny (0-64)': 0, 'small (65-256)': 0, 'medium (257-1024)': 0, 'large (>1024)': 0 };
+                        hourStats.forEach(hs => {
+                            (hs.read_distribution || []).forEach(item => {
+                                if (readTotals[item.key] !== undefined) {
+                                    readTotals[item.key] += item.count;
+                                }
+                            });
+                        });
+                        AGLCharts.updateData('readChart', {
+                            labels: Object.keys(readTotals),
+                            datasets: [{
+                                label: 'Количество чтений',
+                                data: Object.values(readTotals),
+                                backgroundColor: [
+                                    hexToRgba(colors.green, 0.7),
+                                    hexToRgba(colors.blue, 0.7),
+                                    hexToRgba(colors.amber, 0.7),
+                                    hexToRgba(colors.red, 0.7)
+                                ]
+                            }]
                         });
                     }
 
-                    // 5. Атомарная замена содержимого (один рефлоу, ноль моргания)
-                    fpBody.replaceChildren(...fragment.childNodes);
-                }
-
-                // 6. Обновляем график 1: Гистограмма распределения чтений
-                if (window.readChart) {
-                    const readTotals = { 'tiny (0-64)': 0, 'small (65-256)': 0, 'medium (257-1024)': 0, 'large (>1024)': 0 };
-                    hourStats.forEach(hs => {
-                        (hs.read_distribution || []).forEach(item => {
-                            if (readTotals[item.key] !== undefined) {
-                                readTotals[item.key] += item.count;
-                            }
+                    // 3. Обновляем график: Дисперсия IAT
+                    if (window.dispersionChart) {
+                        const newLabels = hourStats.map(hs => {
+                            const date = new Date(hs.hour);
+                            return date.getHours().toString().padStart(2, '0') + ':00';
                         });
-                    });
-                    AGLCharts.updateData('readChart', {
-                        labels: Object.keys(readTotals),
-                        datasets: [{
-                            label: 'Количество чтений',
-                            data: Object.values(readTotals),
-                            backgroundColor: [
-                                hexToRgba(colors.green, 0.7),
-                                hexToRgba(colors.blue, 0.7),
-                                hexToRgba(colors.amber, 0.7),
-                                hexToRgba(colors.red, 0.7)
-                            ]
-                        }]
-                    });
-                }
+                        AGLCharts.updateData('dispersionChart', {
+                            labels: newLabels,
+                            datasets: [{
+                                label: 'Средняя дисперсия IAT',
+                                data: hourStats.map(hs => hs.avg_iat_dispersion || 0),
+                                borderColor: colors.purple,
+                                backgroundColor: hexToRgba(colors.purple, 0.1),
+                                fill: true,
+                                tension: 0.3
+                            }]
+                        });
+                    }
 
-                // 7. Обновляем график 2: Дисперсия IAT
-                if (window.dispersionChart) {
-                    const newLabels = hourStats.map(hs => {
-                        const date = new Date(hs.hour);
-                        return date.getHours().toString().padStart(2, '0') + ':00';
-                    });
-                    AGLCharts.updateData('dispersionChart', {
-                        labels: newLabels,
-                        datasets: [{
-                            label: 'Средняя дисперсия IAT',
-                            data: hourStats.map(hs => hs.avg_iat_dispersion || 0),
-                            borderColor: colors.purple,
-                            backgroundColor: hexToRgba(colors.purple, 0.1),
-                            fill: true,
-                            tension: 0.3
-                        }]
-                    });
-                }
-            })
-            .catch(err => console.error('Auto-refresh error (fingerprints):', err));
-    }
+                    // 4. Обновляем график: Средний RTT по часам (Перенесено из dashboard_tarpit)
+                    if (window.rttChart) {
+                        const rttLabels = hourStats.map(hs => {
+                            const date = new Date(hs.hour);
+                            return date.getHours().toString().padStart(2, '0') + ':00';
+                        });
+                        AGLCharts.updateData('rttChart', {
+                            labels: rttLabels,
+                            datasets: [{
+                                label: 'Средний RTT (мс)',
+                                data: hourStats.map(hs => hs.rtt_avg_ms || 0),
+                                borderColor: colors.green,
+                                backgroundColor: hexToRgba(colors.green, 0.1),
+                                fill: true,
+                                tension: 0.3
+                            }]
+                        });
+                    }
+                })
+                .catch(err => console.error('Auto-refresh error (fingerprints):', err));
+        }
 
-    // ==========================================================================
-    // ИНИЦИАЛИЗАЦИЯ СОСТОЯНИЯ ДЛЯ ПОДСВЕТКИ СТРОК
-    // ==========================================================================
-    // Заполняем Set и Map уже существующими отпечатками из первичной загрузки,
-    // чтобы первое автообновление не вспыхнуло ложной "новизной" для всех строк.
-    window._aglSeenFingerprintKeys = new Set(fpEntries.map(e => e[0]));
-    window._aglFingerprintSnapshots = new Map();
-    fpEntries.forEach(e => window._aglFingerprintSnapshots.set(e[0], String(e[1])));
-});
+        // ==========================================================================
+        // ИНИЦИАЛИЗАЦИЯ СОСТОЯНИЯ ДЛЯ ПОДСВЕТКИ СТРОК
+        // ==========================================================================
+        // Заполняем Set и Map уже существующими отпечатками из первичной загрузки,
+        // чтобы первое автообновление не вспыхнуло ложно для всех строк.
+        window._aglSeenFingerprintKeys = new Set(fpEntries.map(e => e[0]));
+        window._aglFingerprintSnapshots = new Map();
+        fpEntries.forEach(e => window._aglFingerprintSnapshots.set(e[0], String(e[1])));
+    });
 </script>
 
 {{template "footer" .}}

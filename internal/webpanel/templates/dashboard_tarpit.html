@@ -4,8 +4,7 @@
 
 <div class="page-section-header">
     <h1>Анализ поведения и определение алгоритма Акторов</h1>
-    <p>Исследование метрик динамики удержания, алгоритма прекращения сессий, анализа сетевой телеметрии и агрессивности
-        атакующих.</p>
+    <p>Исследование метрик динамики удержания, алгоритма прекращения сессий, анализа сетевой телеметрии и агрессивности атакующих.</p>
 </div>
 
 <!-- 1. План vs Факт удержания -->
@@ -26,16 +25,7 @@
     </div>
 </div>
 
-<!-- 3. RTT динамика -->
-<div class="card" style="margin-top: 20px;">
-    <h3 class="mb-0">Средний RTT по часам (мс)</h3>
-    <p class="text-muted">Динамика сетевой задержки (Round Trip Time).</p>
-    <div class="chart-container">
-        <canvas id="rttChart"></canvas>
-    </div>
-</div>
-
-<!-- 4. Агрессивность vs Пассивность -->
+<!-- 3. Агрессивность vs Пассивность -->
 <div class="card" style="margin-top: 20px;">
     <h3 class="mb-0">Агрессивность vs Пассивность</h3>
     <p class="text-muted">Соотношение агрессивных и пассивных событий по часам.</p>
@@ -56,203 +46,171 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         const colors = AGLCharts.getThemeColors();
-        const hourStats = {{ .HourStats | json
-    }};
+        const hourStats = {{ .HourStats | json }};
 
-    const labels = hourStats.map(hs => {
-        const date = new Date(hs.hour);
-        return date.getHours().toString().padStart(2, '0') + ':00';
-    });
+        const labels = hourStats.map(hs => {
+            const date = new Date(hs.hour);
+            return date.getHours().toString().padStart(2, '0') + ':00';
+        });
 
-    // ==========================================================================
-    // 1. ПЛАН VS ФАКТ УДЕРЖАНИЯ
-    // ==========================================================================
-    const avgPlanned = hourStats.map(hs => hs.hold_count > 0 ? (hs.planned_hold_sum_sec / hs.hold_count) : 0);
-    const avgActual = hourStats.map(hs => hs.hold_count > 0 ? (hs.actual_hold_sum_sec / hs.hold_count) : 0);
+        // ==========================================================================
+        // 1. ПЛАН VS ФАКТ УДЕРЖАНИЯ
+        // ==========================================================================
+        const avgPlanned = hourStats.map(hs => hs.hold_count > 0 ? (hs.planned_hold_sum_sec / hs.hold_count) : 0);
+        const avgActual = hourStats.map(hs => hs.hold_count > 0 ? (hs.actual_hold_sum_sec / hs.hold_count) : 0);
 
-    window.holdChart = AGLCharts.createChart('holdChart', 'line', {
-        labels: labels,
-        datasets: [
-            {
-                label: 'Средний план (сек)',
-                data: avgPlanned,
-                borderColor: colors.blue,
-                backgroundColor: hexToRgba(colors.blue, 0.1),
-                fill: false,
-                tension: 0.3
-            },
-            {
-                label: 'Средний факт (сек)',
-                data: avgActual,
-                borderColor: colors.red,
-                backgroundColor: hexToRgba(colors.red, 0.1),
-                fill: false,
-                tension: 0.3
+        window.holdChart = AGLCharts.createChart('holdChart', 'line', {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Средний план (сек)',
+                    data: avgPlanned,
+                    borderColor: colors.blue,
+                    backgroundColor: hexToRgba(colors.blue, 0.1),
+                    fill: false,
+                    tension: 0.3
+                },
+                {
+                    label: 'Средний факт (сек)',
+                    data: avgActual,
+                    borderColor: colors.red,
+                    backgroundColor: hexToRgba(colors.red, 0.1),
+                    fill: false,
+                    tension: 0.3
+                }
+            ]
+        });
+
+        // ==========================================================================
+        // 2. РАСПРЕДЕЛЕНИЕ ПРИЧИН ЗАКРЫТИЯ (CloseReason)
+        // ==========================================================================
+        const closeReasonConfig = {
+            'FIN': { label: 'FIN (корректное)', color: hexToRgba(colors.green, 0.7) },
+            'RST': { label: 'RST (сброс)', color: hexToRgba(colors.red, 0.7) },
+            'TIMEOUT': { label: 'TIMEOUT (таймер AGL)', color: hexToRgba(colors.amber, 0.7) },
+            'OUR_CLOSE': { label: 'OUR_CLOSE (принудительно)', color: hexToRgba(colors.purple, 0.7) },
+            'UNKNOWN': { label: 'UNKNOWN', color: hexToRgba(colors.text, 0.5) }
+        };
+
+        const closeReasonDatasets = Object.keys(closeReasonConfig).map(code => ({
+            label: closeReasonConfig[code].label,
+            data: hourStats.map(hs => {
+                const item = (hs.close_reasons || []).find(cr => cr.key === code);
+                return item ? item.count : 0;
+            }),
+            backgroundColor: closeReasonConfig[code].color
+        }));
+
+        window.closeReasonChart = AGLCharts.createChart('closeReasonChart', 'bar', {
+            labels: labels,
+            datasets: closeReasonDatasets
+        }, {
+            scales: {
+                x: { stacked: true },
+                y: { stacked: true }
             }
-        ]
-    });
+        });
 
-    // ==========================================================================
-    // 2. РАСПРЕДЕЛЕНИЕ ПРИЧИН ЗАКРЫТИЯ (CloseReason)
-    // ==========================================================================
-    const closeReasonConfig = {
-        'FIN': { label: 'FIN (корректное)', color: hexToRgba(colors.green, 0.7) },
-        'RST': { label: 'RST (сброс)', color: hexToRgba(colors.red, 0.7) },
-        'TIMEOUT': { label: 'TIMEOUT (таймер AGL)', color: hexToRgba(colors.amber, 0.7) },
-        'OUR_CLOSE': { label: 'OUR_CLOSE (принудительно)', color: hexToRgba(colors.purple, 0.7) },
-        'UNKNOWN': { label: 'UNKNOWN', color: hexToRgba(colors.text, 0.5) }
-    };
+        // ==========================================================================
+        // 3. АГРЕССИВНОСТЬ VS ПАССИВНОСТЬ
+        // ==========================================================================
+        window.behaviorChart = AGLCharts.createChart('behaviorChart', 'bar', {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Агрессивные события',
+                    data: hourStats.map(hs => hs.aggressive_events || 0),
+                    backgroundColor: hexToRgba(colors.red, 0.7)
+                },
+                {
+                    label: 'Пассивные события',
+                    data: hourStats.map(hs => hs.passive_events || 0),
+                    backgroundColor: hexToRgba(colors.amber, 0.7)
+                }
+            ]
+        });
 
-    const closeReasonDatasets = Object.keys(closeReasonConfig).map(code => ({
-        label: closeReasonConfig[code].label,
-        data: hourStats.map(hs => {
-            const item = (hs.close_reasons || []).find(cr => cr.key === code);
-            return item ? item.count : 0;
-        }),
-        backgroundColor: closeReasonConfig[code].color
-    }));
+        // ==========================================================================
+        // АВТООБНОВЛЕНИЕ ДАННЫХ ТЕЛЕМЕТРИИ (Тихое, без анимации)
+        // ==========================================================================
+        window.addEventListener('agl:autorefresh', () => {
+            updateTarpitSilent();
+        });
 
-    window.closeReasonChart = AGLCharts.createChart('closeReasonChart', 'bar', {
-        labels: labels,
-        datasets: closeReasonDatasets
-    }, {
-        scales: {
-            x: { stacked: true },
-            y: { stacked: true }
+        function updateTarpitSilent() {
+            const pathParts = window.location.pathname.split('/');
+            const prefix = pathParts[1] ? pathParts[1] + '/' : '';
+
+            fetch('/' + prefix + 'api/stats')
+                .then(res => res.json())
+                .then(data => {
+                    const hourStats = data.hourly_stats || [];
+                    const labels = hourStats.map(hs => {
+                        const date = new Date(hs.hour);
+                        return date.getHours().toString().padStart(2, '0') + ':00';
+                    });
+
+                    // 1. Обновляем график План vs Факт
+                    if (window.holdChart) {
+                        AGLCharts.updateData('holdChart', {
+                            labels: labels,
+                            datasets: [
+                                {
+                                    label: 'Средний план (сек)',
+                                    data: hourStats.map(hs => hs.hold_count > 0 ? (hs.planned_hold_sum_sec / hs.hold_count) : 0),
+                                    borderColor: colors.blue,
+                                    backgroundColor: hexToRgba(colors.blue, 0.1),
+                                    fill: false,
+                                    tension: 0.3
+                                },
+                                {
+                                    label: 'Средний факт (сек)',
+                                    data: hourStats.map(hs => hs.hold_count > 0 ? (hs.actual_hold_sum_sec / hs.hold_count) : 0),
+                                    borderColor: colors.red,
+                                    backgroundColor: hexToRgba(colors.red, 0.1),
+                                    fill: false,
+                                    tension: 0.3
+                                }
+                            ]
+                        });
+                    }
+
+                    // 2. Обновляем график причин закрытия
+                    if (window.closeReasonChart) {
+                        AGLCharts.updateData('closeReasonChart', {
+                            labels: labels,
+                            datasets: Object.keys(closeReasonConfig).map(code => ({
+                                label: closeReasonConfig[code].label,
+                                data: hourStats.map(hs => {
+                                    const item = (hs.close_reasons || []).find(cr => cr.key === code);
+                                    return item ? item.count : 0;
+                                }),
+                                backgroundColor: closeReasonConfig[code].color
+                            }))
+                        });
+                    }
+
+                    // 3. Обновляем график Агрессивность vs Пассивность
+                    if (window.behaviorChart) {
+                        AGLCharts.updateData('behaviorChart', {
+                            labels: labels,
+                            datasets: [
+                                {
+                                    label: 'Агрессивные события',
+                                    data: hourStats.map(hs => hs.aggressive_events || 0),
+                                    backgroundColor: hexToRgba(colors.red, 0.7)
+                                },
+                                {
+                                    label: 'Пассивные события',
+                                    data: hourStats.map(hs => hs.passive_events || 0),
+                                    backgroundColor: hexToRgba(colors.amber, 0.7)
+                                }
+                            ]
+                        });
+                    }
+                })
+                .catch(err => console.error('Auto-refresh error (tarpit):', err));
         }
-    });
-
-    // ==========================================================================
-    // 3. RTT ДИНАМИКА
-    // ==========================================================================
-    window.rttChart = AGLCharts.createChart('rttChart', 'line', {
-        labels: labels,
-        datasets: [{
-            label: 'Средний RTT (мс)',
-            data: hourStats.map(hs => hs.rtt_avg_ms || 0),
-            borderColor: colors.green,
-            backgroundColor: hexToRgba(colors.green, 0.1),
-            fill: true,
-            tension: 0.3
-        }]
-    });
-
-    // ==========================================================================
-    // 4. АГРЕССИВНОСТЬ VS ПАССИВНОСТЬ
-    // ==========================================================================
-    window.behaviorChart = AGLCharts.createChart('behaviorChart', 'bar', {
-        labels: labels,
-        datasets: [
-            {
-                label: 'Агрессивные события',
-                data: hourStats.map(hs => hs.aggressive_events || 0),
-                backgroundColor: hexToRgba(colors.red, 0.7)
-            },
-            {
-                label: 'Пассивные события',
-                data: hourStats.map(hs => hs.passive_events || 0),
-                backgroundColor: hexToRgba(colors.amber, 0.7)
-            }
-        ]
-    });
-
-    // ==========================================================================
-    // АВТООБНОВЛЕНИЕ ДАННЫХ ТЕЛЕМЕТРИИ (Тихое, без анимации)
-    // ==========================================================================
-    window.addEventListener('agl:autorefresh', () => {
-        updateTarpitSilent();
-    });
-
-    function updateTarpitSilent() {
-        const pathParts = window.location.pathname.split('/');
-        const prefix = pathParts[1] ? pathParts[1] + '/' : '';
-
-        fetch('/' + prefix + 'api/stats')
-            .then(res => res.json())
-            .then(data => {
-                const hourStats = data.hourly_stats || [];
-                const labels = hourStats.map(hs => {
-                    const date = new Date(hs.hour);
-                    return date.getHours().toString().padStart(2, '0') + ':00';
-                });
-
-                // 1. Обновляем график План vs Факт
-                if (window.holdChart) {
-                    AGLCharts.updateData('holdChart', {
-                        labels: labels,
-                        datasets: [
-                            {
-                                label: 'Средний план (сек)',
-                                data: hourStats.map(hs => hs.hold_count > 0 ? (hs.planned_hold_sum_sec / hs.hold_count) : 0),
-                                borderColor: colors.blue,
-                                backgroundColor: hexToRgba(colors.blue, 0.1),
-                                fill: false,
-                                tension: 0.3
-                            },
-                            {
-                                label: 'Средний факт (сек)',
-                                data: hourStats.map(hs => hs.hold_count > 0 ? (hs.actual_hold_sum_sec / hs.hold_count) : 0),
-                                borderColor: colors.red,
-                                backgroundColor: hexToRgba(colors.red, 0.1),
-                                fill: false,
-                                tension: 0.3
-                            }
-                        ]
-                    });
-                }
-
-                // 2. Обновляем график причин закрытия
-                if (window.closeReasonChart) {
-                    AGLCharts.updateData('closeReasonChart', {
-                        labels: labels,
-                        datasets: Object.keys(closeReasonConfig).map(code => ({
-                            label: closeReasonConfig[code].label,
-                            data: hourStats.map(hs => {
-                                const item = (hs.close_reasons || []).find(cr => cr.key === code);
-                                return item ? item.count : 0;
-                            }),
-                            backgroundColor: closeReasonConfig[code].color
-                        }))
-                    });
-                }
-
-                // 3. Обновляем график RTT
-                if (window.rttChart) {
-                    AGLCharts.updateData('rttChart', {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Средний RTT (мс)',
-                            data: hourStats.map(hs => hs.rtt_avg_ms || 0),
-                            borderColor: colors.green,
-                            backgroundColor: hexToRgba(colors.green, 0.1),
-                            fill: true,
-                            tension: 0.3
-                        }]
-                    });
-                }
-
-                // 4. Обновляем график Агрессивность vs Пассивность
-                if (window.behaviorChart) {
-                    AGLCharts.updateData('behaviorChart', {
-                        labels: labels,
-                        datasets: [
-                            {
-                                label: 'Агрессивные события',
-                                data: hourStats.map(hs => hs.aggressive_events || 0),
-                                backgroundColor: hexToRgba(colors.red, 0.7)
-                            },
-                            {
-                                label: 'Пассивные события',
-                                data: hourStats.map(hs => hs.passive_events || 0),
-                                backgroundColor: hexToRgba(colors.amber, 0.7)
-                            }
-                        ]
-                    });
-                }
-            })
-            .catch(err => console.error('Auto-refresh error (tarpit):', err));
-    }
-
     });
 </script>
 

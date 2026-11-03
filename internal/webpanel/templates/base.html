@@ -105,7 +105,7 @@
 
         <script>
             // ==========================================================================
-            // 1. GLOBAL CHART MANAGER (AGLCharts)
+            // GLOBAL CHART MANAGER (AGLCharts)
             // ==========================================================================
             window.AGLCharts = {
                 instances: {},
@@ -184,7 +184,7 @@
                         chart.data.labels = newData.labels;
                     }
 
-                    // 2. Обновляем данные датасетов инкрементально (без потери метаданных)
+                    // Обновляем данные датасетов инкрементально (без потери метаданных)
                     if (newData.datasets) {
                         newData.datasets.forEach((newDataset, i) => {
                             if (chart.data.datasets[i]) {
@@ -195,7 +195,7 @@
                         });
                     }
 
-                    // 3. Обновляем без анимации (тихое обновление)
+                    // Обновляется без анимации (тихое обновление)
                     chart.update('none');
                 },
 
@@ -223,7 +223,7 @@
             });
 
             // ==========================================================================
-            // 2. THEME PERSISTENCE
+            // THEME PERSISTENCE
             // ==========================================================================
             (function () {
                 const checkbox = document.getElementById('theme-switch');
@@ -344,18 +344,63 @@
             });
 
             // ==========================================================================
-            // CONCEALMENT OF PERSONAL DATA
+            // МЕНЕДЖЕР РЕЖИМА ПРИВАТНОСТИ
             // ==========================================================================
             (function () {
-                const cb = document.getElementById('privacy-switch');
-                if (localStorage.getItem('agl_privacy') === 'on') cb.checked = true;
-                cb.addEventListener('change', function () {
-                    localStorage.setItem('agl_privacy', this.checked ? 'on' : 'off');
+                // 1. Глобальная функция проверки состояния (доступна в любом контексте)
+                window.isAglPrivacyOn = function() {
+                    const cb = document.getElementById('privacy-switch');
+                    return (cb && cb.checked) || localStorage.getItem('agl_privacy') === 'on';
+                };
+
+                // 2. НЕМЕДЛЕННАЯ подмена глобальных настроек Chart.js 
+                // (Это гарантирует, что даже графики, создаваемые после этого скрипта, будут "заблюрены")
+                const blurText = '•••'; // Имитация размытия/цензуры значений
+                
+                ['linear', 'logarithmic', 'category', 'time'].forEach(scaleType => {
+                    if (Chart.defaults.scales[scaleType] && Chart.defaults.scales[scaleType].ticks) {
+                        const originalCallback = Chart.defaults.scales[scaleType].ticks.callback;
+                        
+                        Chart.defaults.scales[scaleType].ticks.callback = function(value, index, ticks) {
+                            // Если приватность включена, возвращаем "блюр" вместо реального значения
+                            if (window.isAglPrivacyOn()) {
+                                return blurText;
+                            }
+                            // Иначе используем оригинальную логику форматирования
+                            if (typeof originalCallback === 'function') {
+                                return originalCallback.call(this, value, index, ticks);
+                            }
+                            return value;
+                        };
+                    }
+                });
+
+                // 3. Инициализация при загрузке DOM
+                document.addEventListener('DOMContentLoaded', () => {
+                    const cb = document.getElementById('privacy-switch');
+                    if (!cb) return;
+
+                    // Восстанавливаем состояние из localStorage
+                    if (localStorage.getItem('agl_privacy') === 'on') {
+                        cb.checked = true;
+                    }
+
+                    // Слушатель переключения
+                    cb.addEventListener('change', function () {
+                        localStorage.setItem('agl_privacy', this.checked ? 'on' : 'off');
+                        
+                        // Мгновенное обновление всех существующих графиков без анимации
+                        if (typeof Chart !== 'undefined' && Chart.instances) {
+                            Object.values(Chart.instances).forEach(chart => {
+                                chart.update('none'); // 'none' = мгновенная перерисовка
+                            });
+                        }
+                    });
                 });
             })();
 
             // ==========================================================================
-            // 3. UTILITY FUNCTIONS
+            // UTILITY FUNCTIONS
             // ==========================================================================
             function rebuildHistory() {
                 const btn = document.getElementById('rebuildBtn');
@@ -391,6 +436,42 @@
                         status.textContent = 'Ошибка сети: ' + err.message;
                         status.className = 'control-status error';
                     });
+            }
+
+            // =====
+            // AGL |
+            // =====
+            const aglWatermarkPlugin = {
+                id: 'aglWatermark',
+                afterDraw: (chart, args, options) => {
+                    const { ctx, chartArea } = chart;
+                    if (!chartArea) return;
+
+                    ctx.save();
+                    
+                    ctx.globalAlpha = 0.3;
+                    
+                    ctx.font = 'bold 13px "JetBrains Mono", monospace';
+                    ctx.textAlign = 'right';
+                    ctx.textBaseline = 'top';
+                    
+                    const x = chartArea.right - 12;
+                    const y = chartArea.top + 12;
+
+                    ctx.fillStyle = '#aaaaaa'; 
+                    ctx.fillText('GL', x, y);
+
+                    const widthGL = ctx.measureText('GL').width;
+                    
+                    ctx.fillStyle = '#f90';
+                    ctx.fillText('A', x - widthGL, y);
+                    
+                    ctx.restore();
+                }
+            };
+
+            if (typeof Chart !== 'undefined') {
+                Chart.register(aglWatermarkPlugin);
             }
         </script>
     </div>
