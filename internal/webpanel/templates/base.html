@@ -344,29 +344,31 @@
             });
 
             // ==========================================================================
-            // МЕНЕДЖЕР РЕЖИМА ПРИВАТНОСТИ
+            // МЕНЕДЖЕР РЕЖИМА ПРИВАТНОСТИ (Secure by Default)
             // ==========================================================================
             (function () {
-                // 1. Глобальная функция проверки состояния (доступна в любом контексте)
+                // 1. МГНОВЕННОЕ определение состояния (выполняется до отрисовки любых графиков)
+                const savedState = localStorage.getItem('agl_privacy');
+                // По умолчанию ВКЛ (true), если только пользователь явно не сохранил 'off'
+                let isPrivacyActive = (savedState !== 'off');
+
+                // Делаем функцию-обертку, которая читает эту мгновенную переменную, а не лезет в DOM
                 window.isAglPrivacyOn = function() {
-                    const cb = document.getElementById('privacy-switch');
-                    return (cb && cb.checked) || localStorage.getItem('agl_privacy') === 'on';
+                    return isPrivacyActive;
                 };
 
                 // 2. НЕМЕДЛЕННАЯ подмена глобальных настроек Chart.js 
-                // (Это гарантирует, что даже графики, создаваемые после этого скрипта, будут "заблюрены")
-                const blurText = '•••'; // Имитация размытия/цензуры значений
+                const blurText = '•••'; 
                 
                 ['linear', 'logarithmic', 'category', 'time'].forEach(scaleType => {
                     if (Chart.defaults.scales[scaleType] && Chart.defaults.scales[scaleType].ticks) {
                         const originalCallback = Chart.defaults.scales[scaleType].ticks.callback;
                         
                         Chart.defaults.scales[scaleType].ticks.callback = function(value, index, ticks) {
-                            // Если приватность включена, возвращаем "блюр" вместо реального значения
-                            if (window.isAglPrivacyOn()) {
+                            // Проверяем мгновенную переменную, а не состояние DOM-элемента
+                            if (isPrivacyActive) {
                                 return blurText;
                             }
-                            // Иначе используем оригинальную логику форматирования
                             if (typeof originalCallback === 'function') {
                                 return originalCallback.call(this, value, index, ticks);
                             }
@@ -375,24 +377,24 @@
                     }
                 });
 
-                // 3. Инициализация при загрузке DOM
+                // 3. Инициализация UI при загрузке DOM (теперь она только синхронизирует интерфейс)
                 document.addEventListener('DOMContentLoaded', () => {
                     const cb = document.getElementById('privacy-switch');
                     if (!cb) return;
 
-                    // Восстанавливаем состояние из localStorage
-                    if (localStorage.getItem('agl_privacy') === 'on') {
-                        cb.checked = true;
-                    }
+                    // Синхронизируем галочку с тем состоянием, которое мы уже решили использовать
+                    cb.checked = isPrivacyActive;
 
                     // Слушатель переключения
                     cb.addEventListener('change', function () {
-                        localStorage.setItem('agl_privacy', this.checked ? 'on' : 'off');
+                        // Обновляем мгновенную переменную
+                        isPrivacyActive = this.checked;
+                        localStorage.setItem('agl_privacy', isPrivacyActive ? 'on' : 'off');
                         
                         // Мгновенное обновление всех существующих графиков без анимации
                         if (typeof Chart !== 'undefined' && Chart.instances) {
                             Object.values(Chart.instances).forEach(chart => {
-                                chart.update('none'); // 'none' = мгновенная перерисовка
+                                chart.update('none');
                             });
                         }
                     });

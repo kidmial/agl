@@ -129,7 +129,7 @@
             <div class="grid" style="margin-top: 10px;">
                 <div><span class="metric-label">Средний план:</span><span class="text-primary" id="holdPlanned"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgPlannedHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
                 <div><span class="metric-label">Средний факт:</span><span class="text-primary" id="holdActual"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgActualHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
-                <div><span class="metric-label">Всего сессий:</span><span class="text-primary" id="holdCount">{{ .Profile.HoldCount }}</span></div>
+                <div><span class="metric-label">Всего сессий:</span><span id="holdCount">{{ .Profile.HoldCount }}</span></div>
             </div>
         </div>
         <div class="card">
@@ -217,10 +217,11 @@
                     setText('countriesCountHeader', p.unique_country_count);
                     setText('holdCount', p.hold_count);
 
-                    // Форматирование удержания
+                    // Форматирование удержания (сохраняем тег <agl-private> для работы режима приватности)
                     const fmtHold = (val, count) => count > 0 ? Math.round(val) + ' сек' : '—';
-                    setText('holdPlanned', fmtHold(p.avg_planned_hold, p.hold_count));
-                    setText('holdActual', fmtHold(p.avg_actual_hold, p.hold_count));
+                    setPrivText('holdPlanned', fmtHold(p.avg_planned_hold, p.hold_count));
+                    setPrivText('holdActual', fmtHold(p.avg_actual_hold, p.hold_count));
+                    setPrivText('holdCount', p.hold_count);
 
                     // Форматирование RTT
                     const fmtRtt = (val, count) => count > 0 ? Math.round(val) + ' мс' : '—';
@@ -284,6 +285,13 @@
             const el = document.createElement('agl-private');
             el.textContent = text || '—';
             return el;
+        }
+        function setPrivText(id, value) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.innerHTML = ''; // Очищаем старое содержимое
+                el.appendChild(privEl(value)); // Вставляем новое, защищенное значение
+            }
         }
         function cellText(text, cls) {
             const td = document.createElement('td');
