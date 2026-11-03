@@ -303,16 +303,30 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		// Ищем профиль
 		profile, ok := manager.ProfileByID(profileID)
 
+		// Определяем витринную локацию для единого форматирования времени
+		loc := time.Local
+		if tz := config.C.WebPanelTimezone; tz != "" {
+			if tz == "UTC" {
+				loc = time.UTC
+			} else if tz != "local" {
+				if loaded, err := time.LoadLocation(tz); err == nil {
+					loc = loaded
+				}
+			}
+		}
+		serverTime := time.Now().In(loc).Format("02.01.2006 15:04:05")
+
 		// Формируем данные для шаблона.
 		// ВАЖНО: передаём УКАЗАТЕЛЬ на профиль, а не значение.
 		// Методы ActorProfile (TopIPs, UniqueIPCount, AvgPlannedHoldSec и др.)
 		// имеют pointer-receiver. Значение, полученное из map, не addressable,
 		// и шаблон не видит такие методы — ExecuteTemplate прерывался ошибкой.
 		data := map[string]interface{}{
-			"Prefix":  prefix,
-			"Profile": &profile,
-			"Found":   ok,
-			"Version": buildinfo.Version,
+			"Prefix":     prefix,
+			"Profile":    &profile,
+			"Found":      ok,
+			"Version":    buildinfo.Version,
+			"ServerTime": serverTime, // Момент формирования страницы (витринная локация)
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -693,7 +707,8 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		}
 
 		renderJSON(w, map[string]interface{}{
-			"found": true,
+			"found":       true,
+			"server_time": time.Now().In(loc).Format("02.01.2006 15:04:05"), // Момент формирования снимка данных (витринная локация)
 			"data": map[string]interface{}{
 				"id":                    profile.ID,
 				"state":                 profile.State,
@@ -713,22 +728,21 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 				"token_drift_ms":        profile.TokenDriftMs,
 				"token_client_port":     profile.TokenClientPort,
 				"stack_valid":           profile.StackValid,
-				// Прямое обращение к полям безопасно, т.к. Stack — это value type, а не pointer
 				"stack": stackDTO{
 					MSS:       profile.Stack.MSS,
 					RcvSpace:  profile.Stack.RcvSpace,
 					SndWscale: profile.Stack.SndWscale,
 					RcvWscale: profile.Stack.RcvWscale,
 				},
-				"unique_ip_count":      profile.UniqueIPCount,
-				"unique_country_count": profile.UniqueCountryCount,
+				"unique_ip_count":      profile.UniqueIPCount(),
+				"unique_country_count": profile.UniqueCountryCount(),
 				"top_ips":              profile.TopIPs(10),
 				"top_countries":        profile.TopCountries(10),
 				"hold_count":           profile.HoldCount,
-				"avg_planned_hold":     profile.AvgPlannedHoldSec,
-				"avg_actual_hold":      profile.AvgActualHoldSec,
+				"avg_planned_hold":     profile.AvgPlannedHoldSec(),
+				"avg_actual_hold":      profile.AvgActualHoldSec(),
 				"rtt_count":            profile.RTTCount,
-				"rtt_avg_ms":           profile.RTTAvgMs,
+				"rtt_avg_ms":           profile.RTTAvgMs(),
 				"rtt_min_ms":           profile.RTTMinMs,
 				"rtt_max_ms":           profile.RTTMaxMs,
 				"evidence":             profile.Evidence,

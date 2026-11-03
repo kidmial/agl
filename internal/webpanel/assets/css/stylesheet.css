@@ -386,11 +386,11 @@
         }
 
         tbody tr.row-flash-new td {
-            animation: rowFlashNew 2.4s ease-out;
+            animation: rowFlashNew 4s ease-out;
         }
 
         tbody tr.row-flash-update td {
-            animation: rowFlashUpdate 2.4s ease-out;
+            animation: rowFlashUpdate 4s ease-out;
         }
 
         /* Отключаем вспышку для тех, кто предпочитает reduced-motion */
@@ -714,6 +714,10 @@
 
         .mb-0 {
             margin-bottom: 0;
+        }
+
+        .wbrk {
+            word-break: break-word;
         }
 
         .text-blue {

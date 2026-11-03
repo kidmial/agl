@@ -5,7 +5,8 @@
 {{ if .Found }}
 <div class="card">
     <div class="card-header-row">
-        <h2 class="mb-0">Досье актора: <code class="text-green">{{ .Profile.ID }}</code></h2>
+        <h2 class="mb-0 wbrk">Досье актора: <code class="text-green">{{ .Profile.ID }}</code></h2>
+        <span id="reportUpdateTime">Отчёт обновлён: {{ .ServerTime }}</span>
         <a href="{{.Prefix}}dashboard/overview" class="nav-link">&larr; Назад к обзору</a>
     </div>
 
@@ -193,6 +194,10 @@
                     if (!data.found) return; // Профиль удалён или не найден, ничего не делаем
 
                     const p = data.data;
+
+                    // Индикатор свежести: момент формирования снимка данных НА СЕРВЕРЕ.
+                    // Единая витринная локация со всеми остальными метками отчёта.
+                    setText('reportUpdateTime', 'Отчёт обновлён: ' + data.server_time);
 
                     // 1. Текстовые метрики
                     setText('profileConfidence', p.confidence);
