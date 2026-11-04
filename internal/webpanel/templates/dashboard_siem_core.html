@@ -4,8 +4,7 @@
 
 <div class="page-section-header">
     <h1>Инспектор Анализа Корреляций (SIEM Core)</h1>
-    <p>Корреляционный анализатор для детекции и картирования топологии ботнет-кампаний. Мониторинг распределения и
-        поведенческих аномалий.</p>
+    <p>На основе непрерывного мониторинга поведенческих аномалий распределенных во времени, Корреляционный анализатор обеспечивает автоматическое выявление и картирование топологии ботнет-кампаний в режиме реального времени.</p>
 </div>
 
 <!-- 1. Сводка детекций -->
@@ -25,7 +24,7 @@
             </thead>
             <tbody id="siemDetectionsBody">
                 {{ range .Detections }}
-                <tr>
+                <tr data-key="{{ .Label }}|{{ range $i, $ip := .IPsInvolved }}{{ if $i }},{{ end }}{{ $ip }}{{ end }}">
                     <td><strong>{{ .Label }}</strong></td>
                     <td>
                         {{ if eq .Confidence "HIGH" }}
@@ -137,19 +136,15 @@
                 const tbody = document.getElementById('siemDetectionsBody');
                 if (tbody) {
                     // === Сохраняем открытые блоки ПЕРЕД заменой ===
-                    // Идентичность держим по метке паттерна: она стабильна между
-                    // пересчётами детектора, в отличие от StartTime (который «съезжает»,
-                    // когда в окно попадают новые события).
-                    const openLabels = new Set();
+                    // Идентичность держим по data-label: это строка паттерна,
+                    // стабильная между пересчётами детектора.
+                    const openKeys = new Set();
                     document.querySelectorAll('#siemDetectionsBody tr').forEach(tr => {
                         const det = tr.querySelector('details');
-                        if (det && det.open && tr.cells.length > 0) {
-                            openLabels.add(tr.cells[0].textContent.trim());
+                        if (det && det.open && tr.dataset.key) {
+                            openKeys.add(tr.dataset.key);
                         }
                     });
-
-                    // Отладка
-                    // console.log('Сохранённые открытые ключи:', Array.from(openKeys));
 
                     const fragment = document.createDocumentFragment();
                     const dets = data.detections || [];
@@ -165,6 +160,11 @@
                     } else {
                         dets.forEach(det => {
                             const tr = document.createElement('tr');
+                            // Уникальный ключ строки: паттерн + список IP.
+                            // Label не уникален (несколько детекций одного паттерна),
+                            // поэтому состояние держим по связке label+ips.
+                            const rowKey = det.label + '|' + (det.ips_involved || []).join(',');
+                            tr.dataset.key = rowKey; // для следующего тика автообновления
 
                             // Паттерн
                             const tdLabel = document.createElement('td');
@@ -197,7 +197,7 @@
 
                             // Если этот паттерн был раскрыт до обновления — рождаем строку раскрытой.
                             // Состояние задаётся ДО вставки в DOM, поэтому схлопывания нет вообще.
-                            if (openLabels.has(det.label)) {
+                            if (openKeys.has(rowKey)) {
                                 details.open = true;
                             }
 
@@ -247,9 +247,6 @@
                     // Атомарная замена содержимого
                     tbody.replaceChildren(...fragment.childNodes);
 
-                    // Отладка
-                    // console.log('Восстановлено открытых блоков:', openKeys.size);
-
                 }
 
                 // 2. Обновление Proxy/Tunnel
@@ -283,28 +280,34 @@
             }
         }
 
-        if (listId && details) {
+        if (listId) {
             const listEl = document.getElementById(listId);
             if (listEl) {
                 const fragment = document.createDocumentFragment();
-                details.forEach(d => {
-                    const li = document.createElement('li');
-                    li.className = 'list-item-sm';
-                    const code = document.createElement('code');
-                    const priv = document.createElement('agl-private');
-                    priv.textContent = d.subject;
-                    code.appendChild(priv);
-                    li.appendChild(code);
+                
+                // Если details - массив (даже пустой), обновляем список
+                if (Array.isArray(details) && details.length > 0) {
+                    details.forEach(d => {
+                        const li = document.createElement('li');
+                        li.className = 'list-item-sm';
+                        const code = document.createElement('code');
+                        const priv = document.createElement('agl-private');
+                        priv.textContent = d.subject;
+                        code.appendChild(priv);
+                        li.appendChild(code);
 
-                    const div = document.createElement('div');
-                    div.className = 'text-muted';
-                    div.style.fontSize = '11px';
-                    div.style.marginTop = '2px';
-                    div.textContent = d.facts;
-                    li.appendChild(div);
+                        const div = document.createElement('div');
+                        div.className = 'text-muted';
+                        div.style.fontSize = '11px';
+                        div.style.marginTop = '2px';
+                        div.textContent = d.facts;
+                        li.appendChild(div);
 
-                    fragment.appendChild(li);
-                });
+                        fragment.appendChild(li);
+                    });
+                }
+                // Если данных нет или count === 0, список очищается
+                // Это корректное поведение - нет предупреждений = пустой список
                 listEl.replaceChildren(...fragment.childNodes);
             }
         }

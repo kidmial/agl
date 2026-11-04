@@ -478,8 +478,8 @@ func renderDashboardReports(w http.ResponseWriter, templateName string, prefix s
 // warningLine — одна строка фактической нагрузки предупреждения:
 // субъект (адрес со страной) и основание (доказательства детекции).
 type warningLine struct {
-	Subject string
-	Facts   string
+	Subject string `json:"subject"`
+	Facts   string `json:"facts"`
 }
 
 // buildWarningLines собирает факты для карточки предупреждения.
