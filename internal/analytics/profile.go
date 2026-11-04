@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"sort"
 	"sync"
 	"time"
@@ -304,6 +305,62 @@ type ActorProfile struct {
 	// lastSessionTime — время предыдущей сессии для расчета интервала атак.
 	lastSessionTime time.Time `json:"-"`
 
+	// --- АЛГОРИТМ 5: ДЕТЕКЦИЯ БОТНЕТ-ПАТТЕРНОВ И АНАЛИЗ ФАЗ ---
+
+	// IATCount — суммарное количество интервалов между чтениями (Inter-Arrival Time).
+	IATCount uint64 `json:"iat_count"`
+	// IATSumMs — сумма интервалов (мс).
+	IATSumMs uint64 `json:"iat_sum_ms"`
+	// IATMinMs — минимальный интервал (мс).
+	IATMinMs uint64 `json:"iat_min_ms"`
+	// IATMaxMs — максимальный интервал (мс).
+	IATMaxMs uint64 `json:"iat_max_ms"`
+	// IATSumSqMs — сумма квадратов интервалов (обязательна для расчета дисперсии/джиттера).
+	IATSumSqMs uint64 `json:"iat_sum_sq_ms"`
+
+	// ReadTinyCount — чтения 0–64 байта.
+	ReadTinyCount uint64 `json:"read_tiny_count"`
+	// ReadSmallCount — чтения 65–256 байт.
+	ReadSmallCount uint64 `json:"read_small_count"`
+	// ReadMediumCount — чтения 257–1024 байт.
+	ReadMediumCount uint64 `json:"read_medium_count"`
+	// ReadLargeCount — чтения свыше 1024 байт.
+	ReadLargeCount uint64 `json:"read_large_count"`
+
+	// TotalRetransSum — накопленные ретрансмиты (маркер грязных прокси или проблем с маршрутизацией).
+	TotalRetransSum uint64 `json:"total_retrans_sum"`
+	// ProbesSum — количество зондов без ответа (маркер агрессии бота, ждущего ответа от Tarpit).
+	ProbesSum uint64 `json:"probes_sum"`
+
+	// PhaseCounts — счётчик по фазам угрозы.
+	// Нужен для истории, так как CurrentPhase перезаписывается каждый раз.
+	PhaseCounts map[string]int `json:"-"`
+
+	// --- ДОСЬЕ v2: ОПЕРАТИВНАЯ И ДОКАЗАТЕЛЬНАЯ ИСТОРИЯ ---
+
+	// Sessions — кольцо последних N сессий (от новых к старым).
+	//
+	// Это оперативное окно "что актор делал только что".
+	// Не отдаётся в JSON напрямую: для UI есть метод SessionsSnapshot().
+	Sessions []SessionSummary `json:"-"`
+
+	// DayIPCounts — доказательная таблица: день (YYYY-MM-DD, time.Local) → IP → count.
+	//
+	// Это доказательная база: сколько раз этот профиль стучался за каждый день.
+	// Ограничение MaxProfileDays защищает от бесконечного роста при rebuild.
+	DayIPCounts map[string]map[string]int `json:"-"`
+
+	// prevSessionTime — время предыдущей валидной сессии.
+	// Используется для расчёта AvgSessionIntervalSec (ритм атак актора).
+	// Хранится в UTC, обновляется только при валидных событиях.
+	prevSessionTime time.Time `json:"-"`
+
+	// sessionIntervalSum — сумма интервалов между сессиями для расчёта среднего.
+	sessionIntervalSum time.Duration `json:"-"`
+
+	// sessionIntervalCount — количество измеренных интервалов.
+	sessionIntervalCount uint64 `json:"-"`
+
 	// Confidence — фактическая уверенность профиля.
 	//
 	// Это не формальный Match_Score.
@@ -493,9 +550,11 @@ func NewActorProfile(rec EventRecord) (*ActorProfile, bool) {
 		BehaviorCounts:    make(map[string]int),
 		CloseReasonCounts: make(map[string]int),
 		LinkedIPCounts:    make(map[string]int),
+		PhaseCounts:       make(map[string]int),
+		DayIPCounts:       make(map[string]map[string]int),
+		Sessions:          make([]SessionSummary, 0, MaxProfileSessions),
 
 		Evidence: []string{},
-		Reasons:  []string{},
 
 		TTL: DefaultProfileTTL,
 	}
@@ -607,6 +666,23 @@ func (p *ActorProfile) ensureMaps() {
 	// Эта карта нужна для матчей и будущих слияний.
 	if p.LinkedIPCounts == nil {
 		p.LinkedIPCounts = make(map[string]int)
+	}
+
+	// Создаём карту фаз угрозы, если её нет.
+	//
+	// Эта карта нужна для накопления истории фаз.
+	if p.PhaseCounts == nil {
+		p.PhaseCounts = make(map[string]int)
+	}
+
+	// Создаём доказательную суточную таблицу, если её нет.
+	if p.DayIPCounts == nil {
+		p.DayIPCounts = make(map[string]map[string]int)
+	}
+
+	// Создаём кольцо сессий, если его нет.
+	if p.Sessions == nil {
+		p.Sessions = make([]SessionSummary, 0, MaxProfileSessions)
 	}
 
 	// Создаём список доказательств, если его нет.
@@ -796,6 +872,47 @@ func (p *ActorProfile) AddEvent(rec EventRecord) {
 	p.CurrentPhase = phaseResult.Label
 	p.ThreatLevel = phaseResult.DangerLevel
 
+	// Накапливаем историю фаз, чтобы не терять её при перезаписи CurrentPhase.
+	if phaseResult.Label != "" {
+		p.PhaseCounts[phaseResult.Label]++
+	}
+
+	// --- АЛГОРИТМ 5: Накопление IAT-метрик (Inter-Arrival Time) ---
+	// Это критично для детекции ботнет-паттернов (WAVE_JITTER, SYNC_WAVE).
+	// Валидация IATCount > 0 гарантирует, что у нас есть осмысленные интервалы.
+	if rec.IATCount > 0 {
+		p.IATCount += rec.IATCount
+		p.IATSumMs += rec.IATSumMs
+		p.IATSumSqMs += rec.IATSumSqMs
+
+		if p.IATCount == rec.IATCount { // Первый валидный IAT в профиле
+			p.IATMinMs = rec.IATMinMs
+			p.IATMaxMs = rec.IATMaxMs
+		} else {
+			if rec.IATMinMs < p.IATMinMs {
+				p.IATMinMs = rec.IATMinMs
+			}
+			if rec.IATMaxMs > p.IATMaxMs {
+				p.IATMaxMs = rec.IATMaxMs
+			}
+		}
+	}
+
+	// Накопление метрик L7 (профиль чтений)
+	p.ReadTinyCount += rec.ReadTiny
+	p.ReadSmallCount += rec.ReadSmall
+	p.ReadMediumCount += rec.ReadMedium
+	p.ReadLargeCount += rec.ReadLarge
+
+	// Накопление сетевых аномалий (ТОЛЬКО для валидных полей).
+	// Раньше проверки не было — битые поля из лога попадали в профиль.
+	if rec.TotalRetransValid {
+		p.TotalRetransSum += rec.TotalRetrans
+	}
+	if rec.ProbesValid {
+		p.ProbesSum += uint64(rec.Probes)
+	}
+
 	// --- АЛГОРИТМ 4: Оценка прогноза будущего поведения ---
 	// Сравниваем текущую сессию с предыдущей, зафиксированной в профиле.
 	currentPayload := rec.ReadLarge + rec.ReadMedium
@@ -819,10 +936,13 @@ func (p *ActorProfile) AddEvent(rec EventRecord) {
 		p.PredictedProbability = "Низкая"
 	}
 
-	// Обновляем "предыдущие" значения для оценки следующей сессии
-	p.lastSessionTime = rec.StartTime
-	p.lastPayloadSize = currentPayload
-	p.lastCloseReason = rec.CloseReason
+	// ИСПРАВЛЕНИЕ БАГА: Обновляем "предыдущие" значения ТОЛЬКО для валидных событий.
+	// Это защищает от затирания истории битыми строками из лога.
+	if rec.Valid && rec.StartTimeValid {
+		p.lastSessionTime = rec.StartTime
+		p.lastPayloadSize = currentPayload
+		p.lastCloseReason = rec.CloseReason
+	}
 
 	// Учитываем пару план/факт только если оба значения валидны.
 	//
@@ -894,6 +1014,16 @@ func (p *ActorProfile) AddEvent(rec EventRecord) {
 	// Если уверенность упала ниже порога,
 	// профиль должен быть помечен как низкоуверенный.
 	p.updateStateByConfidence()
+
+	// --- ДОСЬЕ v2: НАПОЛНЕНИЕ ИСТОРИИ СЕССИЙ И ДОКАЗАТЕЛЬНОЙ ТАБЛИЦЫ ---
+	//
+	// Работаем только с валидными событиями.
+	// Битые события не должны влиять на доказательную базу.
+	if rec.Valid && rec.StartTimeValid {
+		p.appendSessionSummary(rec)
+		p.updateDayIPCounts(rec)
+		p.updateSessionIntervals(rec.StartTime.UTC())
+	}
 }
 
 // advanceTime продвигает время последней активности профиля.
@@ -1455,6 +1585,466 @@ func (p *ActorProfile) TopLinkedIPs(limit int) []CountItem {
 	//   - стабилизировать порядок при равных значениях;
 	//   - обрезать список до лимита.
 	return topFromMap(p.LinkedIPCounts, limit)
+}
+
+// IATDispersion возвращает стандартное отклонение (джиттер) интервалов между чтениями.
+//
+// Возврат:
+//   - значение дисперсии в миллисекундах (float64);
+//   - 0, если данных недостаточно (IATCount < 2).
+//
+// Зачем:
+//   - высокий джиттер указывает на ручное управление или нестабильный канал;
+//   - низкий джиттер (около 0) указывает на автоматизированный ботнет (SYNC_WAVE).
+func (p *ActorProfile) IATDispersion() float64 {
+	if p == nil || p.IATCount < 2 {
+		return 0
+	}
+	// Var = (SumSq - (Sum^2 / Count)) / Count
+	count := float64(p.IATCount)
+	sum := float64(p.IATSumMs)
+	sumSq := float64(p.IATSumSqMs)
+
+	variance := (sumSq - (sum * sum / count)) / count
+	if variance < 0 {
+		// Защита от ошибок округления float64
+		variance = 0
+	}
+	return math.Sqrt(variance)
+}
+
+// TopPhases возвращает топ фаз угрозы профиля.
+//
+// Аргументы:
+//   - limit: сколько элементов вернуть.
+//
+// Возврат:
+//   - отсортированный список позиций.
+func (p *ActorProfile) TopPhases(limit int) []CountItem {
+	if p == nil {
+		return []CountItem{}
+	}
+	return topFromMap(p.PhaseCounts, limit)
+}
+
+// =====================================================================
+// ДОСЬЕ v2: ТИПЫ ДЛЯ ОПЕРАТИВНОЙ И ДОКАЗАТЕЛЬНОЙ ИСТОРИИ
+// =====================================================================
+
+// MaxProfileSessions — лимит кольца последних сессий в профиле.
+//
+// Почему 25:
+//   - это оперативное окно "что актор делал только что";
+//   - полная доказательная история хранится в DayIPCounts (вся жизнь профиля)
+//     и в журнале лога (до 7 дней TTL);
+//   - при 1 Гбит/с атаки 25 сессий покрывают секунды активности.
+const MaxProfileSessions = 25
+
+// MaxProfileDays — предельное количество дней в доказательной таблице.
+//
+// Почему 31:
+//   - профиль живёт по TTL 7 дней, но в истории может быть чуть больше
+//     из-за исторических rebuild;
+//   - при превышении вытесняется самый старый день.
+const MaxProfileDays = 31
+
+// SessionSummary — компактная сводка одной сессии для журнала последних N сессий.
+//
+// Поля отобраны так, чтобы напарник-аналитик увидел сессию за 1 секунду:
+// когда, где, как вёл себя, чем закрыл, сколько удержали.
+type SessionSummary struct {
+	// StartTimeLog — время сессии в формате поля [0] лога (time.Local).
+	// Форензик-честность: побайтовое совпадение с оригиналом.
+	StartTimeLog string `json:"start_time_log"`
+
+	// TarpitID — идентификатор капкана (например, "TARPIT:22").
+	TarpitID string `json:"tarpit_id"`
+
+	// IP — IP-адрес актора в этой сессии.
+	IP string `json:"ip"`
+
+	// Behavior — "AGGRESSIVE", "PASSIVE" или "UNKNOWN".
+	Behavior string `json:"behavior"`
+
+	// PhaseCode — машинный код фазы (PHASE_1_BLIND_RECON_L4 и т.п.).
+	PhaseCode string `json:"phase_code"`
+
+	// PhaseLabel — человекочитаемое имя фазы (для UI).
+	PhaseLabel string `json:"phase_label"`
+
+	// CloseReason — "FIN", "RST", "TIMEOUT", "OUR_CLOSE", "UNKNOWN".
+	CloseReason string `json:"close_reason"`
+
+	// HoldSec — фактическое удержание в секундах.
+	HoldSec uint64 `json:"hold_sec"`
+
+	// HoldValid — было ли удержание валидным.
+	HoldValid bool `json:"hold_valid"`
+
+	// RTTMs — RTT в миллисекундах, 0 если нет данных.
+	RTTMs uint32 `json:"rtt_ms"`
+
+	// RTTValid — был ли RTT валидным.
+	RTTValid bool `json:"rtt_valid"`
+
+	// PayloadBytes — суммарный размер прикладных чтений (Tiny+Small+Medium+Large).
+	// Сигнал о том, что актор вообще пытался что-то читать.
+	PayloadBytes uint64 `json:"payload_bytes"`
+}
+
+// ShareItem — доля одной категории в общем объёме профиля.
+//
+// Используется для:
+//   - доли стран;
+//   - доли IP (ротация);
+//   - долей причин закрытия;
+//   - долей поведений;
+//   - долей фаз.
+type ShareItem struct {
+	Key     string  `json:"key"`
+	Count   int     `json:"count"`
+	Percent float64 `json:"percent"` // 0..100
+}
+
+// DayRow — одна строка доказательной суточной таблицы.
+//
+// Фиксирует: сколько раз актор стучался за конкретный календарный день
+// (по time.Local — как в поле [0] лога) и какие IP при этом использовал.
+type DayRow struct {
+	// DayLog — дата в формате "YYYY-MM-DD" (time.Local).
+	DayLog string `json:"day_log"`
+
+	// Events — общее число постукиваний за день.
+	Events int `json:"events"`
+
+	// TopIPs — топ IP этого дня (не более 5, для компактности).
+	TopIPs []CountItem `json:"top_ips"`
+}
+
+// =====================================================================
+// ДОСЬЕ v2: МЕТОДЫ РАБОТЫ С ИСТОРИЕЙ СЕССИЙ И ДОКАЗАТЕЛЬНОЙ ТАБЛИЦЕЙ
+// =====================================================================
+
+// appendSessionSummary добавляет сводку сессии в кольцо (FIFO).
+//
+// Лимит: MaxProfileSessions (25).
+// Порядок: новые в начале, старые вытесняются с конца.
+func (p *ActorProfile) appendSessionSummary(rec EventRecord) {
+	if p == nil {
+		return
+	}
+
+	// Собираем сводку.
+	// StartTimeLog — в time.Local (форензик-честность, побайтовое совпадение с полем [0]).
+	summary := SessionSummary{
+		StartTimeLog: rec.StartTime.In(time.Local).Format("2006-01-02 15:04:05"),
+		TarpitID:     rec.TarpitID,
+		IP:           rec.IP,
+		Behavior:     rec.Behavior,
+		CloseReason:  rec.CloseReason,
+		HoldSec:      rec.ActualHoldSec,
+		HoldValid:    rec.ActualHoldValid,
+		RTTMs:        rec.RTTMs,
+		RTTValid:     rec.RTTValid,
+		PayloadBytes: rec.ReadTiny + rec.ReadSmall + rec.ReadMedium + rec.ReadLarge,
+	}
+
+	// Код и лейбл фазы берём из классификатора.
+	phase := ClassifyPhase(rec)
+	summary.PhaseCode = phase.Code
+	summary.PhaseLabel = phase.Label
+
+	// Вставляем в начало (новые сверху).
+	p.Sessions = append([]SessionSummary{summary}, p.Sessions...)
+
+	// Вытесняем хвост, если превысили лимит.
+	if len(p.Sessions) > MaxProfileSessions {
+		p.Sessions = p.Sessions[:MaxProfileSessions]
+	}
+}
+
+// updateDayIPCounts пополняет доказательную суточную таблицу.
+//
+// Ключ — "YYYY-MM-DD" в time.Local (совпадает с полем [0] лога).
+// Ограничение: MaxProfileDays ключей, старые вытесняются.
+func (p *ActorProfile) updateDayIPCounts(rec EventRecord) {
+	if p == nil || rec.IP == "" {
+		return
+	}
+
+	dayKey := rec.StartTime.In(time.Local).Format("2006-01-02")
+
+	// Инициализируем карту дня, если её нет.
+	if p.DayIPCounts[dayKey] == nil {
+		p.DayIPCounts[dayKey] = make(map[string]int)
+	}
+
+	// Инкремент счётчика IP за этот день.
+	p.DayIPCounts[dayKey][rec.IP]++
+
+	// Вытесняем самый старый день при превышении лимита.
+	// O(n) по числу дней, но n <= MaxProfileDays + запас, поэтому быстро.
+	if len(p.DayIPCounts) > MaxProfileDays {
+		oldest := ""
+		for k := range p.DayIPCounts {
+			if oldest == "" || k < oldest {
+				oldest = k
+			}
+		}
+		if oldest != "" {
+			delete(p.DayIPCounts, oldest)
+		}
+	}
+}
+
+// updateSessionIntervals обновляет статистику интервалов между сессиями.
+//
+// Измеряет дельту между этой сессией и предыдущей валидной.
+// Нужно для AvgSessionIntervalSec — "ритма" атак актора.
+func (p *ActorProfile) updateSessionIntervals(t time.Time) {
+	if p == nil {
+		return
+	}
+
+	if !p.prevSessionTime.IsZero() && t.After(p.prevSessionTime) {
+		p.sessionIntervalSum += t.Sub(p.prevSessionTime)
+		p.sessionIntervalCount++
+	}
+	p.prevSessionTime = t
+}
+
+// SessionsSnapshot возвращает копию кольца сессий.
+//
+// Возврат:
+//   - независимая копия среза (новые в начале);
+//   - безопасна для JSON-сериализации и веб-панели.
+func (p *ActorProfile) SessionsSnapshot() []SessionSummary {
+	if p == nil || len(p.Sessions) == 0 {
+		return []SessionSummary{}
+	}
+	out := make([]SessionSummary, len(p.Sessions))
+	copy(out, p.Sessions)
+	return out
+}
+
+// DayRows возвращает доказательную суточную таблицу.
+//
+// Сортировка: от новых дней к старым.
+// В каждой строке — топ-5 IP этого дня.
+func (p *ActorProfile) DayRows() []DayRow {
+	if p == nil || len(p.DayIPCounts) == 0 {
+		return []DayRow{}
+	}
+
+	// Собираем ключи-дни и сортируем по убыванию (новые сверху).
+	days := make([]string, 0, len(p.DayIPCounts))
+	for day := range p.DayIPCounts {
+		days = append(days, day)
+	}
+	sort.Slice(days, func(i, j int) bool {
+		return days[i] > days[j]
+	})
+
+	out := make([]DayRow, 0, len(days))
+	for _, day := range days {
+		ipMap := p.DayIPCounts[day]
+		total := 0
+		for _, c := range ipMap {
+			total += c
+		}
+		out = append(out, DayRow{
+			DayLog: day,
+			Events: total,
+			TopIPs: topFromMap(ipMap, 5),
+		})
+	}
+	return out
+}
+
+// IATAvgMs возвращает средний интервал между чтениями за всю жизнь профиля.
+func (p *ActorProfile) IATAvgMs() float64 {
+	if p == nil || p.IATCount == 0 {
+		return 0
+	}
+	return float64(p.IATSumMs) / float64(p.IATCount)
+}
+
+// RetransPerSession возвращает среднее число ретрансмитов на сессию.
+func (p *ActorProfile) RetransPerSession() float64 {
+	if p == nil || p.ValidEventCount == 0 {
+		return 0
+	}
+	return float64(p.TotalRetransSum) / float64(p.ValidEventCount)
+}
+
+// ProbesPerSession возвращает среднее число зондов на сессию.
+func (p *ActorProfile) ProbesPerSession() float64 {
+	if p == nil || p.ValidEventCount == 0 {
+		return 0
+	}
+	return float64(p.ProbesSum) / float64(p.ValidEventCount)
+}
+
+// CampaignDuration возвращает длительность кампании актора
+// (LastEventTime - FirstEventTime) в секундах.
+func (p *ActorProfile) CampaignDuration() time.Duration {
+	if p == nil || p.FirstEventTime.IsZero() || p.LastEventTime.IsZero() {
+		return 0
+	}
+	if p.LastEventTime.Before(p.FirstEventTime) {
+		return 0
+	}
+	return p.LastEventTime.Sub(p.FirstEventTime)
+}
+
+// LogTimeFormat форматирует момент времени ТОЧНО как поле [0] лога:
+// локальное время сервера, layout "2006-01-02 15:04:05".
+//
+// Доктрина времени v8.7.0: событийные времена досье равны логу.
+func LogTimeFormat(t time.Time) string {
+	return t.In(time.Local).Format("2006-01-02 15:04:05")
+}
+
+// FirstEventLog возвращает время первого события в формате лога.
+func (p *ActorProfile) FirstEventLog() string {
+	if p == nil || p.FirstEventTime.IsZero() {
+		return "—"
+	}
+	return LogTimeFormat(p.FirstEventTime)
+}
+
+// LastEventLog возвращает время последнего события в формате лога.
+func (p *ActorProfile) LastEventLog() string {
+	if p == nil || p.LastEventTime.IsZero() {
+		return "—"
+	}
+	return LogTimeFormat(p.LastEventTime)
+}
+
+// LastSeenLog возвращает время последней активности в формате лога.
+func (p *ActorProfile) LastSeenLog() string {
+	if p == nil || p.LastSeen.IsZero() {
+		return "—"
+	}
+	return LogTimeFormat(p.LastSeen)
+}
+
+// CampaignDurationFormatted возвращает длительность кампании в человекочитаемом виде.
+func (p *ActorProfile) CampaignDurationFormatted() string {
+	if p == nil {
+		return "—"
+	}
+	return FormatDuration(uint64(p.CampaignDuration().Seconds()))
+}
+
+// AvgSessionIntervalSec возвращает средний интервал между сессиями в секундах.
+//
+// Возврат:
+//   - секунды между сессиями;
+//   - 0, если измерений не было.
+func (p *ActorProfile) AvgSessionIntervalSec() float64 {
+	if p == nil || p.sessionIntervalCount == 0 {
+		return 0
+	}
+	return p.sessionIntervalSum.Seconds() / float64(p.sessionIntervalCount)
+}
+
+// HoldDeltaSec возвращает дельту (план - факт) в секундах.
+//
+// Интерпретация:
+//   - > 0: бот досиживал дольше плана (терпеливый);
+//   - = 0: идеальное совпадение;
+//   - < 0: бот уходил раньше плана (нетерпеливый).
+func (p *ActorProfile) HoldDeltaSec() int64 {
+	if p == nil || p.HoldCount == 0 {
+		return 0
+	}
+	return int64(p.PlannedHoldSumSec) - int64(p.ActualHoldSumSec)
+}
+
+// sharesFromMap превращает карту счётчиков в доли.
+//
+// Возврат:
+//   - []ShareItem, отсортированный по убыванию Count.
+func sharesFromMap(m map[string]int, total int, limit int) []ShareItem {
+	if len(m) == 0 || total <= 0 {
+		return []ShareItem{}
+	}
+	items := make([]ShareItem, 0, len(m))
+	for key, count := range m {
+		percent := float64(count) / float64(total) * 100
+		items = append(items, ShareItem{Key: key, Count: count, Percent: percent})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Count != items[j].Count {
+			return items[i].Count > items[j].Count
+		}
+		return items[i].Key < items[j].Key
+	})
+	if limit > 0 && len(items) > limit {
+		items = items[:limit]
+	}
+	return items
+}
+
+// CountryShares возвращает доли стран в профиле.
+func (p *ActorProfile) CountryShares(limit int) []ShareItem {
+	if p == nil {
+		return []ShareItem{}
+	}
+	total := 0
+	for _, c := range p.CountryCounts {
+		total += c
+	}
+	return sharesFromMap(p.CountryCounts, total, limit)
+}
+
+// IPShares возвращает доли IP в профиле (фактические наблюдения).
+func (p *ActorProfile) IPShares(limit int) []ShareItem {
+	if p == nil {
+		return []ShareItem{}
+	}
+	total := 0
+	for _, c := range p.IPCounts {
+		total += c
+	}
+	return sharesFromMap(p.IPCounts, total, limit)
+}
+
+// CloseReasonShares возвращает доли причин закрытия.
+func (p *ActorProfile) CloseReasonShares(limit int) []ShareItem {
+	if p == nil {
+		return []ShareItem{}
+	}
+	total := 0
+	for _, c := range p.CloseReasonCounts {
+		total += c
+	}
+	return sharesFromMap(p.CloseReasonCounts, total, limit)
+}
+
+// BehaviorShares возвращает доли поведений.
+func (p *ActorProfile) BehaviorShares(limit int) []ShareItem {
+	if p == nil {
+		return []ShareItem{}
+	}
+	total := 0
+	for _, c := range p.BehaviorCounts {
+		total += c
+	}
+	return sharesFromMap(p.BehaviorCounts, total, limit)
+}
+
+// PhaseShares возвращает доли фаз за всю жизнь профиля.
+func (p *ActorProfile) PhaseShares(limit int) []ShareItem {
+	if p == nil {
+		return []ShareItem{}
+	}
+	total := 0
+	for _, c := range p.PhaseCounts {
+		total += c
+	}
+	return sharesFromMap(p.PhaseCounts, total, limit)
 }
 
 // appendUnique добавляет строку в срез только если её там ещё нет.
@@ -3075,6 +3665,37 @@ func (pm *ProfileManager) MergeProfiles(target *ActorProfile, source *ActorProfi
 	target.ActualHoldSumSec += source.ActualHoldSumSec
 	target.HoldCount += source.HoldCount
 
+	// 9.1. Суммируем IAT-метрики.
+	target.IATCount += source.IATCount
+	target.IATSumMs += source.IATSumMs
+	target.IATSumSqMs += source.IATSumSqMs
+	if source.IATCount > 0 {
+		if target.IATCount == source.IATCount {
+			target.IATMinMs = source.IATMinMs
+			target.IATMaxMs = source.IATMaxMs
+		} else {
+			if source.IATMinMs < target.IATMinMs {
+				target.IATMinMs = source.IATMinMs
+			}
+			if source.IATMaxMs > target.IATMaxMs {
+				target.IATMaxMs = source.IATMaxMs
+			}
+		}
+	}
+
+	// 9.2. Суммируем L7 чтения и сетевые аномалии.
+	target.ReadTinyCount += source.ReadTinyCount
+	target.ReadSmallCount += source.ReadSmallCount
+	target.ReadMediumCount += source.ReadMediumCount
+	target.ReadLargeCount += source.ReadLargeCount
+	target.TotalRetransSum += source.TotalRetransSum
+	target.ProbesSum += source.ProbesSum
+
+	// 9.3. Сливаем историю фаз.
+	for phase, count := range source.PhaseCounts {
+		target.PhaseCounts[phase] += count
+	}
+
 	// 10. Переносим доказательства и причины (без дублей).
 	for _, evidence := range source.Evidence {
 		target.Evidence = appendUnique(target.Evidence, evidence)
@@ -3100,6 +3721,47 @@ func (pm *ProfileManager) MergeProfiles(target *ActorProfile, source *ActorProfi
 
 	// 13. Помечаем source как MERGED.
 	source.State = ProfileStateMerged
+
+	// 13.5. Сливаем доказательную суточную таблицу.
+	for day, ipMap := range source.DayIPCounts {
+		if target.DayIPCounts[day] == nil {
+			target.DayIPCounts[day] = make(map[string]int)
+		}
+		for ip, count := range ipMap {
+			target.DayIPCounts[day][ip] += count
+		}
+	}
+	// Вытесняем самые старые дни, если превысили лимит.
+	for len(target.DayIPCounts) > MaxProfileDays {
+		oldest := ""
+		for k := range target.DayIPCounts {
+			if oldest == "" || k < oldest {
+				oldest = k
+			}
+		}
+		if oldest != "" {
+			delete(target.DayIPCounts, oldest)
+		}
+	}
+
+	// 13.6. Сливаем кольцо сессий (target получает новые от source в начало).
+	//
+	// Источник помечен как MERGED, его сессии старше целевого профиля
+	// в общем случае. Ставим сессии source перед сессиями target,
+	// затем обрезаем до MaxProfileSessions.
+	if len(source.Sessions) > 0 || len(target.Sessions) > 0 {
+		merged := make([]SessionSummary, 0, len(source.Sessions)+len(target.Sessions))
+		merged = append(merged, source.Sessions...)
+		merged = append(merged, target.Sessions...)
+		if len(merged) > MaxProfileSessions {
+			merged = merged[:MaxProfileSessions]
+		}
+		target.Sessions = merged
+	}
+
+	// 13.7. Сливаем статистику интервалов между сессиями.
+	target.sessionIntervalSum += source.sessionIntervalSum
+	target.sessionIntervalCount += source.sessionIntervalCount
 
 	// 14. Добавляем запись о слиянии в доказательства target.
 	target.Evidence = appendUnique(
@@ -3305,6 +3967,15 @@ func cloneProfile(p *ActorProfile) ActorProfile {
 	// Это удобно для JSON и веб-рендера.
 	clone.LinkedIPCounts = cloneIntMap(p.LinkedIPCounts)
 
+	// Клонируем карту фаз угрозы.
+	clone.PhaseCounts = cloneIntMap(p.PhaseCounts)
+
+	// Клонируем кольцо сессий (срез).
+	clone.Sessions = cloneSessionSlice(p.Sessions)
+
+	// Клонируем доказательную суточную таблицу (двухуровневая карта).
+	clone.DayIPCounts = cloneDayIPMap(p.DayIPCounts)
+
 	// Клонируем список доказательств.
 	//
 	// Это защищает копию от изменений оригинального профиля.
@@ -3438,5 +4109,40 @@ func cloneStringSlice(s []string) []string {
 	// Она может быть пустой, если исходный срез был пустым.
 	// Это нормальное состояние.
 	// Пустой срез корректно обрабатывается вызывающим кодом.
+	return clone
+}
+
+// cloneSessionSlice создаёт глубокую копию среза SessionSummary.
+//
+// Зачем:
+//   - срез ссылочный, без копирования копия профиля менялась бы с оригиналом;
+//   - SessionSummary — структура со значениями (без ссылок),
+//     поэтому простого copy достаточно.
+func cloneSessionSlice(s []SessionSummary) []SessionSummary {
+	if s == nil {
+		return []SessionSummary{}
+	}
+	clone := make([]SessionSummary, len(s))
+	copy(clone, s)
+	return clone
+}
+
+// cloneDayIPMap создаёт глубокую копию двухуровневой карты день → IP → count.
+//
+// Зачем:
+//   - карта ссылочная, без копирования копия профиля менялась бы с оригиналом;
+//   - двухуровневая структура: клонируем и внешний, и внутренний слои.
+func cloneDayIPMap(m map[string]map[string]int) map[string]map[string]int {
+	if m == nil {
+		return make(map[string]map[string]int)
+	}
+	clone := make(map[string]map[string]int, len(m))
+	for day, ipMap := range m {
+		inner := make(map[string]int, len(ipMap))
+		for ip, count := range ipMap {
+			inner[ip] = count
+		}
+		clone[day] = inner
+	}
 	return clone
 }

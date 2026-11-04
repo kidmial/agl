@@ -14,6 +14,7 @@ package analytics
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -68,6 +69,13 @@ type IPBucket struct {
 	FirstSeen    time.Time
 	LastSeen     time.Time
 	Trap         string // последняя ловушка, в которую попал этот IP
+
+	// === Расширенные агрегаты для криминалистики по IP ===
+	IATCount        uint64 // количество интервалов
+	IATSumMs        uint64 // сумма интервалов
+	IATSumSqMs      uint64 // сумма квадратов (для дисперсии)
+	TotalRetransSum uint64 // накопленные ретрансмиты
+	ProbesSum       uint64 // зонды без ответа
 }
 
 // HourBucket — часовая агрегация.
@@ -529,6 +537,19 @@ func applyEventToHour(h *HourAggBucket, rec EventRecord) {
 			ip.RTTSumMs += uint64(rec.RTTMs)
 			ip.RTTCount++
 		}
+		// IAT агрегаты по IP
+		if rec.IATCountValid && rec.IATCount > 0 {
+			ip.IATCount += rec.IATCount
+			ip.IATSumMs += rec.IATSumMs
+			ip.IATSumSqMs += rec.IATSumSqMs
+		}
+		// Сетевые аномалии по IP
+		if rec.TotalRetransValid {
+			ip.TotalRetransSum += rec.TotalRetrans
+		}
+		if rec.ProbesValid {
+			ip.ProbesSum += uint64(rec.Probes)
+		}
 		cr := rec.CloseReason
 		if cr == "" {
 			cr = "UNKNOWN"
@@ -664,6 +685,19 @@ func applyEventToDay(d *DayAggBucket, rec EventRecord) {
 			ip.RTTSumMs += uint64(rec.RTTMs)
 			ip.RTTCount++
 		}
+		// IAT агрегаты по IP
+		if rec.IATCountValid && rec.IATCount > 0 {
+			ip.IATCount += rec.IATCount
+			ip.IATSumMs += rec.IATSumMs
+			ip.IATSumSqMs += rec.IATSumSqMs
+		}
+		// Сетевые аномалии по IP
+		if rec.TotalRetransValid {
+			ip.TotalRetransSum += rec.TotalRetrans
+		}
+		if rec.ProbesValid {
+			ip.ProbesSum += uint64(rec.Probes)
+		}
 		cr := rec.CloseReason
 		if cr == "" {
 			cr = "UNKNOWN"
@@ -727,6 +761,11 @@ type IPReport struct {
 	LastSeen       time.Time
 	// Trap — доминирующая ловушка по весу событий.
 	Trap string
+
+	// Криминалистика
+	IATDispersion   float64
+	TotalRetransSum uint64
+	ProbesSum       uint64
 }
 
 // MacroReport — сводные цифры за период.
@@ -1027,15 +1066,20 @@ func (r *Rollup) BuildIPReport(rng ReportRange, limit int) []IPReport {
 	defer r.mu.RUnlock()
 
 	type ipAgg struct {
-		Events       uint64
-		HoldSumSec   uint64
-		RTTSumMs     uint64
-		RTTCount     uint64
-		DropCount    uint64
-		CloseReasons map[string]uint64
-		CountryVotes map[string]uint64
-		TrapVotes    map[string]uint64
-		LastSeen     time.Time
+		Events          uint64
+		HoldSumSec      uint64
+		RTTSumMs        uint64
+		RTTCount        uint64
+		DropCount       uint64
+		CloseReasons    map[string]uint64
+		CountryVotes    map[string]uint64
+		TrapVotes       map[string]uint64
+		LastSeen        time.Time
+		IATCount        uint64
+		IATSumMs        uint64
+		IATSumSqMs      uint64
+		TotalRetransSum uint64
+		ProbesSum       uint64
 	}
 	aggregated := make(map[string]*ipAgg)
 	loc := time.UTC
@@ -1068,6 +1112,11 @@ func (r *Rollup) BuildIPReport(rng ReportRange, limit int) []IPReport {
 		a.RTTSumMs += ip.RTTSumMs
 		a.RTTCount += ip.RTTCount
 		a.DropCount += ip.DropCount
+		a.IATCount += ip.IATCount
+		a.IATSumMs += ip.IATSumMs
+		a.IATSumSqMs += ip.IATSumSqMs
+		a.TotalRetransSum += ip.TotalRetransSum
+		a.ProbesSum += ip.ProbesSum
 		for k, v := range ip.CloseReasons {
 			a.CloseReasons[k] += v
 		}
@@ -1112,21 +1161,36 @@ func (r *Rollup) BuildIPReport(rng ReportRange, limit int) []IPReport {
 		if a.RTTCount > 0 {
 			avgRTT = float64(a.RTTSumMs) / float64(a.RTTCount)
 		}
+
+		var iatDispersion float64
+		if a.IATCount > 1 {
+			count := float64(a.IATCount)
+			sum := float64(a.IATSumMs)
+			sumSq := float64(a.IATSumSqMs)
+			variance := (sumSq - (sum * sum / count)) / count
+			if variance > 0 {
+				iatDispersion = math.Sqrt(variance)
+			}
+		}
+
 		topCR := topCloseReason(a.CloseReasons)
 		trapLabel := "—"
 		if key := topCountKey(a.TrapVotes); key != "" {
 			trapLabel = TrapLabel(key)
 		}
 		out = append(out, IPReport{
-			IP:             ipStr,
-			Country:        dominantCountry(a.CountryVotes),
-			Events:         a.Events,
-			HoldSumSec:     a.HoldSumSec,
-			AvgRTTMs:       avgRTT,
-			TopCloseReason: topCR,
-			DropCount:      a.DropCount,
-			LastSeen:       a.LastSeen,
-			Trap:           trapLabel,
+			IP:              ipStr,
+			Country:         dominantCountry(a.CountryVotes),
+			Events:          a.Events,
+			HoldSumSec:      a.HoldSumSec,
+			AvgRTTMs:        avgRTT,
+			TopCloseReason:  topCR,
+			DropCount:       a.DropCount,
+			LastSeen:        a.LastSeen,
+			Trap:            trapLabel,
+			IATDispersion:   iatDispersion,
+			TotalRetransSum: a.TotalRetransSum,
+			ProbesSum:       a.ProbesSum,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {

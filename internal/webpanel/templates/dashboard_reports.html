@@ -189,6 +189,8 @@
                     <th>Ср. RTT</th>
                     <th>Дропов (FIN/RST)</th>
                     <th>Домин. CloseReason</th>
+                    <th>Дисперсия IAT</th>
+                    <th>Сетевые аномалии</th>
                     <th>Последняя активность</th>
                 </tr>
             </thead>
@@ -209,13 +211,15 @@
                         {{ else if eq $ip.TopCloseReason "FIN" }}<span class="status-mixed">FIN</span>
                         {{ else }}<span class="text-muted">{{ $ip.TopCloseReason }}</span>{{ end }}
                     </td>
+                    <td>{{ if gt $ip.IATDispersion 0.0 }}{{ printf "%.1f" $ip.IATDispersion }} мс{{ else }}—{{ end }}</td>
+                    <td><agl-private>{{ if or (gt $ip.TotalRetransSum 0) (gt $ip.ProbesSum 0) }}{{ $ip.TotalRetransSum }} / {{ $ip.ProbesSum }}{{ else }}—{{ end }}</agl-private></td>
                     <td class="text-muted">{{ if $ip.LastSeen.IsZero }}—{{ else }}{{ $ip.LastSeen.Format "02.01 15:04"
                         }}{{
                         end }}</td>
                 </tr>
                 {{ else }}
                 <tr>
-                    <td colspan="10" class="text-muted">Нет данных за выбранный период.</td>
+                    <td colspan="12" class="text-muted">Нет данных за выбранный период.</td>
                 </tr>
                 {{ end }}
             </tbody>
@@ -354,7 +358,7 @@
                 });
 
                 // 4. Таблица IP
-                rebuildTable('ipsTableBody', data.ips, 10, (tr, ip, i) => {
+                rebuildTable('ipsTableBody', data.ips, 12, (tr, ip, i) => {
                     const tdIP = document.createElement('td');
                     const code = document.createElement('code');
                     code.appendChild(privEl(ip.ip));
@@ -377,6 +381,10 @@
                     span.textContent = ip.close_reason;
                     tdCR.appendChild(span);
                     tr.appendChild(tdCR);
+
+                    // Новые поля: Дисперсия IAT и Сетевые аномалии
+                    tr.appendChild(cellText(ip.iat_dispersion === '—' ? '—' : ip.iat_dispersion + ' мс'));
+                    tr.appendChild(cellPriv(ip.retrans + ' / ' + ip.probes));
 
                     tr.appendChild(cellText(ip.last_seen, 'text-muted'));
                     tr.insertBefore(cellText(i + 1), tr.firstChild);

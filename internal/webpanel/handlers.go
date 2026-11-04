@@ -598,15 +598,18 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		}
 
 		type ipRowDTO struct {
-			IP          string `json:"ip"`
-			Country     string `json:"country"`
-			Trap        string `json:"trap"`
-			Events      uint64 `json:"events"`
-			Hold        string `json:"hold"`
-			RTT         string `json:"rtt"`
-			DropCount   uint64 `json:"drop_count"`
-			CloseReason string `json:"close_reason"`
-			LastSeen    string `json:"last_seen"`
+			IP            string `json:"ip"`
+			Country       string `json:"country"`
+			Trap          string `json:"trap"`
+			Events        uint64 `json:"events"`
+			Hold          string `json:"hold"`
+			RTT           string `json:"rtt"`
+			DropCount     uint64 `json:"drop_count"`
+			CloseReason   string `json:"close_reason"`
+			LastSeen      string `json:"last_seen"`
+			IATDispersion string `json:"iat_dispersion"`
+			Retrans       uint64 `json:"retrans"`
+			Probes        uint64 `json:"probes"`
 		}
 		ipRows := make([]ipRowDTO, 0, len(ips))
 		for _, ip := range ips {
@@ -618,6 +621,10 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			if ip.AvgRTTMs > 0 {
 				rtt = fmt.Sprintf("%.0f", ip.AvgRTTMs)
 			}
+			iatDisp := "—"
+			if ip.IATDispersion > 0 {
+				iatDisp = fmt.Sprintf("%.1f", ip.IATDispersion)
+			}
 			lastSeen := "—"
 			if !ip.LastSeen.IsZero() {
 				lastSeen = ip.LastSeen.Format("02.01 15:04")
@@ -626,6 +633,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 				IP: ip.IP, Country: country, Trap: ip.Trap, Events: ip.Events,
 				Hold: analytics.FormatDuration(ip.HoldSumSec), RTT: rtt, DropCount: ip.DropCount,
 				CloseReason: ip.TopCloseReason, LastSeen: lastSeen,
+				IATDispersion: iatDisp, Retrans: ip.TotalRetransSum, Probes: ip.ProbesSum,
 			})
 		}
 
@@ -686,17 +694,20 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			}
 		}
 
+		// Доктрина времени v8.7.0: событийные времена равны полю [0] лога.
+		// Лог пишется в локальном времени сервера → форматируем через time.Local.
+		// Витринная зона (loc) остаётся ТОЛЬКО за служебным server_time.
 		formatTime := func(t time.Time) string {
 			if t.IsZero() {
 				return "—"
 			}
-			return t.In(loc).Format("02.01 15:04")
+			return t.In(time.Local).Format("02.01 15:04")
 		}
 		formatTimeSec := func(t time.Time) string {
 			if t.IsZero() {
 				return "—"
 			}
-			return t.In(loc).Format("02.01 15:04:05")
+			return t.In(time.Local).Format("02.01 15:04:05")
 		}
 
 		// DTO для чистой сериализации (числовые типы, как в analytics.StackFingerprint)
@@ -746,8 +757,35 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 				"rtt_avg_ms":           profile.RTTAvgMs(),
 				"rtt_min_ms":           profile.RTTMinMs,
 				"rtt_max_ms":           profile.RTTMaxMs,
+				"read_tiny_count":      profile.ReadTinyCount,
+				"read_small_count":     profile.ReadSmallCount,
+				"read_medium_count":    profile.ReadMediumCount,
+				"read_large_count":     profile.ReadLargeCount,
+				"iat_count":            profile.IATCount,
+				"iat_dispersion":       profile.IATDispersion(),
+				"total_retrans_sum":    profile.TotalRetransSum,
+				"probes_sum":           profile.ProbesSum,
+				"top_phases":           profile.TopPhases(5),
 				"evidence":             profile.Evidence,
 				"reasons":              profile.Reasons,
+
+				// === ДОСЬЕ v2: ОПЕРАТИВНАЯ И ДОКАЗАТЕЛЬНАЯ ИСТОРИЯ ===
+				"sessions":              profile.SessionsSnapshot(),
+				"day_rows":              profile.DayRows(),
+				"iat_avg_ms":            profile.IATAvgMs(),
+				"retrans_per_session":   profile.RetransPerSession(),
+				"probes_per_session":    profile.ProbesPerSession(),
+				"campaign_duration_sec": profile.CampaignDuration().Seconds(),
+				"avg_session_interval":  profile.AvgSessionIntervalSec(),
+				"hold_delta_sec":        profile.HoldDeltaSec(),
+
+				// === ДОСЬЕ v2: ДОЛИ (SHARES) ===
+				"country_shares":      profile.CountryShares(10),
+				"ip_shares":           profile.IPShares(10),
+				"close_reason_shares": profile.CloseReasonShares(0), // все причины
+				"behavior_shares":     profile.BehaviorShares(0),    // все поведения
+				"phase_shares":        profile.PhaseShares(10),
+				"actual_hold_sum_sec": profile.ActualHoldSumSec,
 			},
 		})
 	})
