@@ -236,6 +236,29 @@
             })();
 
             // ==========================================================================
+            // ФУНКЦИЯ: Визуальное предупреждение об обновлении (за 1 секунду)
+            // ==========================================================================
+            function triggerRefreshPulse() {
+                const activeIcon = document.querySelector('.autorefresh-icon-active');
+                const pausedIcon = document.querySelector('.autorefresh-icon-paused');
+                
+                let targetIcon = (activeIcon && activeIcon.style.display !== 'none') ? activeIcon : pausedIcon;
+                if (!targetIcon) return;
+                
+                // Перезапуск анимации через reflow
+                targetIcon.classList.remove('pulse');
+                void targetIcon.offsetWidth; 
+                targetIcon.classList.add('pulse');
+                
+                // Гарантированная очистка класса после завершения анимации
+                const handleEnd = () => {
+                    targetIcon.classList.remove('pulse');
+                    targetIcon.removeEventListener('animationend', handleEnd);
+                };
+                targetIcon.addEventListener('animationend', handleEnd);
+            }
+
+            // ==========================================================================
             // AUTO-REFRESH (живые страницы)
             // ==========================================================================
             (function () {
@@ -246,7 +269,7 @@
                 if (localStorage.getItem('agl_autorefresh') === 'off') {
                     cb.checked = false;
                 } else {
-                    cb.checked = true; // по умолчанию ВКЛ
+                    cb.checked = true;
                 }
 
                 cb.addEventListener('change', function () {
@@ -276,7 +299,6 @@
                         toggle.style.color = 'var(--accent-amber)';
                     }
 
-                    // Обновляем статус в dashboard_overview
                     const statusEl = document.getElementById('autorefresh-status');
                     if (statusEl) {
                         statusEl.textContent = cb.checked ? 'активно (10 сек)' : 'пауза';
@@ -286,11 +308,22 @@
 
                 function startAutorefresh() {
                     if (autorefreshTimer) clearInterval(autorefreshTimer);
+                    
                     autorefreshTimer = setInterval(() => {
-                        // Пауза когда вкладка не видна
+                        // Пауза, когда вкладка не видна
                         if (document.visibilityState !== 'visible') return;
-                        // Триггер события для подписчиков (dashboard_vitals, dashboard_overview)
-                        window.dispatchEvent(new CustomEvent('agl:autorefresh'));
+                        
+                        // 1. СРАЗУ: Запускаем анимацию-предупреждение (на 9-й секунде цикла)
+                        triggerRefreshPulse();
+                        
+                        // 2. ЧЕРЕЗ 1 СЕКУНДУ: Реальное обновление данных (на 10-й секунде цикла)
+                        setTimeout(() => {
+                            if (document.visibilityState === 'visible') {
+                                // Это событие только обновляет данные (анимацию оно не вызывает)
+                                window.dispatchEvent(new CustomEvent('agl:autorefresh'));
+                            }
+                        }, 1000);
+                        
                     }, AUTOREFRESH_INTERVAL);
                 }
 
@@ -304,44 +337,6 @@
                 updateAutorefreshUI();
                 if (cb.checked) startAutorefresh();
             })();
-
-            // ==========================================================================
-            // Визуальный фидбек автообновления (Event-driven)
-            // ==========================================================================
-            window.addEventListener('agl:autorefresh', () => {
-                // Находим активную иконку (ту, которая видна)
-                const activeIcon = document.querySelector('.autorefresh-icon-active');
-                const pausedIcon = document.querySelector('.autorefresh-icon-paused');
-                
-                // Определяем, какая иконка сейчас видна
-                let targetIcon = null;
-                if (activeIcon && activeIcon.style.display !== 'none') {
-                    targetIcon = activeIcon;
-                } else if (pausedIcon && pausedIcon.style.display !== 'none') {
-                    targetIcon = pausedIcon;
-                }
-                
-                if (!targetIcon) return;
-                
-                // Если анимация уже запущена, просто перезапускаем её через reflow
-                if (targetIcon.classList.contains('pulse')) {
-                    targetIcon.classList.remove('pulse');
-                    void targetIcon.offsetWidth; // reflow
-                    targetIcon.classList.add('pulse');
-                    return;
-                }
-                
-                // Добавляем класс с анимацией
-                targetIcon.classList.add('pulse');
-                
-                // Слушаем завершение анимации
-                const handleAnimationEnd = () => {
-                    targetIcon.classList.remove('pulse');
-                    targetIcon.removeEventListener('animationend', handleAnimationEnd);
-                };
-                
-                targetIcon.addEventListener('animationend', handleAnimationEnd);
-            });
 
             // ==========================================================================
             // МЕНЕДЖЕР РЕЖИМА ПРИВАТНОСТИ (Secure by Default)
