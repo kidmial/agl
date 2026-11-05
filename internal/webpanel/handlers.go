@@ -363,7 +363,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		countries := analytics.GlobalRollup.BuildCountryReport(reportRange, 50)
 		ips := analytics.GlobalRollup.BuildIPReport(reportRange, 100)
 		macro := analytics.GlobalRollup.BuildMacroReport(reportRange)
-		traps := analytics.GlobalRollup.BuildTarpitReport(reportRange, 10)
+		traps := analytics.GlobalRollup.BuildTarpitReport(reportRange, 0)
 
 		renderDashboardReports(w, "dashboard_reports", prefix, rng, countries, ips, macro, traps)
 	})
