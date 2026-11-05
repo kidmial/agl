@@ -35,7 +35,7 @@
             <div class="metric-label">Временной охват (время = лог)</div>
             <div class="metric metric-sm" id="profileTimeframe">{{ .Profile.FirstEventLog }} — {{ .Profile.LastEventLog }}</div>
             <div class="text-muted card-macrometric row">Последняя активность:<div class="text-primary"><span id="profileLastSeen">{{ .Profile.LastSeenLog }}</span></div></div>
-            <div class="text-muted card-macrometric row">Длительность кампании:<div class="text-primary"><span id="campaignDuration">{{ .Profile.CampaignDurationFormatted }}</span></div></div>
+            <div class="text-muted card-macrometric row">Длительность удержания:<div class="text-primary"><span id="campaignDuration">{{ .Profile.CampaignDurationFormatted }}</span></div></div>
             <div class="text-muted card-macrometric row">Ритм сессий:<div class="text-primary"><agl-private><span id="avgSessionInterval">{{ if gt .Profile.AvgSessionIntervalSec 0.0 }}{{ printf "%.0f" .Profile.AvgSessionIntervalSec }} сек{{ else }}—{{ end }}</span></agl-private></div></div>
         </div>
         <div class="card">
@@ -132,26 +132,28 @@
             <div class="text-muted card-macrometric row">Концентрация:<div class="text-primary"><span id="ipConcentration">{{ if gt .Profile.UniqueIPCount 0 }}{{ floorDiv .Profile.EventCount .Profile.UniqueIPCount }} соб/IP — {{ if eq .Profile.UniqueIPCount 1 }}резидент{{ else }}ротатор{{ end }}{{ else }}—{{ end }}</span></div></div>
         </div>
         <div class="card">
-            <h3>Гео-профиль: доля стран (<span id="countriesCountHeader">{{ .Profile.UniqueCountryCount }}</span>)</h3>
+            <h3>Доминирование в странах (<span id="countriesCountHeader">{{ .Profile.UniqueCountryCount }}</span>)</h3>
             <div class="table-scroll">
                 <table>
                     <thead>
                         <tr>
                             <th>Страна</th>
-                            <th>Атак</th>
-                            <th>Доля</th>
+                            <th>Атак профиля</th>
+                            <th>Всего из страны</th>
+                            <th>Доля в стране</th>
                         </tr>
                     </thead>
                     <tbody id="countriesTableBody">
-                        {{ range $i, $row := .Profile.CountryShares 10 }}
+                        {{ range $i, $row := .CountryGlobalShares }}
                         <tr{{ if eq $i 0 }} class="row-top"{{ end }}>
-                            <td>{{ $row.Key }}</td>
-                            <td>{{ $row.Count }}</td>
-                            <td class="text-muted">{{ printf "%.1f" $row.Percent }}%</td>
+                            <td>{{ $row.code }}</td>
+                            <td>{{ $row.profile_events }}</td>
+                            <td class="text-muted">{{ $row.global_events }}</td>
+                            <td class="text-muted">{{ printf "%.1f" $row.percent }}%</td>
                         </tr>
                         {{ else }}
                         <tr>
-                            <td colspan="3" class="text-muted">Нет данных</td>
+                            <td colspan="4" class="text-muted">Нет данных</td>
                         </tr>
                         {{ end }}
                     </tbody>
@@ -171,7 +173,7 @@
                 <div class="kv-row"><span class="metric-label">Средний факт:</span><span class="text-primary" id="holdActual"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgActualHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
                 <div class="kv-row"><span class="metric-label">Всего сессий:</span><span id="holdCount">{{ .Profile.HoldCount }}</span></div>
                 <div class="kv-row"><span class="metric-label">Всего утилизировано:</span><span class="text-primary" id="holdTotal"><agl-private>{{ if .Profile.HoldCount }}{{ .Profile.ActualHoldSumSec | formatDuration }}{{ else }}—{{ end }}</agl-private></span></div>
-                <div class="kv-row"><span class="metric-label">Дельта план−факт:</span><span class="text-primary" id="holdDelta"><agl-private>{{ if .Profile.HoldCount }}{{ .Profile.HoldDeltaSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
+                <div class="kv-row"><span class="metric-label">Дельта план−факт:</span><span class="text-primary" id="holdDelta"><agl-private>{{ if .Profile.HoldCount }}{{ if gt .Profile.HoldDeltaSec 0 }}+{{ end }}{{ .Profile.HoldDeltaSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
             </div>
         </div>
         <div class="card">
@@ -215,8 +217,8 @@
         <div class="card">
             <h3>Поведение и обрывы</h3>
             <div class="kv-list">
-                <div class="kv-row"><span class="metric-label">Поведение:</span><span class="text-primary" id="behaviorShares">{{ range $i, $s := .Profile.BehaviorShares 0 }}{{ if $i }} / {{ end }}{{ $s.Key }} {{ printf "%.0f" $s.Percent }}%{{ else }}—{{ end }}</span></div>
-                <div class="kv-row"><span class="metric-label">Кто обрывает:</span><span class="text-primary" id="closeShares">{{ range $i, $s := .Profile.CloseReasonShares 0 }}{{ if $i }} / {{ end }}{{ $s.Key }} {{ printf "%.0f" $s.Percent }}%{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">Поведение:</span><span class="text-primary" id="behaviorShares">{{ range $i, $s := .Profile.BehaviorShares 0 }}{{ if $i }} / {{ end }}{{ if eq $s.Key "AGGRESSIVE" }}<span class="status-aggr">{{ $s.Key }}</span> {{ printf "%.0f" $s.Percent }}%{{ else if eq $s.Key "PASSIVE" }}<span class="status-pass">{{ $s.Key }}</span> {{ printf "%.0f" $s.Percent }}%{{ else }}{{ $s.Key }} {{ printf "%.0f" $s.Percent }}%{{ end }}{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">Кто обрывает:</span><span class="text-primary" id="closeShares">{{ range $i, $s := .Profile.CloseReasonShares 0 }}{{ if $i }} / {{ end }}{{ if eq $s.Key "TIMEOUT" }}<span class="status-pass">{{ $s.Key }}</span> {{ printf "%.0f" $s.Percent }}%{{ else if eq $s.Key "RST" }}<span class="status-aggr">{{ $s.Key }}</span> {{ printf "%.0f" $s.Percent }}%{{ else if eq $s.Key "FIN" }}<span class="status-mixed">{{ $s.Key }}</span> {{ printf "%.0f" $s.Percent }}%{{ else }}{{ $s.Key }} {{ printf "%.0f" $s.Percent }}%{{ end }}{{ else }}—{{ end }}</span></div>
             </div>
             <p class="text-muted card-macrometric row">TIMEOUT = бот досидел до нашего таймера; FIN/RST = воля бота к сбросу.</p>
         </div>
@@ -258,9 +260,18 @@
                             <td class="text-muted">{{ .StartTimeLog }}</td>
                             <td><agl-private>{{ .TarpitID }}</agl-private></td>
                             <td><code><agl-private>{{ .IP }}</agl-private></code></td>
-                            <td>{{ .Behavior }}</td>
+                            <td>
+                                {{ if eq .Behavior "AGGRESSIVE" }}<span class="status-aggr">{{ .Behavior }}</span>
+                                {{ else if eq .Behavior "PASSIVE" }}<span class="status-pass">{{ .Behavior }}</span>
+                                {{ else }}<span class="text-muted">{{ .Behavior }}</span>{{ end }}
+                            </td>
                             <td>{{ .PhaseLabel }}</td>
-                            <td>{{ .CloseReason }}</td>
+                            <td>
+                                {{ if eq .CloseReason "TIMEOUT" }}<span class="status-pass">{{ .CloseReason }}</span>
+                                {{ else if eq .CloseReason "RST" }}<span class="status-aggr">{{ .CloseReason }}</span>
+                                {{ else if eq .CloseReason "FIN" }}<span class="status-mixed">{{ .CloseReason }}</span>
+                                {{ else }}<span class="text-muted">{{ .CloseReason }}</span>{{ end }}
+                            </td>
                             <td><agl-private>{{ if .HoldValid }}{{ .HoldSec }} сек{{ else }}—{{ end }}</agl-private></td>
                             <td>{{ if .RTTValid }}{{ .RTTMs }} мс{{ else }}—{{ end }}</td>
                             <td>{{ .PayloadBytes }}</td>
@@ -285,8 +296,8 @@
                     <thead>
                         <tr>
                             <th>Дата</th>
-                            <th>Постукиваний</th>
-                            <th>IP (топ-5 дня)</th>
+                            <th>Событий</th>
+                            <th>IP (топ-5 дней)</th>
                         </tr>
                     </thead>
                     <tbody id="dayRowsTableBody">
@@ -347,6 +358,24 @@
         window.addEventListener('agl:autorefresh', () => {
             updateProfileSilent();
         });
+
+        // ==========================================================================
+        // СОСТОЯНИЕ ДЛЯ ВСПЫШЕК СТРОК В ДОСЬЕ АКТОРА
+        // ==========================================================================
+        // Единый реестр состояний для всех таблиц досье.
+        // Ключи: 'ip_shares', 'country_shares', 'sessions', 'day_rows'
+        window._aglDossierFlashState = window._aglDossierFlashState || {};
+
+        function getDossierFlashState(tableKey) {
+            if (!window._aglDossierFlashState[tableKey]) {
+                window._aglDossierFlashState[tableKey] = {
+                    seen: new Set(),
+                    snaps: new Map(),
+                    seeded: false
+                };
+            }
+            return window._aglDossierFlashState[tableKey];
+        }
 
         function updateProfileSilent() {
             // Извлекаем ID профиля из URL (например, /prefix/dashboard/profile/AGL_123)
@@ -471,8 +500,12 @@
                     setPrivText('avgSessionInterval', p.avg_session_interval > 0 ? Math.round(p.avg_session_interval) + ' сек' : '—');
                     setPrivText('holdTotal', p.hold_count > 0 ? fmtDur(p.actual_hold_sum_sec) : '—');
                     setPrivText('holdDelta', p.hold_count > 0 ? (p.hold_delta_sec > 0 ? '+' : '') + p.hold_delta_sec + ' сек' : '—');
-                    setText('behaviorShares', sharesLine(p.behavior_shares));
-                    setText('closeShares', sharesLine(p.close_reason_shares));
+                    // Для карточки "Поведение и обрывы" используем innerHTML,
+                    // потому что sharesLine возвращает HTML с <span class="status-*">
+                    const behaviorEl = document.getElementById('behaviorShares');
+                    if (behaviorEl) behaviorEl.innerHTML = sharesLine(p.behavior_shares);
+                    const closeEl = document.getElementById('closeShares');
+                    if (closeEl) closeEl.innerHTML = sharesLine(p.close_reason_shares);
                     setText('sessionsCount', (p.sessions || []).length);
                     setText('ipConcentration', p.unique_ip_count > 0
                         ? Math.round(p.event_count / p.unique_ip_count) + ' соб/IP — ' + (p.unique_ip_count === 1 ? 'резидент' : 'ротатор')
@@ -482,7 +515,7 @@
                         : 'нет гео-ротации');
 
                     // 2. Ротация IP (доли)
-                    rebuildSimpleTable('ipsTableBody', p.ip_shares, 3, (tr, item, index) => {
+                    rebuildTableWithFlash('ipsTableBody', p.ip_shares, 3, (tr, item, index) => {
                         if (index === 0) tr.className = 'row-top';
                         const tdIP = document.createElement('td');
                         const code = document.createElement('code');
@@ -491,15 +524,16 @@
                         tr.appendChild(tdIP);
                         tr.appendChild(cellText(item.count));
                         tr.appendChild(cellText(item.percent.toFixed(1) + '%', 'text-muted'));
-                    });
+                    }, 'ip_shares', (item) => item.key, (item) => JSON.stringify({count: item.count, percent: item.percent}));
 
-                    // 3. Гео-профиль (доли стран)
-                    rebuildSimpleTable('countriesTableBody', p.country_shares, 3, (tr, item, index) => {
+                    // 3. Доминирование в странах (доля профиля в общем трафике страны)
+                    rebuildTableWithFlash('countriesTableBody', p.country_global_shares, 4, (tr, item, index) => {
                         if (index === 0) tr.className = 'row-top';
-                        tr.appendChild(cellText(item.key));
-                        tr.appendChild(cellText(item.count));
+                        tr.appendChild(cellText(item.code));
+                        tr.appendChild(cellText(item.profile_events));
+                        tr.appendChild(cellText(item.global_events, 'text-muted'));
                         tr.appendChild(cellText(item.percent.toFixed(1) + '%', 'text-muted'));
-                    });
+                    }, 'country_global_shares', (item) => item.code, (item) => JSON.stringify({profile_events: item.profile_events, global_events: item.global_events, percent: item.percent}));
 
                     // 3.5. Распределение фаз (kv-блок)
                     const phaseBlock = document.getElementById('phaseSharesBlock');
@@ -531,7 +565,7 @@
                     }
 
                     // 3.6. Журнал сессий (9 колонок)
-                    rebuildSimpleTable('sessionsTableBody', p.sessions, 9, (tr, s) => {
+                    rebuildTableWithFlash('sessionsTableBody', p.sessions, 9, (tr, s) => {
                         tr.appendChild(cellText(s.start_time_log, 'text-muted'));
                         tr.appendChild(cellPriv(s.tarpit_id));
                         const tdIP = document.createElement('td');
@@ -539,21 +573,21 @@
                         code.appendChild(privEl(s.ip));
                         tdIP.appendChild(code);
                         tr.appendChild(tdIP);
-                        tr.appendChild(cellText(s.behavior));
+                        tr.appendChild(cellBehavior(s.behavior));
                         tr.appendChild(cellText(s.phase_label));
-                        tr.appendChild(cellText(s.close_reason));
+                        tr.appendChild(cellCloseReason(s.close_reason));
                         tr.appendChild(cellPriv(s.hold_valid ? s.hold_sec + ' сек' : '—'));
                         tr.appendChild(cellText(s.rtt_valid ? s.rtt_ms + ' мс' : '—'));
                         tr.appendChild(cellText(s.payload_bytes));
-                    });
+                    }, 'sessions', (s) => s.start_time_log, (s) => JSON.stringify({tarpit: s.tarpit_id, ip: s.ip, behavior: s.behavior, phase: s.phase_code, close: s.close_reason, hold: s.hold_valid ? s.hold_sec : null}));
 
                     // 3.7. Суточная доказательная таблица (3 колонки)
-                    rebuildSimpleTable('dayRowsTableBody', p.day_rows, 3, (tr, d) => {
+                    rebuildTableWithFlash('dayRowsTableBody', p.day_rows, 3, (tr, d) => {
                         tr.appendChild(cellText(d.day_log, 'text-muted'));
                         tr.appendChild(cellText(d.events));
                         const ips = (d.top_ips || []).map(ip => ip.key + ' (' + ip.count + ')').join(', ');
                         tr.appendChild(cellPriv(ips || '—'));
-                    });
+                    }, 'day_rows', (d) => d.day_log, (d) => JSON.stringify({events: d.events, top_ips: d.top_ips}));
 
                     // 6. Списки Evidence и Reasons
                     rebuildList('evidenceList', p.evidence, 'Нет зафиксированных доказательств.');
@@ -589,10 +623,81 @@
             td.appendChild(privEl(text));
             return td;
         }
+        // Ячейка с поведением (AGGRESSIVE/PASSIVE)
+        function cellBehavior(behavior) {
+            const td = document.createElement('td');
+            const span = document.createElement('span');
+            if (behavior === 'AGGRESSIVE') span.className = 'status-aggr';
+            else if (behavior === 'PASSIVE') span.className = 'status-pass';
+            else span.className = 'text-muted';
+            span.textContent = behavior;
+            td.appendChild(span);
+            return td;
+        }
+        // Ячейка с причиной закрытия (FIN/RST/TIMEOUT)
+        function cellCloseReason(reason) {
+            const td = document.createElement('td');
+            const span = document.createElement('span');
+            if (reason === 'TIMEOUT') span.className = 'status-pass';
+            else if (reason === 'RST') span.className = 'status-aggr';
+            else if (reason === 'FIN') span.className = 'status-mixed';
+            else span.className = 'text-muted';
+            span.textContent = reason;
+            td.appendChild(span);
+            return td;
+        }
         function setText(id, value) {
             const el = document.getElementById(id);
             if (el) el.textContent = value;
         }
+        // Унифицированный ребилд таблиц с поддержкой вспышек строк.
+        // Аналогичен rebuildTable из dashboard_reports.html.
+        function rebuildTableWithFlash(tbodyId, rows, colspan, rowBuilder, tableKey, getKey, getSnapshot) {
+            const tbody = document.getElementById(tbodyId);
+            if (!tbody) return;
+
+            const st = getDossierFlashState(tableKey);
+            const firstPass = !st.seeded;
+            if (firstPass) st.seeded = true;
+
+            const fragment = document.createDocumentFragment();
+
+            if (!rows || rows.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = colspan;
+                td.className = 'text-muted';
+                td.textContent = 'Нет данных';
+                tr.appendChild(td);
+                fragment.appendChild(tr);
+            } else {
+                rows.forEach((row, index) => {
+                    const tr = document.createElement('tr');
+                    const key = getKey(row);
+                    const snap = getSnapshot(row);
+
+                    if (firstPass) {
+                        st.seen.add(key);
+                        st.snaps.set(key, snap);
+                    } else if (!st.seen.has(key)) {
+                        tr.classList.add('row-flash-new');
+                        st.seen.add(key);
+                        st.snaps.set(key, snap);
+                    } else {
+                        const prevSnap = st.snaps.get(key);
+                        if (prevSnap && prevSnap !== snap) {
+                            tr.classList.add('row-flash-update');
+                            st.snaps.set(key, snap);
+                        }
+                    }
+
+                    rowBuilder(tr, row, index);
+                    fragment.appendChild(tr);
+                });
+            }
+            tbody.replaceChildren(...fragment.childNodes);
+        }
+
         function rebuildSimpleTable(tbodyId, rows, colspan, rowBuilder) {
             const tbody = document.getElementById(tbodyId);
             if (!tbody) return;
@@ -614,10 +719,21 @@
             }
             tbody.replaceChildren(...fragment.childNodes);
         }
-        // Строка долей: "AGGRESSIVE 60% / PASSIVE 40%"
+        // Строка долей с визуальными статусами
         function sharesLine(items) {
             if (!items || items.length === 0) return '—';
-            return items.map(s => s.key + ' ' + s.percent.toFixed(0) + '%').join(' / ');
+            return items.map(s => {
+                const key = s.key;
+                const pct = s.percent.toFixed(0) + '%';
+                // Стили для поведения
+                if (key === 'AGGRESSIVE') return '<span class="status-aggr">' + key + '</span> ' + pct;
+                if (key === 'PASSIVE') return '<span class="status-pass">' + key + '</span> ' + pct;
+                // Стили для причин закрытия
+                if (key === 'TIMEOUT') return '<span class="status-pass">' + key + '</span> ' + pct;
+                if (key === 'RST') return '<span class="status-aggr">' + key + '</span> ' + pct;
+                if (key === 'FIN') return '<span class="status-mixed">' + key + '</span> ' + pct;
+                return key + ' ' + pct;
+            }).join(' / ');
         }
         // Аналог серверного FormatDuration: "18d 19h"
         function fmtDur(sec) {

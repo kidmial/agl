@@ -322,12 +322,13 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		// имеют pointer-receiver. Значение, полученное из map, не addressable,
 		// и шаблон не видит такие методы — ExecuteTemplate прерывался ошибкой.
 		data := map[string]interface{}{
-			"Prefix":          prefix,
-			"CurrentPagePath": "dashboard/profile",
-			"Profile":         &profile,
-			"Found":           ok,
-			"Version":         buildinfo.Version,
-			"ServerTime":      serverTime, // Момент формирования страницы (витринная локация)
+			"Prefix":              prefix,
+			"CurrentPagePath":     "dashboard/profile",
+			"Profile":             &profile,
+			"CountryGlobalShares": profile.CountryGlobalShares(10),
+			"Found":               ok,
+			"Version":             buildinfo.Version,
+			"ServerTime":          serverTime, // Момент формирования страницы (витринная локация)
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -780,12 +781,13 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 				"hold_delta_sec":        profile.HoldDeltaSec(),
 
 				// === ДОСЬЕ v2: ДОЛИ (SHARES) ===
-				"country_shares":      profile.CountryShares(10),
-				"ip_shares":           profile.IPShares(10),
-				"close_reason_shares": profile.CloseReasonShares(0), // все причины
-				"behavior_shares":     profile.BehaviorShares(0),    // все поведения
-				"phase_shares":        profile.PhaseShares(10),
-				"actual_hold_sum_sec": profile.ActualHoldSumSec,
+				"country_shares":        profile.CountryShares(10),
+				"country_global_shares": profile.CountryGlobalShares(10),
+				"ip_shares":             profile.IPShares(10),
+				"close_reason_shares":   profile.CloseReasonShares(0), // все причины
+				"behavior_shares":       profile.BehaviorShares(0),    // все поведения
+				"phase_shares":          profile.PhaseShares(10),
+				"actual_hold_sum_sec":   profile.ActualHoldSumSec,
 			},
 		})
 	})

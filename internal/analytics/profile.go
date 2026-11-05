@@ -1657,7 +1657,16 @@ type SessionSummary struct {
 	// Форензик-честность: побайтовое совпадение с оригиналом.
 	StartTimeLog string `json:"start_time_log"`
 
-	// TarpitID — идентификатор капкана (например, "TARPIT:22").
+	// TarpitID — нормализованный идентификатор капкана через TrapLabel:
+	//   - порт 22 -> "CORE";
+	//   - остальные порты -> номер ("2222", "3333");
+	//   - неизвлекаемое -> сырая строка или "UNKNOWN".
+	//
+	// Почему CORE вместо "22" (решение v8.7.0, приватность):
+	//   - в режиме сокрытия длина размытого блока является side-channel:
+	//     "22" (2 символа) выдаёт основную ловушку silhouette-ом среди "2222"/"3333";
+	//     "CORE" (4 символа) выравнивает длину и не выделяется на скриншотах;
+	//   - терминология комплекса единая во всех отчётах и досье.
 	TarpitID string `json:"tarpit_id"`
 
 	// IP — IP-адрес актора в этой сессии.
@@ -1738,7 +1747,7 @@ func (p *ActorProfile) appendSessionSummary(rec EventRecord) {
 	// StartTimeLog — в time.Local (форензик-честность, побайтовое совпадение с полем [0]).
 	summary := SessionSummary{
 		StartTimeLog: rec.StartTime.In(time.Local).Format("2006-01-02 15:04:05"),
-		TarpitID:     rec.TarpitID,
+		TarpitID:     TrapLabel(rec.TarpitID),
 		IP:           rec.IP,
 		Behavior:     rec.Behavior,
 		CloseReason:  rec.CloseReason,
@@ -1885,7 +1894,7 @@ func (p *ActorProfile) ProbesPerSession() float64 {
 	return float64(p.ProbesSum) / float64(p.ValidEventCount)
 }
 
-// CampaignDuration возвращает длительность кампании актора
+// CampaignDuration возвращает длительность удержания актора
 // (LastEventTime - FirstEventTime) в секундах.
 func (p *ActorProfile) CampaignDuration() time.Duration {
 	if p == nil || p.FirstEventTime.IsZero() || p.LastEventTime.IsZero() {
@@ -1929,7 +1938,7 @@ func (p *ActorProfile) LastSeenLog() string {
 	return LogTimeFormat(p.LastSeen)
 }
 
-// CampaignDurationFormatted возвращает длительность кампании в человекочитаемом виде.
+// CampaignDurationFormatted возвращает длительность удержания в человекочитаемом виде.
 func (p *ActorProfile) CampaignDurationFormatted() string {
 	if p == nil {
 		return "—"
@@ -1997,6 +2006,75 @@ func (p *ActorProfile) CountryShares(limit int) []ShareItem {
 		total += c
 	}
 	return sharesFromMap(p.CountryCounts, total, limit)
+}
+
+// CountryGlobalShares возвращает долю профиля в общем трафике каждой страны.
+//
+// Логика:
+//   - для каждой страны из профиля берём число событий профиля в этой стране;
+//   - из GlobalRollup берём общее число событий из этой страны за 30 дней;
+//   - вычисляем процент: profileEvents / globalEvents * 100.
+//
+// Это показывает, насколько этот актор доминирует в трафике конкретной страны.
+func (p *ActorProfile) CountryGlobalShares(limit int) []map[string]interface{} {
+	if p == nil {
+		return []map[string]interface{}{}
+	}
+
+	// Получаем глобальную статистику по странам за 30 дней.
+	countryReport := GlobalRollup.BuildCountryReport(Range30d, 100)
+
+	// Строим карту: страна -> общее число событий.
+	globalByCountry := make(map[string]uint64)
+	for _, cr := range countryReport {
+		globalByCountry[cr.Code] = cr.Events
+	}
+
+	// Для каждой страны профиля вычисляем долю.
+	type countryShare struct {
+		Code          string  `json:"code"`
+		ProfileEvents int     `json:"profile_events"`
+		GlobalEvents  uint64  `json:"global_events"`
+		Percent       float64 `json:"percent"`
+	}
+
+	shares := make([]countryShare, 0, len(p.CountryCounts))
+	for country, profileEvents := range p.CountryCounts {
+		globalEvents := globalByCountry[country]
+		percent := 0.0
+		if globalEvents > 0 {
+			percent = float64(profileEvents) / float64(globalEvents) * 100
+		}
+		shares = append(shares, countryShare{
+			Code:          country,
+			ProfileEvents: profileEvents,
+			GlobalEvents:  globalEvents,
+			Percent:       percent,
+		})
+	}
+
+	// Сортируем по убыванию процента (самые доминирующие страны сверху).
+	sort.Slice(shares, func(i, j int) bool {
+		return shares[i].Percent > shares[j].Percent
+	})
+
+	// Ограничиваем топ.
+	if limit > 0 && len(shares) > limit {
+		shares = shares[:limit]
+	}
+
+	// Конвертируем в []map[string]interface{} для JSON и шаблона.
+	result := make([]map[string]interface{}, len(shares))
+	for i, s := range shares {
+		result[i] = map[string]interface{}{
+			"code":           s.Code,
+			"profile_events": s.ProfileEvents,
+			"global_events":  s.GlobalEvents,
+			"percent":        s.Percent,
+		}
+	}
+
+	return result
 }
 
 // IPShares возвращает доли IP в профиле (фактические наблюдения).
