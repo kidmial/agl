@@ -81,11 +81,11 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 	header := widgets.NewParagraph()
 	header.Title = i18n.T.ViewMultiTarpitHeaderTitle
 	header.Text = fmt.Sprintf(" %s\n "+
-		" %s: [DECLARED](fg:cyan) = %s │\n "+
-		" [DAEMON](fg:yellow) = %s │ [MARKER](fg:green) = %s ",
+		" %s: [DECLARED](fg:cyan) = %s\n "+
+		" [MARKER](fg:green) = %s │ [DAEMON](fg:yellow) = %s ",
 		i18n.T.ViewMultiTarpitHeaderDesc,
 		i18n.T.ViewMultiTarpitLabelDeclaredState, i18n.T.ViewMultiTarpitLabelAdminWants,
-		i18n.T.ViewMultiTarpitLabelDaemonConfirmed, i18n.T.ViewMultiTarpitLabelMarkerOnDisk)
+		i18n.T.ViewMultiTarpitLabelMarkerOnDisk, i18n.T.ViewMultiTarpitLabelDaemonConfirmed)
 	header.SetRect(2, 1, 102, 6)
 	header.BorderStyle.Fg = ui.ColorCyan
 	header.TitleStyle.Fg = ui.ColorYellow
@@ -189,7 +189,7 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 	trapList.Rows = menuRows
 	// ГЕОМЕТРИЯ v8.0.3: фиксированная высота 12 строк (y: 6-18).
 	// Нижняя половина терминала отдана под «Паспорт ловушки».
-	trapList.SetRect(2, 6, 102, 18)
+	trapList.SetRect(2, 6, 102, 20)
 	trapList.BorderStyle.Fg = ui.ColorCyan
 	trapList.SelectedRow = selectedRow
 	trapList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
@@ -245,7 +245,7 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 	}
 	infoBox.Text = helpText
 	// ГЕОМЕТРИЯ v8.0.3: паспорт растянут до нижней границы терминала (y: 18-30)
-	infoBox.SetRect(2, 18, 102, 30)
+	infoBox.SetRect(2, 20, 102, 30)
 	infoBox.BorderStyle.Fg = ui.ColorYellow
 	infoBox.TextStyle.Fg = ui.ColorCyan
 	infoBox.WrapText = false

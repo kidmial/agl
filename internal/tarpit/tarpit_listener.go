@@ -239,7 +239,7 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 	defer func() {
 		if r := recover(); r != nil {
 			sys.LogAction("TARPIT", "WORKER_PANIC", "RECOVERED",
-				fmt.Sprintf(i18n.TrEvent("worker.panic.recovered"), port, tarpitID, r))
+				i18n.TrEventf("worker.panic.recovered", port, tarpitID, r))
 
 			// (v8.6.2) Формируем hex-слепок первых 32 байт буфера чтения
 			var hexPayload string
@@ -292,8 +292,7 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 	// ================= АУДИТ СОБЫТИЙ ВОРКЕРА (v8.6.2) =================
 	// Логирование старта воркера для форензики.
 	// Позволяет отследить, когда воркер начал работу и сколько времени удерживал бота.
-	// sys.LogAction("TARPIT", "WORKER_START", "INFO",
-	// fmt.Sprintf(i18n.TrEvent("worker.started"), port, clientIP, tarpitID))
+	// (v8.7.0: закомментированные вызовы TrEvent без f удалены — нарушали гейт)
 	// // ================== АУДИТ СОБЫТИЙ ВОРКЕРА ======================
 
 	// tokenHex := fmt.Sprintf("%X_%d", startTime.UnixNano(), sourcePort)
@@ -556,7 +555,6 @@ func handleIncomingBotCustom(conn net.Conn, tarpitID string, port int, cfg sys.T
 	// ================= АУДИТ СОБЫТИЙ ВОРКЕРА (v8.6.2) =================
 	// Логирование завершения воркера для форензики.
 	// Позволяет отследить, что воркер успешно завершил работу.
-	// sys.LogAction("TARPIT", "WORKER_END", "SUCCESS",
-	// 	fmt.Sprintf(i18n.TrEvent("worker.completed"), port, clientIP, behaviorTag, closeReason, int(realTrapped)))
+	// (v8.7.0: закомментированные вызовы TrEvent без f удалены — нарушали гейт)
 	// // ================== АУДИТ СОБЫТИЙ ВОРКЕРА ======================
 }

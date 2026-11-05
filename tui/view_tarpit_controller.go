@@ -159,7 +159,9 @@ func uiCloseAndPrintTarpitLock() {
 	service.ResetUfwCacheSnapshot()
 	ui.Close()
 	fmt.Println(i18n.T.ViewTarpitCtlLockCritical)
+	fmt.Println()
 	fmt.Println(i18n.T.ViewTarpitCtlLockReason)
+	fmt.Println()
 	fmt.Println(i18n.T.ViewTarpitCtlPressEnterToReturn)
 	var p string
 	_, _ = fmt.Scanln(&p)
@@ -180,11 +182,15 @@ func uiCloseAndRunCastling() {
 	var castlingErr error
 	if _, err := os.Stat(markerFile); err == nil {
 		// Маркер существует → рокировка активна → выполняем ОБРАТНУЮ рокировку
+		fmt.Println()
 		fmt.Println(i18n.T.ViewTarpitCtlReverseCastlingStart)
+		fmt.Println()
 		castlingErr = service.ToggleArmorRoute("MOVE_PORT", "OFF")
 	} else {
 		// Маркера нет → рокировка не выполнена → выполняем ПРЯМУЮ рокировку
+		fmt.Println()
 		fmt.Println(i18n.T.ViewTarpitCtlDirectCastlingStart)
+		fmt.Println()
 		castlingErr = service.ToggleArmorRoute("MOVE_PORT", "ON")
 	}
 
@@ -194,20 +200,29 @@ func uiCloseAndRunCastling() {
 		errStr := castlingErr.Error()
 		if strings.Contains(errStr, i18n.T.PortMoveCastlingArmorLock) {
 			// Замок A4′: броня на порту 22 блокирует переезд.
+			fmt.Println()
 			fmt.Println(i18n.T.ViewTarpitCtlCastlingArmorLock)
+			fmt.Println()
 		} else {
-			// Другие ошибки рокировки (порт занят, сбой валидации и т.д.)
+			// Другие ошибки рокировки (порт занят, сбой валидации, UFW выключен и т.д.)
+			fmt.Println()
 			fmt.Println(i18n.T.ViewTarpitCtlLockCritical)
-			fmt.Printf("[ПРИЧИНА]: %v\n", castlingErr)
+			fmt.Println()
+			// v8.7.0: лейбл [ПРИЧИНА] берётся из словаря (Доктрина 6.7).
+			fmt.Println(fmt.Sprintf(i18n.T.ViewTarpitCtlCastlingFailReason, castlingErr))
 		}
+		fmt.Println()
 		fmt.Println(i18n.T.ViewTarpitCtlPressEnterToReturn)
+		fmt.Println()
 		var p string
 		_, _ = fmt.Scanln(&p)
 		_ = ui.Init()
 		return
 	}
 
+	fmt.Println()
 	fmt.Println(i18n.T.ViewTarpitCtlDemonsRestarted)
+	fmt.Println()
 	time.Sleep(1 * time.Second)
 	_ = ui.Init()
 }
@@ -218,9 +233,13 @@ func uiCloseAndRunCastling() {
 // ОБНОВЛЕНО В v8.0.1: Без изменений логики.
 func uiCloseAndPrintTarpitActiveWarning() {
 	ui.Close()
+	fmt.Println()
 	fmt.Println(i18n.T.ViewTarpitCtlAlreadyActiveWarning)
+	fmt.Println()
 	fmt.Println(i18n.T.ViewTarpitCtlAlreadyActiveCollision)
+	fmt.Println()
 	fmt.Println(i18n.T.ViewTarpitCtlPressEnterToReturn)
+	fmt.Println()
 	var p string
 	_, _ = fmt.Scanln(&p)
 	_ = ui.Init()
@@ -237,19 +256,27 @@ func uiCloseAndPrintTarpitActiveWarning() {
 // в `tarpitctl` через обновлённый `SetTarpitProtocol("ON")`.
 func uiCloseAndStartTarpitDaemon() {
 	ui.Close()
+	fmt.Println()
 	fmt.Println(i18n.T.ViewTarpitCtlStartInit)
+	fmt.Println()
 
 	// Вызываем протокол активации через роутер брони.
 	// `SetTarpitProtocol("ON")` делегирует управление в `tarpitctl`.
 	// ОБНОВЛЕНО В v8.0.1.
 	if errTarpit := service.ToggleArmorRoute("TARPIT", "ON"); errTarpit != nil {
+		fmt.Println()
 		fmt.Println(i18n.T.ViewTarpitCtlStartCriticalReject)
+		fmt.Println()
 		fmt.Println(errTarpit.Error())
+		fmt.Println()
 		fmt.Println("\n" + i18n.T.ViewTarpitCtlProtocolPressEnter)
+		fmt.Println()
 		var p string
 		_, _ = fmt.Scanln(&p)
 	} else {
+		fmt.Println()
 		fmt.Println(i18n.T.ViewTarpitCtlStartSuccess)
+		fmt.Println()
 		time.Sleep(1 * time.Second)
 	}
 	_ = ui.Init()
@@ -268,7 +295,28 @@ func uiCloseAndStartTarpitDaemon() {
 // Клиент НЕ создаёт и НЕ удаляет маркеры.
 func uiCloseAndStopTarpitDaemon() {
 	ui.Close()
+
+	// v8.7.0: ПРЕДОХРАНИТЕЛЬ ОТ ДВОЙНОГО ДЕМОНТАЖА
+	// PURPOSE: Проверить, что ловушка действительно активна перед деактивацией.
+	// CONTRACT: Если CheckTarpitProtocol() возвращает ошибку — ловушка не активна,
+	//   демонтаж не требуется. Выводим предупреждение и возвращаемся в меню.
+	// SIDE-EFFECTS: Нет (только чтение статуса через демона и маркер).
+	if errCheck := service.CheckTarpitProtocol(); errCheck != nil {
+		// Ловушка не активна — демонтаж не требуется
+		fmt.Println()
+		fmt.Println(i18n.T.ViewTarpitCtlAlreadyStoppedWarning)
+		fmt.Println()
+		fmt.Println(i18n.T.ViewTarpitCtlPressEnterToReturn)
+		fmt.Println()
+		var p string
+		_, _ = fmt.Scanln(&p)
+		_ = ui.Init()
+		return
+	}
+
+	fmt.Println()
 	fmt.Println(i18n.T.ViewTarpitCtlStopDismantle)
+	fmt.Println()
 
 	// Вызываем протокол деактивации через роутер брони.
 	// `SetTarpitProtocol("OFF")` делегирует управление в `tarpitctl`.
@@ -288,7 +336,9 @@ func uiCloseAndStopTarpitDaemon() {
 	// Клиент НЕ создаёт и НЕ удаляет маркеры.
 	// =====================================================================
 
+	fmt.Println()
 	fmt.Println(i18n.T.ViewTarpitCtlStopSuccess)
+	fmt.Println()
 	time.Sleep(1 * time.Second)
 	_ = ui.Init()
 }
@@ -299,9 +349,13 @@ func uiCloseAndStopTarpitDaemon() {
 // ОБНОВЛЕНО В v8.0.1: Без изменений логики.
 func uiCloseAndPrintProtocolInfo() {
 	ui.Close()
+	fmt.Println()
 	fmt.Println(i18n.T.ViewTarpitCtlProtocolHeader)
+	fmt.Println()
 	fmt.Println(i18n.T.ViewTarpitCtlProtocolText)
+	fmt.Println()
 	fmt.Println(i18n.T.ViewTarpitCtlProtocolPressEnter)
+	fmt.Println()
 	var p string
 	_, _ = fmt.Scanln(&p)
 	_ = ui.Init()

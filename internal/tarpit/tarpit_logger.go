@@ -478,11 +478,11 @@ func ConnectionLogWriter(logFilePath string) {
 		f, err = openLogWithRetry(logFilePath)
 		if err == nil {
 			sys.LogAction("TARPIT", "CONN_LOG_WRITER_START", "SUCCESS",
-				fmt.Sprintf(i18n.TrEvent("conn_log_writer.started"), logFilePath))
+				i18n.TrEventf("conn_log_writer.started", logFilePath))
 			break
 		}
 		sys.LogAction("TARPIT", "CONN_LOG_WRITER_START_FAILED", "RETRYING",
-			fmt.Sprintf(i18n.TrEvent("conn_log_writer.retry"), err))
+			i18n.TrEventf("conn_log_writer.retry", err))
 		time.Sleep(5 * time.Second)
 	}
 	defer f.Close()
@@ -600,11 +600,11 @@ func ReportLogWriter(logFilePath string) {
 		f, err = openLogWithRetry(logFilePath)
 		if err == nil {
 			sys.LogAction("TARPIT", "REPORT_LOG_WRITER_START", "SUCCESS",
-				fmt.Sprintf(i18n.TrEvent("report_log_writer.started"), logFilePath))
+				i18n.TrEventf("report_log_writer.started", logFilePath))
 			break
 		}
 		sys.LogAction("TARPIT", "REPORT_LOG_WRITER_START_FAILED", "RETRYING",
-			fmt.Sprintf(i18n.TrEvent("report_log_writer.retry"), err))
+			i18n.TrEventf("report_log_writer.retry", err))
 		time.Sleep(5 * time.Second)
 	}
 	defer f.Close()
@@ -689,11 +689,11 @@ func PitAttackerLogWriter(logFilePath string) {
 		f, err = openLogWithRetry(logFilePath)
 		if err == nil {
 			sys.LogAction("TARPIT", "PIT_ATTACKER_LOG_WRITER_START", "SUCCESS",
-				fmt.Sprintf(i18n.TrEvent("pit_attacker_log_writer.started"), logFilePath))
+				i18n.TrEventf("pit_attacker_log_writer.started", logFilePath))
 			break
 		}
 		sys.LogAction("TARPIT", "PIT_ATTACKER_LOG_WRITER_START_FAILED", "RETRYING",
-			fmt.Sprintf(i18n.TrEvent("pit_attacker_log_writer.retry"), err))
+			i18n.TrEventf("pit_attacker_log_writer.retry", err))
 		time.Sleep(5 * time.Second)
 	}
 	defer f.Close()

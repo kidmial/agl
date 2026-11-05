@@ -136,6 +136,8 @@ type UITranslation struct {
 	ArmorMultiTarpitUnknownAction string
 
 	// --- internal/armor/port_move_protocol.go ---
+	UfwStatusCheckFailed             string
+	UfwStatusInactiveBlock           string
 	PortMoveCastlingArmorLock        string
 	PortMoveCastlingInactive         string
 	PortMoveUnknownAction            string
@@ -592,6 +594,7 @@ type UITranslation struct {
 	CoreDocFactory string
 
 	// --- tui/view_tarpit_controller.go ---
+	ViewTarpitCtlCastlingFailReason     string
 	ViewTarpitCtlLockCritical           string
 	ViewTarpitCtlLockReason             string
 	ViewTarpitCtlPressEnterToReturn     string
@@ -600,6 +603,7 @@ type UITranslation struct {
 	ViewTarpitCtlDemonsRestarted        string
 	ViewTarpitCtlAlreadyActiveWarning   string
 	ViewTarpitCtlAlreadyActiveCollision string
+	ViewTarpitCtlAlreadyStoppedWarning  string
 	ViewTarpitCtlStartInit              string
 	ViewTarpitCtlStartCriticalReject    string
 	ViewTarpitCtlStartSuccess           string

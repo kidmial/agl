@@ -40,6 +40,58 @@ const sshOriginalPath = "/etc/ssh/sshd_config.agl_original"
 // SIDE-EFFECTS: создаёт /run/sshd 0755 при отсутствии; молчит, если директория на месте.
 const sshPrivSepDir = "/run/sshd"
 
+// ============================================================================
+// v8.7.0: ПРЕДОХРАНИТЕЛЬ СТАТУСА UFW (PRE-CHECK)
+// ============================================================================
+// PURPOSE: Проверка активности UFW перед критическими изменениями периметра.
+// CONTRACT: Возвращает nil, если UFW активен. Ошибка — если выключен/недоступен.
+//
+//	AGL не включает фаервол сам (решение принимает только администратор).
+//
+// SIDE-EFFECTS: Нет (только чтение /etc/ufw/ufw.conf).
+// ARCH-NOTE: Мы НЕ парсим `ufw status`, так как вывод локализуется (gettext).
+//
+//	Чтение ufw.conf — единственный locale-independent источник истины.
+func verifyUfwActive() error {
+	// Путь к конфигурации UFW — жестко зашит, так как это стандарт Debian/Ubuntu
+	const ufwConfPath = "/etc/ufw/ufw.conf"
+
+	// Читаем конфигурационный файл UFW напрямую (быстро и без внешних команд)
+	data, err := os.ReadFile(ufwConfPath)
+	if err != nil {
+		// Файл не найден: UFW не установлен или поврежден.
+		// Формат ошибки по Доктрине 6.7: есть %w (или %v) и строка.
+		return fmt.Errorf(i18n.T.UfwStatusCheckFailed, err, ufwConfPath)
+	}
+
+	// Парсим файл в поисках директивы ENABLED=yes
+	lines := strings.Split(string(data), "\n")
+	enabled := false
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Игнорируем комментарии и пустые строки
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		// Разбиваем по первому знаку равно (защита от пробелов вокруг '=')
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) == 2 && strings.EqualFold(strings.TrimSpace(parts[0]), "ENABLED") {
+			if strings.EqualFold(strings.TrimSpace(parts[1]), "yes") {
+				enabled = true
+			}
+			break // Директива найдена, дальнейший парсинг не нужен
+		}
+	}
+
+	// Fail closed: если ENABLED != yes, считаем UFW выключенным
+	if !enabled {
+		// Формат по Доктрине 6.7: нет глаголов/аргументов -> оборачиваем в "%s"
+		return fmt.Errorf("%s", i18n.T.UfwStatusInactiveBlock)
+	}
+
+	return nil
+}
+
 // ensureSshPrivSepDir восстанавливает служебную директорию OpenSSH в ОЗУ.
 func ensureSshPrivSepDir() {
 	if _, err := os.Stat(sshPrivSepDir); err == nil {
@@ -145,6 +197,20 @@ func pruneSshBackups() {
 func SetMovePortProtocol(action string) error {
 	action = strings.ToUpper(action)
 	customPort := fmt.Sprintf("%d", config.C.RealSshPort)
+
+	// ═══════════════════════════════════════════════════════════════
+	// v8.7.0: ГЛОБАЛЬНЫЙ ПРЕДОХРАНИТЕЛЬ UFW (PRE-CHECK)
+	// ═══════════════════════════════════════════════════════════════
+	// PURPOSE: Защита от самоблокировки и иллюзии безопасности.
+	// CONTRACT: Рокировка порта (ON/OFF) ЗАПРЕЩЕНА, если UFW выключен.
+	//           TUI отобразит возвращенную ошибку как модальное окно.
+	if action == "ON" || action == "OFF" {
+		if err := verifyUfwActive(); err != nil {
+			// Пишем ALERT в журнал, чтобы админ видел причину прерывания
+			sys.LogAction("PORT_CASTLING", "UFW_PRECHECK_FAIL", "ALERT", err.Error())
+			return err // Прерываем выполнение, отдаем ошибку в TUI
+		}
+	}
 
 	// ВЕРСИЯ 6.0.0: Строго унифицированный персистентный маркер геометрии сервера
 	markerFile := config.MarkerSshMoved
