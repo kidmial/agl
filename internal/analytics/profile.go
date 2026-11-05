@@ -1938,12 +1938,56 @@ func (p *ActorProfile) LastSeenLog() string {
 	return LogTimeFormat(p.LastSeen)
 }
 
-// CampaignDurationFormatted возвращает длительность удержания в человекочитаемом виде.
+// CampaignDurationFormatted возвращает длительность кампании в человекочитаемом виде.
 func (p *ActorProfile) CampaignDurationFormatted() string {
 	if p == nil {
 		return "—"
 	}
 	return FormatDuration(uint64(p.CampaignDuration().Seconds()))
+}
+
+// LogTimeShort форматирует момент в кратком витринном виде БЕЗ года:
+//   - withSec == false: "02.01 15:04"
+//   - withSec == true:  "02.01 15:04:05"
+//
+// Зачем без года:
+//   - год уже присутствует в заголовке страницы — дублирование избыточно;
+//   - краткая метка экономит место в карточках;
+//   - формат побайтово совпадает с тем, что отдаёт /api/profile/data
+//     (formatTime / formatTimeSec), поэтому первичный рендер и
+//     автообновление идентичны — коллизия форматов устранена.
+//
+// Важно: это витринный формат. Доказательные таблицы (журнал сессий,
+// суточная активность) по-прежнему используют полный LogTimeFormat.
+func LogTimeShort(t time.Time, withSec bool) string {
+	if withSec {
+		return t.In(time.Local).Format("02.01 15:04:05")
+	}
+	return t.In(time.Local).Format("02.01 15:04")
+}
+
+// FirstEventShort — время первого события в кратком витринном виде.
+func (p *ActorProfile) FirstEventShort() string {
+	if p == nil || p.FirstEventTime.IsZero() {
+		return "—"
+	}
+	return LogTimeShort(p.FirstEventTime, false)
+}
+
+// LastEventShort — время последнего события в кратком витринном виде.
+func (p *ActorProfile) LastEventShort() string {
+	if p == nil || p.LastEventTime.IsZero() {
+		return "—"
+	}
+	return LogTimeShort(p.LastEventTime, false)
+}
+
+// LastSeenShort — время последней активности в кратком витринном виде (с секундами).
+func (p *ActorProfile) LastSeenShort() string {
+	if p == nil || p.LastSeen.IsZero() {
+		return "—"
+	}
+	return LogTimeShort(p.LastSeen, true)
 }
 
 // AvgSessionIntervalSec возвращает средний интервал между сессиями в секундах.

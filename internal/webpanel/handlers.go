@@ -747,6 +747,7 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 					SndWscale: profile.Stack.SndWscale,
 					RcvWscale: profile.Stack.RcvWscale,
 				},
+				"primary_ip":           profile.PrimaryIP(),
 				"unique_ip_count":      profile.UniqueIPCount(),
 				"unique_country_count": profile.UniqueCountryCount(),
 				"top_ips":              profile.TopIPs(10),

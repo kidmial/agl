@@ -5,13 +5,20 @@
 {{ if .Found }}
 <div class="card">
     <div class="card-header-row">
-        <h2 class="mb-0 wbrk">Досье актора: <code class="text-green">{{ .Profile.ID }}</code></h2>
+        <h2 class="mb-0 wbrk">Досье актора: <code class="text-green">{{ .Profile.ID }}</code> <span class="text-muted">/</span> <code><agl-private><span id="profilePrimaryIP">{{ .Profile.PrimaryIP }}</span></agl-private></code>{{ if gt .Profile.UniqueIPCount 1 }} <span class="text-muted">(+{{ .Profile.UniqueIPCount }} всего)</span>{{ end }}</h2>
         <span id="reportUpdateTime">Отчёт обновлён: {{ .ServerTime }}</span>
         <a href="{{.Prefix}}dashboard/overview" class="nav-link">&larr; Назад к обзору</a>
     </div>
 
     <!-- Основная информация -->
     <div class="grid">
+        <div class="card">
+            <div class="metric-label">Временной охват (время = лог)</div>
+            <div class="metric metric-sm" id="profileTimeframe">{{ .Profile.FirstEventShort }} — {{ .Profile.LastEventShort }}</div>
+            <div class="text-muted card-macrometric row">Последняя активность:<div class="text-primary"><span id="profileLastSeen">{{ .Profile.LastSeenShort }}</span></div></div>
+            <div class="text-muted card-macrometric row">Длительность удержания:<div class="text-primary"><span id="campaignDuration">{{ .Profile.CampaignDurationFormatted }}</span></div></div>
+            <div class="text-muted card-macrometric row">Ритм сессий:<div class="text-primary"><agl-private><span id="avgSessionInterval">{{ if gt .Profile.AvgSessionIntervalSec 0.0 }}{{ printf "%.0f" .Profile.AvgSessionIntervalSec }} сек{{ else }}—{{ end }}</span></agl-private></div></div>
+        </div>
         <div class="card">
             <div class="metric-label">Состояние и уверенность</div>
             <div class="state-confidence-row">
@@ -28,29 +35,30 @@
                 </div>
             </div>
             <div class="text-muted card-macrometric card-macrometric--bare row">
+                Всего:<div class="text-primary"><span id="profileEventCount">{{ .Profile.EventCount }}</span></div> |
+                Валидных:<div class="text-primary"><span id="profileValidCount">{{ .Profile.ValidEventCount }}</span></div> |
+                Битых:<div class="text-primary"><span id="profileInvalidCount">{{ .Profile.InvalidEventCount }}</span></div>
+            </div>
+            <div class="text-muted card-macrometric row">
                 Риск склейки:<div class="text-primary"><span id="profileFPRisk">{{ .Profile.FalsePositiveRisk }}</span></div>
             </div>
         </div>
         <div class="card">
-            <div class="metric-label">Временной охват (время = лог)</div>
-            <div class="metric metric-sm" id="profileTimeframe">{{ .Profile.FirstEventLog }} — {{ .Profile.LastEventLog }}</div>
-            <div class="text-muted card-macrometric row">Последняя активность:<div class="text-primary"><span id="profileLastSeen">{{ .Profile.LastSeenLog }}</span></div></div>
-            <div class="text-muted card-macrometric row">Длительность удержания:<div class="text-primary"><span id="campaignDuration">{{ .Profile.CampaignDurationFormatted }}</span></div></div>
-            <div class="text-muted card-macrometric row">Ритм сессий:<div class="text-primary"><agl-private><span id="avgSessionInterval">{{ if gt .Profile.AvgSessionIntervalSec 0.0 }}{{ printf "%.0f" .Profile.AvgSessionIntervalSec }} сек{{ else }}—{{ end }}</span></agl-private></div></div>
-        </div>
-        <div class="card">
-            <div class="metric-label">Всего событий</div>
-            <div class="metric metric-md" id="profileEventCount">{{ .Profile.EventCount }}</div>
-            <div class="text-muted card-macrometric row">Валидных:<div class="text-primary"><span id="profileValidCount">{{ .Profile.ValidEventCount }}</span></div> | Битых:<div class="text-primary"><span id="profileInvalidCount">{{ .Profile.InvalidEventCount }}</span></div></div>
+            <h3>Поведение и обрывы</h3>
+            <div class="kv-list">
+                <div class="kv-row"><span class="metric-label">Поведение:</span><span class="text-primary" id="behaviorShares">{{ range $i, $s := .Profile.BehaviorShares 0 }}{{ if $i }} / {{ end }}{{ if eq $s.Key "AGGRESSIVE" }}<span class="status-aggr">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else if eq $s.Key "PASSIVE" }}<span class="status-pass">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else }}{{ $s.Key }} <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ end }}{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">Кто обрывает:</span><span class="text-primary" id="closeShares">{{ range $i, $s := .Profile.CloseReasonShares 0 }}{{ if $i }} / {{ end }}{{ if eq $s.Key "TIMEOUT" }}<span class="status-pass">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else if eq $s.Key "RST" }}<span class="status-aggr">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else if eq $s.Key "FIN" }}<span class="status-mixed">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else }}{{ $s.Key }} <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ end }}{{ else }}—{{ end }}</span></div>
+            </div>
+            <p class="text-muted card-macrometric row">TIMEOUT = бот досидел до нашего таймера; FIN/RST = воля бота к сбросу.</p>
         </div>
     </div>
 
-    <!-- Угроза и Прогноз -->
+    <!-- Фазовая картина: текущая фаза + прогноз + история -->
     <div class="section-divider"></div>
     <div class="grid">
         <div class="card">
             <div class="metric-label">Текущая фаза (Алг.3)</div>
-            <div class="metric metric-sm phase-text" id="profilePhase">{{ if .Profile.CurrentPhase }}{{ .Profile.CurrentPhase }}{{ else }}—{{ end }}</div>
+            <div class="metric metric-sm phase-text phase-text--profile" id="profilePhase">{{ if .Profile.CurrentPhase }}{{ .Profile.CurrentPhase }}{{ else }}—{{ end }}</div>
             <div class="text-muted card-macrometric row">
                 Уровень угрозы:
                 <div>
@@ -74,13 +82,24 @@
         </div>
         <div class="card">
             <div class="metric-label">Прогноз (Алг.4)</div>
-            <div class="metric metric-sm prediction-text" id="profilePredVector">{{ if .Profile.PredictedVector }}{{ .Profile.PredictedVector }}{{ else }}—{{ end }}</div>
+            <div class="metric metric-sm prediction-text prediction-text--profile" id="profilePredVector">{{ if .Profile.PredictedVector }}{{ .Profile.PredictedVector }}{{ else }}—{{ end }}</div>
             <div class="text-muted card-macrometric row">Вероятность:<div class="text-primary"><span id="profilePredProb">{{ if .Profile.PredictedProbability }}{{ .Profile.PredictedProbability }}{{ else }}—{{ end }}</span></div></div>
+        </div>
+        <div class="card">
+            <h3>Распределение фаз (всё время)</h3>
+            <div class="kv-list" id="phaseSharesBlock">
+                {{ range $i, $s := .Profile.PhaseShares 0 }}
+                <div class="kv-row"><span class="metric-label">{{ $s.Key }}:</span><span class="text-primary">{{ $s.Count }} ({{ printf "%.1f" $s.Percent }}%)</span></div>
+                {{ else }}
+                <div class="kv-row"><span class="text-muted">Нет данных.</span></div>
+                {{ end }}
+            </div>
         </div>
     </div>
 
-    <!-- Сетевые свидетельства: стек-отпечаток + дрейф токена -->
-    <div class="grid" style="margin-top: 20px;">
+    <!-- Сетевые свидетельства: стек-отпечаток + дрейф токена + RTT -->
+    <div class="section-divider"></div>
+    <div class="grid">
         <div class="card">
             <h3>Сетевой отпечаток (Stack Fingerprint)</h3>
             <div id="stackValidBlock" style="{{ if not .Profile.StackValid }}display:none;{{ end }}">
@@ -94,9 +113,24 @@
             <p id="stackMissingMsg" class="text-muted card-macrometric row" style="{{ if .Profile.StackValid }}display:none;{{ end }}">Сетевой отпечаток неполный или отсутствует.</p>
         </div>
         <div class="card">
-            <h3>Дрейф времени (Алг.2)</h3>
+            <h3>Дрейф и задержка (Алг.2 + RTT)</h3>
             <div class="metric metric-sm" id="profileDrift">{{ if .Profile.TokenDriftValid }}{{ .Profile.TokenDriftMs }} мс{{ else }}—{{ end }}</div>
-            <div class="text-muted card-macrometric row">Порт из токена:<div class="text-primary"><span id="profileClientPort">{{ if .Profile.TokenClientPort }}{{ .Profile.TokenClientPort }}{{ else }}—{{ end }}</span></div></div>
+            <div class="kv-list">
+                <div class="kv-row"><span class="metric-label">Порт из токена:</span><span class="text-primary" id="profileClientPort">{{ if .Profile.TokenClientPort }}{{ .Profile.TokenClientPort }}{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">RTT средний:</span><span class="text-primary" id="rttAvg">{{ if .Profile.RTTCount }}{{ printf "%.0f" .Profile.RTTAvgMs }} мс{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">RTT мин:</span><span class="text-primary" id="rttMin">{{ if .Profile.RTTCount }}{{ .Profile.RTTMinMs }} мс{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">RTT макс:</span><span class="text-primary" id="rttMax">{{ if .Profile.RTTCount }}{{ .Profile.RTTMaxMs }} мс{{ else }}—{{ end }}</span></div>
+            </div>
+        </div>
+        <!-- Поведенческий портрет: L7 и воля бота -->
+        <div class="card">
+            <h3>Профиль чтения (L7 Payload)</h3>
+            <div class="kv-list">
+                <div class="kv-row"><span class="metric-label">Tiny (0–64 б):</span><span class="text-primary" id="readTiny">{{ .Profile.ReadTinyCount }}</span></div>
+                <div class="kv-row"><span class="metric-label">Small (65–256 б):</span><span class="text-primary" id="readSmall">{{ .Profile.ReadSmallCount }}</span></div>
+                <div class="kv-row"><span class="metric-label">Medium (257–1024 б):</span><span class="text-primary" id="readMedium">{{ .Profile.ReadMediumCount }}</span></div>
+                <div class="kv-row"><span class="metric-label">Large (>1024 б):</span><span class="text-primary" id="readLarge">{{ .Profile.ReadLargeCount }}</span></div>
+            </div>
         </div>
     </div>
 
@@ -133,70 +167,39 @@
         </div>
         <div class="card">
             <h3>Доминирование в странах (<span id="countriesCountHeader">{{ .Profile.UniqueCountryCount }}</span>)</h3>
-            <div class="table-scroll">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Страна</th>
-                            <th>Атак профиля</th>
-                            <th>Всего из страны</th>
-                            <th>Доля в стране</th>
-                        </tr>
-                    </thead>
-                    <tbody id="countriesTableBody">
-                        {{ range $i, $row := .CountryGlobalShares }}
-                        <tr{{ if eq $i 0 }} class="row-top"{{ end }}>
-                            <td>{{ $row.code }}</td>
-                            <td>{{ $row.profile_events }}</td>
-                            <td class="text-muted">{{ $row.global_events }}</td>
-                            <td class="text-muted">{{ printf "%.1f" $row.percent }}%</td>
-                        </tr>
-                        {{ else }}
-                        <tr>
-                            <td colspan="4" class="text-muted">Нет данных</td>
-                        </tr>
-                        {{ end }}
-                    </tbody>
-                </table>
+            <div class="kv-list" id="countriesKvList">
+                {{ range .CountryGlobalShares }}
+                <div class="kv-row"><span class="kv-label--entity">{{ .code }}:</span><span class="text-primary">{{ .profile_events }} из {{ .global_events }}</span></div>
+                {{ else }}
+                <div class="kv-row"><span class="text-muted">Нет данных.</span></div>
+                {{ end }}
             </div>
-            <div class="text-muted card-macrometric row">Гео-ротация:<div class="text-primary"><span id="geoVerdict">{{ if gt .Profile.UniqueCountryCount 1 }}{{ .Profile.UniqueCountryCount }} стран — маркер прокси/VPN при одном стеке{{ else }}нет гео-ротации{{ end }}</span></div></div>
+            {{ if .CountryGlobalShares }}
+            {{ $top := index .CountryGlobalShares 0 }}
+            <div class="dominance-block">
+                <div class="dominance-head">
+                    <span class="metric-label">Доминирование топ-1:</span>
+                    <span class="confidence-value" id="dominanceTopValue">{{ printf "%.1f" $top.percent }}%</span>
+                </div>
+                <div class="progress-bar progress-bar--inline" id="dominanceBar" style="--p: {{ printf "%.1f" $top.percent }}%">
+                    <div class="progress-bar__fill"></div>
+                </div>
+            </div>
+            {{ end }}
+            <div class="text-muted card-macrometric card-macrometric--bare row">Гео-ротация:<div class="text-primary"><span id="geoVerdict">{{ if gt .Profile.UniqueCountryCount 1 }}{{ .Profile.UniqueCountryCount }} стран — маркер прокси/VPN при одном стеке{{ else }}нет гео-ротации{{ end }}</span></div></div>
         </div>
     </div>
 
-    <!-- Метрики удержания и RTT -->
+    <!-- Телеметрия сессии: удержание + сетевые аномалии -->
     <div class="section-divider"></div>
     <div class="grid">
         <div class="card">
-            <h3>Метрики удержания</h3>
-            <div class="kv-list">
+                <h3>Метрики удержания</h3>
                 <div class="kv-row"><span class="metric-label">Средний план:</span><span class="text-primary" id="holdPlanned"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgPlannedHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
                 <div class="kv-row"><span class="metric-label">Средний факт:</span><span class="text-primary" id="holdActual"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgActualHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
                 <div class="kv-row"><span class="metric-label">Всего сессий:</span><span id="holdCount">{{ .Profile.HoldCount }}</span></div>
                 <div class="kv-row"><span class="metric-label">Всего утилизировано:</span><span class="text-primary" id="holdTotal"><agl-private>{{ if .Profile.HoldCount }}{{ .Profile.ActualHoldSumSec | formatDuration }}{{ else }}—{{ end }}</agl-private></span></div>
                 <div class="kv-row"><span class="metric-label">Дельта план−факт:</span><span class="text-primary" id="holdDelta"><agl-private>{{ if .Profile.HoldCount }}{{ if gt .Profile.HoldDeltaSec 0 }}+{{ end }}{{ .Profile.HoldDeltaSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
-            </div>
-        </div>
-        <div class="card">
-            <h3>Сетевая задержка (RTT)</h3>
-            <div class="kv-list">
-                <div class="kv-row"><span class="metric-label">Средний:</span><span class="text-primary" id="rttAvg">{{ if .Profile.RTTCount }}{{ printf "%.0f" .Profile.RTTAvgMs }} мс{{ else }}—{{ end }}</span></div>
-                <div class="kv-row"><span class="metric-label">Мин:</span><span class="text-primary" id="rttMin">{{ if .Profile.RTTCount }}{{ .Profile.RTTMinMs }} мс{{ else }}—{{ end }}</span></div>
-                <div class="kv-row"><span class="metric-label">Макс:</span><span class="text-primary" id="rttMax">{{ if .Profile.RTTCount }}{{ .Profile.RTTMaxMs }} мс{{ else }}—{{ end }}</span></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Поведенческий профиль: L7 и Сетевые аномалии -->
-    <div class="section-divider"></div>
-    <div class="grid">
-        <div class="card">
-            <h3>Профиль чтения (L7 Payload)</h3>
-            <div class="kv-list">
-                <div class="kv-row"><span class="metric-label">Tiny (0–64 б):</span><span class="text-primary" id="readTiny">{{ .Profile.ReadTinyCount }}</span></div>
-                <div class="kv-row"><span class="metric-label">Small (65–256 б):</span><span class="text-primary" id="readSmall">{{ .Profile.ReadSmallCount }}</span></div>
-                <div class="kv-row"><span class="metric-label">Medium (257–1024 б):</span><span class="text-primary" id="readMedium">{{ .Profile.ReadMediumCount }}</span></div>
-                <div class="kv-row"><span class="metric-label">Large (>1024 б):</span><span class="text-primary" id="readLarge">{{ .Profile.ReadLargeCount }}</span></div>
-            </div>
         </div>
         <div class="card">
             <h3>Интервалы и Сетевые аномалии</h3>
@@ -207,29 +210,6 @@
                 <div class="kv-row"><span class="metric-label">Probes / сессию:</span><span class="text-primary" id="probesPerSession">{{ printf "%.2f" .Profile.ProbesPerSession }}</span></div>
                 <div class="kv-row"><span class="metric-label">Retrans (накопл.):</span><span class="text-primary" id="totalRetrans"><agl-private>{{ .Profile.TotalRetransSum }}</agl-private></span></div>
                 <div class="kv-row"><span class="metric-label">Probes (зонды):</span><span class="text-primary" id="probesSum"><agl-private>{{ .Profile.ProbesSum }}</agl-private></span></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Поведение, обрывы и распределение фаз за всё время -->
-    <div class="section-divider"></div>
-    <div class="grid">
-        <div class="card">
-            <h3>Поведение и обрывы</h3>
-            <div class="kv-list">
-                <div class="kv-row"><span class="metric-label">Поведение:</span><span class="text-primary" id="behaviorShares">{{ range $i, $s := .Profile.BehaviorShares 0 }}{{ if $i }} / {{ end }}{{ if eq $s.Key "AGGRESSIVE" }}<span class="status-aggr">{{ $s.Key }}</span> {{ printf "%.0f" $s.Percent }}%{{ else if eq $s.Key "PASSIVE" }}<span class="status-pass">{{ $s.Key }}</span> {{ printf "%.0f" $s.Percent }}%{{ else }}{{ $s.Key }} {{ printf "%.0f" $s.Percent }}%{{ end }}{{ else }}—{{ end }}</span></div>
-                <div class="kv-row"><span class="metric-label">Кто обрывает:</span><span class="text-primary" id="closeShares">{{ range $i, $s := .Profile.CloseReasonShares 0 }}{{ if $i }} / {{ end }}{{ if eq $s.Key "TIMEOUT" }}<span class="status-pass">{{ $s.Key }}</span> {{ printf "%.0f" $s.Percent }}%{{ else if eq $s.Key "RST" }}<span class="status-aggr">{{ $s.Key }}</span> {{ printf "%.0f" $s.Percent }}%{{ else if eq $s.Key "FIN" }}<span class="status-mixed">{{ $s.Key }}</span> {{ printf "%.0f" $s.Percent }}%{{ else }}{{ $s.Key }} {{ printf "%.0f" $s.Percent }}%{{ end }}{{ else }}—{{ end }}</span></div>
-            </div>
-            <p class="text-muted card-macrometric row">TIMEOUT = бот досидел до нашего таймера; FIN/RST = воля бота к сбросу.</p>
-        </div>
-        <div class="card">
-            <h3>Распределение фаз (всё время)</h3>
-            <div class="kv-list" id="phaseSharesBlock">
-                {{ range $i, $s := .Profile.PhaseShares 0 }}
-                <div class="kv-row"><span class="metric-label">{{ $s.Key }}:</span><span class="text-primary">{{ $s.Count }} ({{ printf "%.1f" $s.Percent }}%)</span></div>
-                {{ else }}
-                <div class="kv-row"><span class="text-muted">Нет данных.</span></div>
-                {{ end }}
             </div>
         </div>
     </div>
@@ -288,7 +268,8 @@
     </div>
 
     <!-- Суточная активность: доказательная база -->
-    <div class="grid" style="margin-top: 20px;">
+    <div class="section-divider"></div>
+    <div class="grid">
         <div class="card" style="grid-column: 1 / -1;">
             <h3>Суточная активность (доказательная база, даты = лог)</h3>
             <div class="table-scroll">
@@ -305,7 +286,7 @@
                         <tr>
                             <td class="text-muted">{{ .DayLog }}</td>
                             <td>{{ .Events }}</td>
-                            <td><agl-private>{{ range $i, $ip := .TopIPs }}{{ if $i }}, {{ end }}{{ $ip.Key }} ({{ $ip.Count }}){{ end }}</agl-private></td>
+                                <td><agl-private>{{ range $i, $ip := .TopIPs }}{{ if $i }}, {{ end }}{{ $ip.Key }}{{ end }}</agl-private></td>
                         </tr>
                         {{ else }}
                         <tr>
@@ -411,6 +392,7 @@
                     setText('profilePredProb', p.predicted_probability || '—');
                     setText('profileDrift', p.token_drift_valid ? p.token_drift_ms + ' мс' : '—');
                     setText('profileClientPort', p.token_client_port || '—');
+                    setText('profilePrimaryIP', p.primary_ip || '—');
                     setText('ipsCountHeader', p.unique_ip_count);
                     setText('countriesCountHeader', p.unique_country_count);
 
@@ -500,12 +482,17 @@
                     setPrivText('avgSessionInterval', p.avg_session_interval > 0 ? Math.round(p.avg_session_interval) + ' сек' : '—');
                     setPrivText('holdTotal', p.hold_count > 0 ? fmtDur(p.actual_hold_sum_sec) : '—');
                     setPrivText('holdDelta', p.hold_count > 0 ? (p.hold_delta_sec > 0 ? '+' : '') + p.hold_delta_sec + ' сек' : '—');
-                    // Для карточки "Поведение и обрывы" используем innerHTML,
-                    // потому что sharesLine возвращает HTML с <span class="status-*">
+                    // Доли: ключи публичны, проценты под <agl-private> (режим приватности)
                     const behaviorEl = document.getElementById('behaviorShares');
-                    if (behaviorEl) behaviorEl.innerHTML = sharesLine(p.behavior_shares);
+                    if (behaviorEl) {
+                        behaviorEl.textContent = '';
+                        behaviorEl.appendChild(sharesNodes(p.behavior_shares));
+                    }
                     const closeEl = document.getElementById('closeShares');
-                    if (closeEl) closeEl.innerHTML = sharesLine(p.close_reason_shares);
+                    if (closeEl) {
+                        closeEl.textContent = '';
+                        closeEl.appendChild(sharesNodes(p.close_reason_shares));
+                    }
                     setText('sessionsCount', (p.sessions || []).length);
                     setText('ipConcentration', p.unique_ip_count > 0
                         ? Math.round(p.event_count / p.unique_ip_count) + ' соб/IP — ' + (p.unique_ip_count === 1 ? 'резидент' : 'ротатор')
@@ -526,14 +513,48 @@
                         tr.appendChild(cellText(item.percent.toFixed(1) + '%', 'text-muted'));
                     }, 'ip_shares', (item) => item.key, (item) => JSON.stringify({count: item.count, percent: item.percent}));
 
-                    // 3. Доминирование в странах (доля профиля в общем трафике страны)
-                    rebuildTableWithFlash('countriesTableBody', p.country_global_shares, 4, (tr, item, index) => {
-                        if (index === 0) tr.className = 'row-top';
-                        tr.appendChild(cellText(item.code));
-                        tr.appendChild(cellText(item.profile_events));
-                        tr.appendChild(cellText(item.global_events, 'text-muted'));
-                        tr.appendChild(cellText(item.percent.toFixed(1) + '%', 'text-muted'));
-                    }, 'country_global_shares', (item) => item.code, (item) => JSON.stringify({profile_events: item.profile_events, global_events: item.global_events, percent: item.percent}));
+                    // 3. Доминирование в странах (kv-формат: код + "X из Y" + бар топ-1)
+                    const countriesKv = document.getElementById('countriesKvList');
+                    if (countriesKv) {
+                        const rows = p.country_global_shares || [];
+                        countriesKv.textContent = '';
+                        if (rows.length === 0) {
+                            const empty = document.createElement('div');
+                            empty.className = 'kv-row';
+                            const sp = document.createElement('span');
+                            sp.className = 'text-muted';
+                            sp.textContent = 'Нет данных.';
+                            empty.appendChild(sp);
+                            countriesKv.appendChild(empty);
+                        } else {
+                            rows.forEach(item => {
+                                const row = document.createElement('div');
+                                row.className = 'kv-row';
+                                const label = document.createElement('span');
+                                label.className = 'kv-label--entity';
+                                label.textContent = item.code + ':';
+                                const val = document.createElement('span');
+                                val.className = 'text-primary';
+                                val.textContent = item.profile_events + ' из ' + item.global_events;
+                                row.appendChild(label);
+                                row.appendChild(val);
+                                countriesKv.appendChild(row);
+                            });
+                        }
+                        // Бар топ-1: процент живёт только здесь (kv-строки несут счётчики)
+                        const domBar = document.getElementById('dominanceBar');
+                        const domVal = document.getElementById('dominanceTopValue');
+                        if (domBar && domVal) {
+                            const top = rows[0];
+                            if (top) {
+                                domBar.style.setProperty('--p', top.percent.toFixed(1) + '%');
+                                domVal.textContent = top.percent.toFixed(1) + '%';
+                            } else {
+                                domBar.style.setProperty('--p', '0%');
+                                domVal.textContent = '—';
+                            }
+                        }
+                    }
 
                     // 3.5. Распределение фаз (kv-блок)
                     const phaseBlock = document.getElementById('phaseSharesBlock');
@@ -585,7 +606,7 @@
                     rebuildTableWithFlash('dayRowsTableBody', p.day_rows, 3, (tr, d) => {
                         tr.appendChild(cellText(d.day_log, 'text-muted'));
                         tr.appendChild(cellText(d.events));
-                        const ips = (d.top_ips || []).map(ip => ip.key + ' (' + ip.count + ')').join(', ');
+                        const ips = (d.top_ips || []).map(ip => ip.key).join(', ');
                         tr.appendChild(cellPriv(ips || '—'));
                     }, 'day_rows', (d) => d.day_log, (d) => JSON.stringify({events: d.events, top_ips: d.top_ips}));
 
@@ -719,21 +740,29 @@
             }
             tbody.replaceChildren(...fragment.childNodes);
         }
-        // Строка долей с визуальными статусами
-        function sharesLine(items) {
-            if (!items || items.length === 0) return '—';
-            return items.map(s => {
-                const key = s.key;
-                const pct = s.percent.toFixed(0) + '%';
-                // Стили для поведения
-                if (key === 'AGGRESSIVE') return '<span class="status-aggr">' + key + '</span> ' + pct;
-                if (key === 'PASSIVE') return '<span class="status-pass">' + key + '</span> ' + pct;
-                // Стили для причин закрытия
-                if (key === 'TIMEOUT') return '<span class="status-pass">' + key + '</span> ' + pct;
-                if (key === 'RST') return '<span class="status-aggr">' + key + '</span> ' + pct;
-                if (key === 'FIN') return '<span class="status-mixed">' + key + '</span> ' + pct;
-                return key + ' ' + pct;
-            }).join(' / ');
+        // Доли с визуальными статусами: безопасная DOM-сборка.
+        // Ключ — публичный <span class="status-*">, процент — приватный <agl-private>.
+        function sharesNodes(items) {
+            const frag = document.createDocumentFragment();
+            if (!items || items.length === 0) {
+                frag.appendChild(document.createTextNode('—'));
+                return frag;
+            }
+            items.forEach((s, i) => {
+                if (i) frag.appendChild(document.createTextNode(' / '));
+                const span = document.createElement('span');
+                if (s.key === 'AGGRESSIVE' || s.key === 'RST') span.className = 'status-aggr';
+                else if (s.key === 'PASSIVE' || s.key === 'TIMEOUT') span.className = 'status-pass';
+                else if (s.key === 'FIN') span.className = 'status-mixed';
+                else span.className = 'text-muted';
+                span.textContent = s.key;
+                frag.appendChild(span);
+                frag.appendChild(document.createTextNode(' '));
+                const priv = document.createElement('agl-private');
+                priv.textContent = s.percent.toFixed(0) + '%';
+                frag.appendChild(priv);
+            });
+            return frag;
         }
         // Аналог серверного FormatDuration: "18d 19h"
         function fmtDur(sec) {
