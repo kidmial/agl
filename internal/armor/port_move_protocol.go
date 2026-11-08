@@ -494,6 +494,17 @@ func applyCastlingON(customPort, backupPath string) error {
 		sys.LogAction("PORT_CASTLING", "SOCKET_MASK", "SUCCESS", i18n.TrEvent("port_castling.socket_mask"))
 	}
 
+	// v9.0.0: Инвариант бут-топологии — при маскировании сокета служба обязана
+	// быть включена в автозагрузку. Без этого ребут = хост без слушателя SSH.
+	// CONTRACT: один бут-владелец порта; сокет маскирован = служба enabled.
+	enableSvcRes := sys.RunTimeout(10*time.Second, "systemctl", "enable", "ssh.service")
+	if enableSvcRes.Err != nil {
+		enableSvcRes.LogWarnIfErr("PORT_CASTLING", "SSH_SERVICE_ENABLE", "event=systemd.ssh_enable_failed")
+	} else {
+		sys.LogAction("PORT_CASTLING", "SSH_SERVICE_ENABLE", "SUCCESS",
+			i18n.TrEvent("port_castling.ssh_service_enable"))
+	}
+
 	reloadBeforeRestart := sys.RunTimeout(10*time.Second, "systemctl", "daemon-reload")
 	reloadBeforeRestart.LogWarnIfErr("PORT_CASTLING", "SOCKET_MASK", "event=systemd.daemon_reload_failed")
 
@@ -517,6 +528,60 @@ func applyCastlingON(customPort, backupPath string) error {
 			i18n.TrEventf("port_castling.ssh_listener_verify_failed", config.C.RealSshPort, err))
 		return fmt.Errorf(i18n.T.PortMoveSshListenerVerifyFailed, config.C.RealSshPort, err)
 	}
+
+	// ─────────────────────────────────────────────────────────────
+	// v9.0.0: ЛИКВИДАЦИЯ LISTENER 22 ПОСЛЕ ПОДТВЕРЖДЁННОГО ПЕРЕЕЗДА
+	// ─────────────────────────────────────────────────────────────
+	// PURPOSE: Перемещение ≠ копирование. После waitForSshListener новый sshd
+	// подтверждён на customPort — старый listener на 22 обязан умереть.
+	// CONTRACT: Убиваем ТОЛЬКО listener-процессы порта 22 (backlog 4096),
+	// НЕ трогая форки сессий админа (backlog 128, дочерние от listener).
+	// Админ теряет listener, но сохраняет активные сессии до их завершения.
+	// SIDE-EFFECTS: Завершает orphan-listener через SIGTERM.
+
+	// Находим PID всех listener-процессов на порту 22
+	listenerPIDsRes := sys.RunTimeout(5*time.Second, "bash", "-c",
+		"ss -tlnp | grep ':22 ' | grep -oP 'pid=\\K[0-9]+' | sort -u")
+	if listenerPIDsRes.Err == nil && strings.TrimSpace(listenerPIDsRes.Stdout) != "" {
+		pids := strings.Fields(strings.TrimSpace(listenerPIDsRes.Stdout))
+		for _, pid := range pids {
+			// Проверяем, что это listener (backlog 4096), а не форк сессии
+			isListenerRes := sys.RunTimeout(3*time.Second, "bash", "-c",
+				fmt.Sprintf("ss -tlnp | grep 'pid=%s,' | grep -q ':22 ' && echo listener", pid))
+			if isListenerRes.Err == nil && strings.TrimSpace(isListenerRes.Stdout) == "listener" {
+				killRes := sys.RunTimeout(5*time.Second, "kill", "-TERM", pid)
+				if killRes.Err != nil {
+					killRes.LogWarnIfErr("PORT_CASTLING", "KILL_LISTENER_22",
+						fmt.Sprintf("event=kill.listener_22_failed pid=%s", pid))
+				} else {
+					sys.LogAction("PORT_CASTLING", "KILL_LISTENER_22", "SUCCESS",
+						i18n.TrEventf("port_castling.kill_listener_22", pid))
+				}
+			}
+		}
+		// Пауза для завершения listener-процессов
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	// ─────────────────────────────────────────────────────────────
+	// v9.0.0: ПЕРЕМЕЩЕНИЕ, НЕ КОПИРОВАНИЕ (инвариант партнёра).
+	// Новый слушатель подтверждён на customPort — гасим LISTEN-процесс на 22.
+	// ХИРУРГИЧЕСКИ: только процессы с listening-сокетом порта 22; форки сессий
+	// админа держат established-сокеты и НЕ матчатся фильтром sport = :22
+	// в состоянии LISTEN — текущая сессия доживает, канал не рвётся.
+	// Left-over от socket-activation (KillMode юнита их бережёт) умирают здесь.
+	// ─────────────────────────────────────────────────────────────
+	killListenerRes := sys.RunTimeout(5*time.Second, "bash", "-c",
+		"ss -ltnHp 'sport = :22' | grep -oP 'pid=\\K[0-9]+' | sort -u | xargs -r kill -TERM")
+	if killListenerRes.Err != nil {
+		// Порт 22 уже пуст (классическая схема без сирот) — это успех, не сбой.
+		killListenerRes.LogWarnIfErr("PORT_CASTLING", "KILL_OLD_LISTENER",
+			"event=ssh.old_listener_kill_failed")
+	} else {
+		sys.LogAction("PORT_CASTLING", "KILL_OLD_LISTENER", "SUCCESS",
+			i18n.TrEvent("port_castling.kill_old_listener"))
+	}
+	time.Sleep(restartSleep) // даём listening-сокету закрыться до перескана
 
 	// v8.5.1 (A5′): автовзвода брони на скрытом порту нет: админ взводит её
 	// осознанно через ANTIDDOS после переезда. Stateful-миграция мертва как класс.
@@ -772,6 +837,20 @@ func applyCastlingOFF(customPort string) error {
 	} else {
 		sys.LogAction("PORT_CASTLING", "SSH_SOCKET_RESTORE", "SUCCESS",
 			i18n.TrEvent("port_castling.ssh_socket_restore"))
+
+		// v9.0.0: Инвариант бут-топологии — при возврате сокета служба обязана
+		// быть выключена в автозагрузке. Иначе два владельца на порту 22.
+		// CONTRACT: один бут-владелец порта; сокет активен = служба disabled.
+		// РАЗМЕЩЕНИЕ: строго внутри ветки успеха сокета. В fallback классической
+		// схемы (юнита сокета нет) служба — единственный владелец и обязана
+		// остаться в автозагрузке: снятие там = ребут без слушателя.
+		disableSvcRes := sys.RunTimeout(10*time.Second, "systemctl", "disable", "ssh.service")
+		if disableSvcRes.Err != nil {
+			disableSvcRes.LogWarnIfErr("PORT_CASTLING", "SSH_SERVICE_DISABLE", "event=systemd.ssh_disable_failed")
+		} else {
+			sys.LogAction("PORT_CASTLING", "SSH_SERVICE_DISABLE", "SUCCESS",
+				i18n.TrEvent("port_castling.ssh_service_disable"))
+		}
 	}
 
 	time.Sleep(restartSleep) // Фиксация стабилизации системы

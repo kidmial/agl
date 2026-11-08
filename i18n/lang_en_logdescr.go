@@ -134,6 +134,7 @@ func init() {
 			"port_castling.privsep_dir_restored":       "Restored missing privilege separation directory %s (required by sshd -t and sshd startup).",
 			"port_castling.privsep_dir_fail":           "event=privsep.dir_fail path=%s err=%v. sshd -t validation will fail due to missing directory.",
 			"port_castling.mirror_rule_skip_protected": "Moved-port rule not created: protection is provided by option A or B (IP whitelist / web-knock).",
+			"port_castling.kill_old_listener":          "Port 22 listener terminated. Port transfer confirmed",
 
 			// --- v8.4.7: Mirror rule and watcher dormancy ---
 			"port_castling.mirror_rule_created":   "Created availability rule for the moved port %s (inherited port 22 access type: %s).",

@@ -134,6 +134,7 @@ func init() {
 			"port_castling.privsep_dir_restored":       "Восстановлена отсутствующая директория privilege separation %s (требование sshd -t и старта sshd).",
 			"port_castling.privsep_dir_fail":           "event=privsep.dir_fail path=%s err=%v. Валидация sshd -t провалится из-за отсутствующей директории.",
 			"port_castling.mirror_rule_skip_protected": "Правило перенесённого порта не создано: защита обеспечивается опцией A или B (whitelist IP / веб-стук).",
+			"port_castling.kill_old_listener":          "Слушатель порта 22 завершён. Перемещение подтверждено",
 
 			// --- v8.4.7: Зеркальное правило и дремота вотчера ---
 			"port_castling.mirror_rule_created":   "Создано правило доступности перенесённого порта %s (унаследованный тип доступа порта 22: %s).",

@@ -71,6 +71,19 @@ import (
 )
 
 // ============================================================================
+// КОНСТАНТЫ: Визуальные элементы интерфейса
+// ============================================================================
+
+// headerBanner — общий ASCII-баннер комплекса для всех экранов предупреждений.
+// Цвет желтый (\033[33m) встроен, сброс (\033[0m) в конце, чтобы следующие
+// строки не наследовали цвет. Используется в showAlertScreen и checkAndInstallGeoTool.
+const headerBanner = "\033[37m" +
+	"======================================================================\n" +
+	"======================= AMBER GUARD LABORATORY =======================\n" +
+	"======================================================================\n" +
+	"\033[0m"
+
+// ============================================================================
 // ГЕНЕРАЦИЯ КОНФИГУРАЦИИ ПРИ ПЕРВОМ СТАРТЕ
 // ============================================================================
 
@@ -819,15 +832,42 @@ func checkAndInstallGeoTool() {
 
 	// Очищаем экран для диалога
 	fmt.Print("\033[H\033[2J")
-	fmt.Println("⚠️  ВНИМАНИЕ: Компонент гео-аналитики (geo_tool) не найден!")
-	fmt.Printf("В системе отсутствует утилита '%s', из-за чего страны в логах будут пустыми.\n\n", geoToolName)
-	fmt.Print("Хотите автоматически установить необходимый системный пакет (geoip-bin)? [Y/n]: ")
+	fmt.Print(headerBanner)
+	fmt.Println()
+
+	// EN блок
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ INFO ] " + "\033[0m" + "Geo-analytics component (geo_tool) not found!" + "\033[0m")
+	fmt.Printf("\033[36m"+">"+"\033[0m"+"\033[33m"+" [ INFO ] "+"\033[0m"+"The utility '%s' is missing from the system,\n", geoToolName)
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ INFO ] " + "\033[0m" + "Countries in logs will be: unknown")
+	fmt.Println()
+	fmt.Println("  " + "Automatically install the required system package (geoip-bin)?")
+	fmt.Println("  " + "This process will take several minutes.")
+	fmt.Println()
+	fmt.Println("\033[32m" + "  [ Y ]" + "\033[0m" + " or " + "\033[32m" + "[ ENTER ]" + "\033[0m" + " — Continue installation")
+	fmt.Println("\033[33m" + "  [ N ]" + "\033[0m" + " — Skip and continue without geo-analytics")
+
+	fmt.Println()
+	fmt.Println(strings.Repeat("-", 70))
+	fmt.Println()
+
+	// RU блок
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ ИНФО ] " + "\033[0m" + "Компонент гео-аналитики (geo_tool) не найден!")
+	fmt.Printf("\033[36m"+">"+"\033[0m"+"\033[33m"+" [ ИНФО ] "+"\033[0m"+"В системе отсутствует утилита '%s',\n", geoToolName)
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ ИНФО ] " + "\033[0m" + "Страны в логах будут: unknown")
+	fmt.Println()
+	fmt.Println("  " + "Установить автоматически необходимый системный пакет (geoip-bin)?")
+	fmt.Println("  " + "Это займет несколько минут.")
+	fmt.Println()
+	fmt.Println("\033[32m" + "  [ Y ]" + "\033[0m" + " или " + "\033[32m" + "[ ENTER ]" + "\033[0m" + " - Продолжить установку")
+	fmt.Println("\033[33m" + "  [ N ]" + "\033[0m" + " — Пропустить и продолжить без гео-аналитики")
+
+	fmt.Print("\nYour choice / Ваш выбор: ")
 
 	reader := bufio.NewReader(os.Stdin)
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(strings.ToLower(input))
 
-	if input == "" || input == "y" || input == "yes" {
+	if input == "" || input == "y" || input == "yes" || input == "д" || input == "да" {
 		fmt.Println("\n[1/2] Обновление списков пакетов (apt-get update)...")
 		// БЛОК 3.1: apt-get update больше не слепой и не бесконечный.
 		// Таймаут 300 сек (медленные зеркала), вывод копится в буферах —
@@ -906,17 +946,42 @@ func getServerIP() string {
 // Вызывается если файл `config.json` был регенерирован при старте.
 // Блокирует выполнение до нажатия ENTER.
 func showAlertScreen(configPath string) {
+	// Очищаем экран для диалога
 	fmt.Print("\033[H\033[2J")
-	fmt.Println("\033[31m" + strings.Repeat("=", 65))
-	fmt.Println("⚠️  WARNING: CONFIGURATION SYSTEM INTEGRITY VIOLATION!")
-	fmt.Println(strings.Repeat("=", 65))
-	fmt.Printf("Configuration file '%s' was missing on the server\n", configPath)
-	fmt.Println("and has been automatically regenerated with factory defaults.")
+	fmt.Print(headerBanner)
 	fmt.Println()
-	fmt.Println("Please verify Tar Pit ports and network armor limits!")
-	fmt.Println("This security incident has been recorded in /var/log/amberguard/amberguard.log.")
-	fmt.Println(strings.Repeat("=", 65))
-	fmt.Print("Press [ ENTER ] to acknowledge and enter the control panel...\033[0m  ")
+
+	// EN блок
+	fmt.Println("                     " + "- First Run of the Complex -")
+	fmt.Println(strings.Repeat("-", 70))
+	fmt.Printf("\033[36m"+">"+"\033[0m"+"\033[33m"+" [ CONFIG ] "+"\033[0m"+" Configuration file creation "+"\033[32m"+"%s"+"\n"+"\033[0m", configPath)
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[32m" + " [ INFO ] " + "\033[0m" + "   File created with factory settings")
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ LOG ] " + "\033[0m" + "    Regeneration process will be recorded in " + "\033[32m" + "/var/log/amberguard/amberguard.log" + "\033[0m")
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ WEBPATH ] " + "\033[0m" + "Secret web paths will change after creation")
+	fmt.Println("              " + "Check current web paths: " + "\033[32m" + "agl --info" + "\033[0m")
+	fmt.Println()
+	fmt.Println("  " + "If the file was corrupted or intentionally deleted - check Tar Pit ports")
+	fmt.Println("  " + "and network shield limits!")
+	fmt.Println(strings.Repeat("-", 70))
+	fmt.Println()
+
+	// RU блок
+	fmt.Println("                     " + "- Первый запуск комплекса -")
+	fmt.Println(strings.Repeat("-", 70))
+	fmt.Printf("\033[36m"+">"+"\033[0m"+"\033[33m"+" [ КОНФИГ ] "+"\033[0m"+" Создание файла конфигурации "+"\033[32m"+"%s"+"\n"+"\033[0m", configPath)
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[32m" + " [ ИНФО ] " + "\033[0m" + "   Файл создан с заводскими параметрами")
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ ЛОГ ] " + "\033[0m" + "    Процесс регенерации будет записан в " + "\033[32m" + "/var/log/amberguard/amberguard.log" + "\033[0m")
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ ВЕБ ] " + "\033[0m" + "    Секретные веб пути изменятся после создания")
+	fmt.Println("              " + "Проверить текущие веб пути: " + "\033[32m" + "agl --info" + "\033[0m")
+	fmt.Println()
+	fmt.Println("  " + "Если файл был испорчен или намеренно удален, рроверьте порты ловушек")
+	fmt.Println("  " + "и лимиты сетевой брони!")
+	fmt.Println(strings.Repeat("-", 70))
+	fmt.Println()
+
+	// Общая строка о времени и подтверждение
+	fmt.Println("\033[32m" + "  [ ENTER ]" + "\033[0m" + " — Enter the control panel / Войти в панель управления")
+	fmt.Print("\033[0m  ")
 	_, _ = bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
 
