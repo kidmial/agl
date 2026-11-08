@@ -81,7 +81,7 @@ fi
 
 echo "→ Подписываю бинарник (потребуется пароль от ключа)..."
 minisign -S -m "$STAGE/agl" -s "$SECRET_KEY_PATH"
-echo "✓ Бинарник подписан: $STAGE/agl.minisig"
+echo "✓ Бинарник подписан: $STAGE/agl.minisign"
 
 rm -f "$BIN"
 echo "✓ Директория $STAGE собрана и подписана."
@@ -97,7 +97,7 @@ echo "✓ Контрольная сумма архива создана: dist/ag
 # === КОНТУР 4.5: Криптографическая подпись архива ===
 echo "→ Подписываю архив (потребуется пароль от ключа)..."
 minisign -S -m "dist/agl-install-$VERSION.tar.gz" -s "$SECRET_KEY_PATH"
-echo "✓ Архив подписан: dist/agl-install-$VERSION.tar.gz.minisig"
+echo "✓ Архив подписан: dist/agl-install-$VERSION.tar.gz.minisign"
 
 echo ""
 echo "✓ Релиз $VERSION успешно собран и подписан!"
@@ -105,4 +105,4 @@ echo "Артефакты для публикации:"
 echo "  - $STAGE/ (директория с бинарником)"
 echo "  - dist/agl-install-$VERSION.tar.gz"
 echo "  - dist/agl-install-$VERSION.tar.gz.sha256"
-echo "  - dist/agl-install-$VERSION.tar.gz.minisig"
+echo "  - dist/agl-install-$VERSION.tar.gz.minisign"
