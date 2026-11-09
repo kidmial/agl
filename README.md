@@ -65,19 +65,19 @@ sudo /opt/amberguard/agl
 **Trap daemon (systemd unit `agld_tarpit.service`)**
 Managed automatically from TUI via `tarpitctl`. Manual launch:
 ```bash
-sudo ./agl --tarpit-daemon
+sudo agl --tarpit-daemon
 ```
 
 **Idle watcher (systemd unit `agld_watcher.service`)**
 Managed declaratively: alive as long as `web_server_enabled` toggle is on in SETTINGS; when server is off, process terminates itself. Port castling does not affect watcher lifecycle. Manual launch:
 ```bash
-sudo ./agl --watcher
+sudo agl --watcher
 ```
 
 **Server auto-update (systemd units `agld_autoupdate.service` / `agld_autoupdate.timer`)**
 Managed declaratively: enabling `auto_update_enabled` toggle in SETTINGS creates units and activates timer; disabling stops and removes them. Manual run of one cycle:
 ```bash
-sudo ./agl --autoupdate
+sudo agl --autoupdate
 ```
 
 ### CLI Flags

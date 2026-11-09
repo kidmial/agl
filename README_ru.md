@@ -69,6 +69,7 @@ sudo make install
 
 ```bash
 sudo /opt/amberguard/agl
+sudo agl
 ```
 
 ### Демон ловушек (systemd-юнит `agld_tarpit.service`)
@@ -76,7 +77,7 @@ sudo /opt/amberguard/agl
 Управляется автоматически из TUI через `tarpitctl`. Ручной запуск:
 
 ```bash
-sudo ./agl --tarpit-daemon
+sudo agl --tarpit-daemon
 ```
 
 ### Наблюдатель простоя (systemd-юнит `agld_watcher.service`)
@@ -84,7 +85,7 @@ sudo ./agl --tarpit-daemon
 Управляется декларативно: жив, пока включён тумблер `web_server_enabled` в SETTINGS; при выключенном сервере процесс завершается сам. Рокировка портов не влияет на жизненный цикл наблюдателя. Ручной запуск:
 
 ```bash
-sudo ./agl --watcher
+sudo agl --watcher
 ```
 
 ### Автообновление сервера (systemd-юниты `agld_autoupdate.service` / `agld_autoupdate.timer`)
@@ -92,7 +93,7 @@ sudo ./agl --watcher
 Управляется декларативно: включение тумблера `auto_update_enabled` в SETTINGS создаёт юниты и активирует таймер; выключение — останавливает и удаляет их. Ручной прогон одного цикла:
 
 ```bash
-sudo ./agl --autoupdate
+sudo agl --autoupdate
 ```
 
 ## CLI-флаги
