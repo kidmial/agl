@@ -48,7 +48,7 @@ func init() {
 			"web_rescue.server_errorlog":        "Служебное сообщение HTTPS-сервера веб-стука: %s",
 
 			// --- internal/armor/watcher_protocol.go ---
-			"watcher.start":                  "Наблюдатель простоя администратора запущен. Период тикера: 60 сек.",
+			"watcher.start":                  "Наблюдатель простоя администратора запущен. Период тикера: 30 сек.",
 			"config.reload_failed":           "event=config.reload_failed err=%v. Продолжаю работу с предыдущим снапшотом.",
 			"watcher.safe_reopened_knock":    "Веб-стук принят. Наблюдатель активен, цикл возобновлён.",
 			"watcher.safe_reopened_session":  "Сессия админа появилась в utmp. Наблюдатель активен.",
@@ -221,6 +221,7 @@ func init() {
 			// --- internal/service/rescue_service.go ---
 			"rescue.moved_rule_purged":        "Правило перенесённого порта удалено при включении защиты: порт %s, правил удалено: %d.",
 			"rescue.moved_rule_type_fallback": "Маркер типа правила перенесённого порта отсутствует: применён консервативный тип limit для порта %s. Выполните обратную рокировку и рокировку заново для записи эталонного типа.",
+			"rescue.moved_rule_restored":      "Правило перенесённого порта восстановлено: %s %s/tcp",
 
 			// --- internal/tarpit/tarpit_listener.go ---
 			"geo.restored":           "event=geo.restored Гео-аналитика снова доступна.",

@@ -4,12 +4,12 @@ Single binary of the Amber Guard Laboratory complex. Four launch modes, one entr
 
 ## 1. Purpose and launch modes
 
-| Mode                        | Command               | Role                                                                                         | systemd unit                                       |
-| --------------------------- | --------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Trap daemon                 | `agl --tarpit-daemon` | Centralized manager of ALL traps (port 22 + multi), log pipelines, IPC master                 | `agld_tarpit.service`                              |
-| Watcher                     | `agl --watcher`       | 60-sec admin idle ticker, web-knock (rescue channel)                                          | `agld_watcher.service`                             |
-| Auto-update (oneshot)       | `agl --autoupdate`    | Oneshot cycle: `apt-get update` → `dist-upgrade` → reboot-required check → deferred reboot    | `agld_autoupdate.service` (scheduled by timer)     |
-| TUI console                 | `agl` (no flags)      | Interactive admin panel; does NOT start listeners                                              | — (manual launch)                                  |
+| Mode                  | Command               | Role                                                                                       | systemd unit                                   |
+| --------------------- | --------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| Trap daemon           | `agl --tarpit-daemon` | Centralized manager of ALL traps (port 22 + multi), log pipelines, IPC master              | `agld_tarpit.service`                          |
+| Watcher               | `agl --watcher`       | 30-sec admin idle ticker, web-knock (rescue channel)                                       | `agld_watcher.service`                         |
+| Auto-update (oneshot) | `agl --autoupdate`    | Oneshot cycle: `apt-get update` → `dist-upgrade` → reboot-required check → deferred reboot | `agld_autoupdate.service` (scheduled by timer) |
+| TUI console           | `agl` (no flags)      | Interactive admin panel; does NOT start listeners                                          | — (manual launch)                              |
 
 Service flags (exit without operational work):
 
@@ -104,35 +104,35 @@ Systemd units use the full path and are unaffected.
 
 ## 5. Runtime artifacts (what the binary creates)
 
-| Path                                                              | Purpose                                                                 | Perms |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------------- | ----- |
-| `/etc/amberguard/config.json`                                     | Verified configuration (generated on first start)                       | 0644  |
-| `/etc/amberguard/tarpit_inventory.json`                           | Declarative trap inventory (clients write, daemon executes)             | 0600  |
-| `/etc/amberguard/tarpit_inventory.json.lock`                      | Sidecar transaction lock file for the inventory (flock)                 | 0600  |
-| `/etc/amberguard/perimeter_inventory.json`                        | Perimeter inventory: ports, detected services (`/proc` + `ss` scan)     | 0644  |
-| `/etc/amberguard/backup_targets.json`                             | Backup targets (auto-created with defaults)                             | 0644  |
-| `/etc/amberguard/certs/server.crt`, `server.key`                  | Self-signed TLS certificate for web-knock (ECDSA P-256, 10 years)       | 0600  |
-| `/var/log/amberguard/amberguard.log`                              | System journal (machine codes + localized descriptions)                 | 0644  |
-| `/var/log/amberguard/tarpit_connection.log`, `tarpit_report.log`  | SIEM logs of touches and exhaustion (written ONLY by the daemon)        | 0644  |
-| `/var/lib/amberguard/`                                            | States, armor receipts, inventories                                     | 0755  |
-| `/var/lib/amberguard/states/agl_ssh_moved`                        | SSH castling marker (port has been moved)                               | 0644  |
-| `/var/lib/amberguard/states/agl_armor_active_port.N`              | Armor receipt for port N                                                | 0644  |
-| `/var/lib/amberguard/states/agl_armor_ratelimit_port.N`           | Ephemeral rate-limit marker for port N                                  | 0644  |
-| `/var/lib/amberguard/states/agl_tarpit_listener_port.N`           | Active trap listener marker for port N (created/removed by daemon)      | 0644  |
-| `/var/lib/amberguard/states/agl_rescue_active`                    | Active rescue channel marker                                            | 0644  |
-| `/var/lib/amberguard/states/agl_rescue_ip_pending`                | Admin IP detection pending marker (SSH_CONNECTION was empty)            | 0644  |
-| `/var/lib/amberguard/states/agl_moved_rule_type`                  | Moved-port rule type (allow / limit / reject)                           | 0644  |
-| `/var/lib/amberguard/states/agl_admin_idle_counter`               | Admin idle counter (watcher)                                            | 0644  |
-| `/var/lib/amberguard/states/agl_autoupdate_last_run`              | Unix time of last successful auto-update cycle                          | 0644  |
-| `/var/lib/amberguard/states/agl_autoupdate_pending_reboot`        | "Reboot pending" marker after kernel updates                            | 0644  |
-| `/var/run/amberguard/<role>.lock`                                 | R-6: flock uniqueness safeguard (tmpfs)                                 | 0600  |
-| `/var/run/amberguard/agl_autoupdate.lock`                         | Ephemeral flock for oneshot auto-update runs                            | 0600  |
-| `/dev/shm/amberguard.counter`                                     | IPC bot counter (master = daemon, slave = TUI)                          | tmpfs |
-| `/dev/shm/agl_proto_web_rescue/`                                  | Web-knock directory (signal file `agl_proto_web_knock.ip`)              | 0700  |
-| `/etc/systemd/system/agld_tarpit.service`                         | Trap daemon unit (generated from TUI)                                   | 0644  |
-| `/etc/systemd/system/agld_watcher.service`                        | Watcher unit (Restart=on-failure)                                       | 0644  |
-| `/etc/systemd/system/agld_autoupdate.service`, `...timer`         | Auto-update units (declaratively created from SETTINGS)                 | 0644  |
-| `/etc/logrotate.d/amberguard`                                     | Log rotation config (created on first start)                            | 0644  |
+| Path                                                             | Purpose                                                             | Perms |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------- | ----- |
+| `/etc/amberguard/config.json`                                    | Verified configuration (generated on first start)                   | 0644  |
+| `/etc/amberguard/tarpit_inventory.json`                          | Declarative trap inventory (clients write, daemon executes)         | 0600  |
+| `/etc/amberguard/tarpit_inventory.json.lock`                     | Sidecar transaction lock file for the inventory (flock)             | 0600  |
+| `/etc/amberguard/perimeter_inventory.json`                       | Perimeter inventory: ports, detected services (`/proc` + `ss` scan) | 0644  |
+| `/etc/amberguard/backup_targets.json`                            | Backup targets (auto-created with defaults)                         | 0644  |
+| `/etc/amberguard/certs/server.crt`, `server.key`                 | Self-signed TLS certificate for web-knock (ECDSA P-256, 10 years)   | 0600  |
+| `/var/log/amberguard/amberguard.log`                             | System journal (machine codes + localized descriptions)             | 0644  |
+| `/var/log/amberguard/tarpit_connection.log`, `tarpit_report.log` | SIEM logs of touches and exhaustion (written ONLY by the daemon)    | 0644  |
+| `/var/lib/amberguard/`                                           | States, armor receipts, inventories                                 | 0755  |
+| `/var/lib/amberguard/states/agl_ssh_moved`                       | SSH castling marker (port has been moved)                           | 0644  |
+| `/var/lib/amberguard/states/agl_armor_active_port.N`             | Armor receipt for port N                                            | 0644  |
+| `/var/lib/amberguard/states/agl_armor_ratelimit_port.N`          | Ephemeral rate-limit marker for port N                              | 0644  |
+| `/var/lib/amberguard/states/agl_tarpit_listener_port.N`          | Active trap listener marker for port N (created/removed by daemon)  | 0644  |
+| `/var/lib/amberguard/states/agl_rescue_active`                   | Active rescue channel marker                                        | 0644  |
+| `/var/lib/amberguard/states/agl_rescue_ip_pending`               | Admin IP detection pending marker (SSH_CONNECTION was empty)        | 0644  |
+| `/var/lib/amberguard/states/agl_moved_rule_type`                 | Moved-port rule type (allow / limit / reject)                       | 0644  |
+| `/var/lib/amberguard/states/agl_admin_idle_counter`              | Admin idle counter (watcher)                                        | 0644  |
+| `/var/lib/amberguard/states/agl_autoupdate_last_run`             | Unix time of last successful auto-update cycle                      | 0644  |
+| `/var/lib/amberguard/states/agl_autoupdate_pending_reboot`       | "Reboot pending" marker after kernel updates                        | 0644  |
+| `/var/run/amberguard/<role>.lock`                                | R-6: flock uniqueness safeguard (tmpfs)                             | 0600  |
+| `/var/run/amberguard/agl_autoupdate.lock`                        | Ephemeral flock for oneshot auto-update runs                        | 0600  |
+| `/dev/shm/amberguard.counter`                                    | IPC bot counter (master = daemon, slave = TUI)                      | tmpfs |
+| `/dev/shm/agl_proto_web_rescue/`                                 | Web-knock directory (signal file `agl_proto_web_knock.ip`)          | 0700  |
+| `/etc/systemd/system/agld_tarpit.service`                        | Trap daemon unit (generated from TUI)                               | 0644  |
+| `/etc/systemd/system/agld_watcher.service`                       | Watcher unit (Restart=on-failure)                                   | 0644  |
+| `/etc/systemd/system/agld_autoupdate.service`, `...timer`        | Auto-update units (declaratively created from SETTINGS)             | 0644  |
+| `/etc/logrotate.d/amberguard`                                    | Log rotation config (created on first start)                        | 0644  |
 
 ## 6. Journal and localization
 
@@ -153,15 +153,15 @@ Systemd units use the full path and are unaffected.
 
 ## 8. Quick diagnostics
 
-| Symptom                                           | Cause                                                       | Fix                                                                                     |
-| ------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `cannot execute binary file: Exec format error`   | Mach-O or foreign architecture on the server                | `file` + `uname -m`; rebuild with `make build-linux`                                    |
-| Machine codes instead of descriptions in journal  | Binary older than dictionaries OR call before `InitLanguage`| Rebuild from HEAD; ordering fixed in 6.7.5                                              |
-| `%!(EXTRA …)` in journal                          | Binary older than `881e7da` (unprotected fallback)          | Rebuild and restart units                                                               |
-| Journal empty after rotation                      | Rotation renamed the file, daemon writes to old inode       | Daemon handles `SIGHUP` (log file reopening). Current rotation config uses `copytruncate` — the issue does not occur. To switch to `postrotate`: add `postrotate ... kill -HUP ...` and remove `copytruncate` |
-| "role already performed by another process"       | Normal R-6 operation                                        | `pgrep -af agl`; do not start a second instance manually                                |
-| Duplicate `singleton.lock_held` at startup        | Normal: two units (tarpit + watcher) log their roles        | Not a defect                                                                            |
-| Auto-update does not run                          | Toggle `auto_update_enabled` is off OR units not created    | Check `systemctl status agld_autoupdate.timer`; enable in SETTINGS                      |
+| Symptom                                          | Cause                                                        | Fix                                                                                                                                                                                                           |
+| ------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cannot execute binary file: Exec format error`  | Mach-O or foreign architecture on the server                 | `file` + `uname -m`; rebuild with `make build-linux`                                                                                                                                                          |
+| Machine codes instead of descriptions in journal | Binary older than dictionaries OR call before `InitLanguage` | Rebuild from HEAD; ordering fixed in 6.7.5                                                                                                                                                                    |
+| `%!(EXTRA …)` in journal                         | Binary older than `881e7da` (unprotected fallback)           | Rebuild and restart units                                                                                                                                                                                     |
+| Journal empty after rotation                     | Rotation renamed the file, daemon writes to old inode        | Daemon handles `SIGHUP` (log file reopening). Current rotation config uses `copytruncate` — the issue does not occur. To switch to `postrotate`: add `postrotate ... kill -HUP ...` and remove `copytruncate` |
+| "role already performed by another process"      | Normal R-6 operation                                         | `pgrep -af agl`; do not start a second instance manually                                                                                                                                                      |
+| Duplicate `singleton.lock_held` at startup       | Normal: two units (tarpit + watcher) log their roles         | Not a defect                                                                                                                                                                                                  |
+| Auto-update does not run                         | Toggle `auto_update_enabled` is off OR units not created     | Check `systemctl status agld_autoupdate.timer`; enable in SETTINGS                                                                                                                                            |
 
 ## 9. Auditor checklist
 

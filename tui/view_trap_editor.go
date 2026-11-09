@@ -35,6 +35,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"agl/i18n"
 	"agl/internal/service"
@@ -141,6 +142,18 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 	paramList.Title = i18n.T.ViewTrapEditorListTitle
 	paramList.Rows = menuRows
 	paramList.SetRect(2, 5, 102, 14)
+
+	// v9.0.0: КОСМЕТИКА — полоса выделения до правого края блока.
+	innerWidth := paramList.GetRect().Dx() - 2
+	paddedRows := make([]string, len(menuRows))
+	for i, row := range menuRows {
+		if n := utf8.RuneCountInString(row); n < innerWidth {
+			row += strings.Repeat(" ", innerWidth-n)
+		}
+		paddedRows[i] = row
+	}
+	paramList.Rows = paddedRows
+
 	paramList.BorderStyle.Fg = ui.ColorCyan
 	paramList.SelectedRow = selectedRow
 	paramList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
@@ -158,7 +171,7 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 		helpText = i18n.T.ViewTrapEditorHelpVariance
 	case 3:
 		helpText = fmt.Sprintf(
-			i18n.T.ViewTrapEditorHelpBanner+"[ %s ](fg:cyan,mod:bold)",
+			i18n.T.ViewTrapEditorHelpBanner+"[ %s ](fg:yellow,mod:bold)",
 			SSHVersionPresets[TrapEditDraft.BannerIndex])
 	case 4:
 		helpText = i18n.T.ViewTrapEditorHelpMaxConn
@@ -205,10 +218,12 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 				sysConsole.Text = "\n " + TrapAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorGreen
 				sysConsole.TextStyle.Fg = ui.ColorWhite
+				sysConsole.WrapText = false
 			} else {
 				sysConsole.Text = "\n  ⚠️ [" + i18n.T.ViewTrapEditorValidationRejectPrefix + "](fg:red,mod:bold): " + TrapAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorRed
 				sysConsole.TextStyle.Fg = ui.ColorYellow
+				sysConsole.WrapText = false
 			}
 		} else {
 			sysConsole.Text = fmt.Sprintf("  [%s]: %s [Up/Down] │ [Enter] — %s.\n  [%s]: %s",
@@ -216,6 +231,7 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 				i18n.T.ViewTrapEditorLabelEnterHint, i18n.T.ViewTrapEditorLabelAction, i18n.T.ViewTrapEditorLabelActionHint)
 			sysConsole.BorderStyle.Fg = ui.ColorGreen
 			sysConsole.TextStyle.Fg = ui.ColorCyan
+			sysConsole.WrapText = false
 		}
 	}
 

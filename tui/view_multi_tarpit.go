@@ -49,8 +49,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
-
-	// "time"
+	"strings"
 
 	"agl/i18n"
 	"agl/internal/sys"
@@ -190,6 +189,18 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 	// ГЕОМЕТРИЯ v8.0.3: фиксированная высота 12 строк (y: 6-18).
 	// Нижняя половина терминала отдана под «Паспорт ловушки».
 	trapList.SetRect(2, 6, 102, 20)
+
+	// v9.0.0: КОСМЕТИКА — полоса выделения до правого края блока.
+	innerWidth := trapList.GetRect().Dx() - 2
+	paddedRows := make([]string, len(menuRows))
+	for i, row := range menuRows {
+		if n := visibleRunes(row); n < innerWidth {
+			row += strings.Repeat(" ", innerWidth-n)
+		}
+		paddedRows[i] = row
+	}
+	trapList.Rows = paddedRows
+
 	trapList.BorderStyle.Fg = ui.ColorCyan
 	trapList.SelectedRow = selectedRow
 	trapList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)

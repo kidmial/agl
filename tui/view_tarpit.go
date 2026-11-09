@@ -41,6 +41,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"agl/config"
 	"agl/i18n"
@@ -257,6 +258,18 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 		fmt.Sprintf("  BACK        │ %s", i18n.T.ViewTarpitRowBackDesc),
 	}
 	tarpitList.SetRect(2, 6, 102, 14)
+
+	// v9.0.0: КОСМЕТИКА — полоса выделения до правого края блока.
+	innerWidth := tarpitList.GetRect().Dx() - 2
+	paddedRows := make([]string, len(tarpitList.Rows))
+	for i, row := range tarpitList.Rows {
+		if n := utf8.RuneCountInString(row); n < innerWidth {
+			row += strings.Repeat(" ", innerWidth-n)
+		}
+		paddedRows[i] = row
+	}
+	tarpitList.Rows = paddedRows
+
 	tarpitList.BorderStyle.Fg = ui.ColorCyan
 	tarpitList.TitleStyle.Fg = ui.ColorYellow
 	tarpitList.TitleStyle.Modifier = ui.ModifierBold

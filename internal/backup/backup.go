@@ -37,6 +37,7 @@ type BackupTargets struct {
 	Version    string   `json:"version"`
 	SystemDirs []string `json:"system_dirs"`
 	LogFiles   []string `json:"log_files"`
+	UserData   []string `json:"user_data"` // v9.0.0: третий контур — персональные файлы администратора
 }
 
 // defaultSystemDirs — дефолтные пути для системного архива (фолбэк).
@@ -50,16 +51,14 @@ var defaultSystemDirs = []string{
 	"/root/.ssh",
 	"/etc/ufw",
 	"/etc/default/ufw",
-	"/etc/fail2ban",
 }
 
 // defaultLogFiles — дефолтные пути для архива криминалистики (фолбэк).
 var defaultLogFiles = []string{
 	"/var/log/amberguard/tarpit_connection.log",
 	"/var/log/amberguard/tarpit_report.log",
-	"/var/log/amberguard/tarpit_error.log",
+	"/var/log/amberguard/attackers_of_pit.log",
 	"/var/log/auth.log",
-	"/var/log/fail2ban.log",
 	"/var/log/ufw.log",
 	config.FileMainLog,
 }
@@ -72,6 +71,7 @@ func LoadBackupTargets() BackupTargets {
 		Version:    "1.0",
 		SystemDirs: defaultSystemDirs,
 		LogFiles:   defaultLogFiles,
+		UserData:   []string{}, // v9.0.0: пустой по умолчанию, архивируется только если заполнен
 	}
 
 	data, err := os.ReadFile(FileBackupTargets)
@@ -107,6 +107,8 @@ func LoadBackupTargets() BackupTargets {
 	if len(targets.LogFiles) == 0 {
 		targets.LogFiles = defaultLogFiles
 	}
+	// v9.0.0: UserData остаётся пустым если не заполнен — третий контур пропускается.
+	// Дефолтов нет: персональные файлы специфичны для каждого администратора.
 
 	return targets
 }
@@ -205,6 +207,26 @@ func RunSystemBackup() chan BackupProgress {
 
 		// Усиливаем права на архив: только root может читать.
 		_ = os.Chmod(logArchivePath, 0600)
+
+		// -------------------------------------------------------------
+		// ФАЙЛ 4 (ОПЦИОНАЛЬНЫЙ): Архив персональных данных администратора
+		// v9.0.0: Третий контур архивации — user_data.
+		// Запускается ТОЛЬКО если массив targets.UserData непустой.
+		// -------------------------------------------------------------
+		if len(targets.UserData) > 0 {
+			userDataArchiveName := fmt.Sprintf("%s_user_data.tar.gz", currentTime)
+			userDataArchivePath := filepath.Join(sessionDir, userDataArchiveName)
+
+			progressChan <- BackupProgress{Percent: 98, LogLine: i18n.T.BackupUserTarPersonal}
+			if err := packTargetArray(targets.UserData, userDataArchivePath, 98, 99, progressChan); err != nil {
+				sys.LogAction("BACKUP", "USER_DATA_TAR_FAIL", "ERROR", i18n.TrEventf("backup.user_data_tar_fail", err))
+				progressChan <- BackupProgress{Percent: 98, LogLine: i18n.T.BackupCriticalUserDataTarFail + err.Error()}
+				return
+			}
+
+			// Усиливаем права на архив: только root может читать.
+			_ = os.Chmod(userDataArchivePath, 0600)
+		}
 
 		// Финальная точка: отправляем 100% и даем горутине закрыть канал через defer close
 		sys.LogAction("BACKUP", "TRANSACTION_SUCCESS", "SUCCESS", i18n.TrEventf("backup.transaction_success", sessionDir))

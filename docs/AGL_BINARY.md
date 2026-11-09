@@ -4,12 +4,12 @@
 
 ## 1. Назначение и режимы запуска
 
-| Режим                      | Команда               | Роль                                                                                          | systemd-юнит                                     |
-| -------------------------- | --------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| Демон ловушек              | `agl --tarpit-daemon` | Централизованный менеджер ВСЕХ ловушек (порт 22 + мульти), лог-конвейеры, IPC-мастер          | `agld_tarpit.service`                            |
-| Наблюдатель                | `agl --watcher`       | 60-сек тикер простоя админа, веб-стук (канал спасения)                                        | `agld_watcher.service`                           |
-| Автообновление (однократно)| `agl --autoupdate`    | Oneshot-цикл: `apt-get update` → `dist-upgrade` → проверка reboot-required → отложенный ребут | `agld_autoupdate.service` (по таймеру)           |
-| TUI-пульт                  | `agl` (без флагов)    | Интерактивная панель администратора; слушателей НЕ запускает                                   | — (ручной запуск)                                |
+| Режим                       | Команда               | Роль                                                                                          | systemd-юнит                           |
+| --------------------------- | --------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Демон ловушек               | `agl --tarpit-daemon` | Централизованный менеджер ВСЕХ ловушек (порт 22 + мульти), лог-конвейеры, IPC-мастер          | `agld_tarpit.service`                  |
+| Наблюдатель                 | `agl --watcher`       | 30-сек тикер простоя админа, веб-стук (канал спасения)                                        | `agld_watcher.service`                 |
+| Автообновление (однократно) | `agl --autoupdate`    | Oneshot-цикл: `apt-get update` → `dist-upgrade` → проверка reboot-required → отложенный ребут | `agld_autoupdate.service` (по таймеру) |
+| TUI-пульт                   | `agl` (без флагов)    | Интерактивная панель администратора; слушателей НЕ запускает                                  | — (ручной запуск)                      |
 
 Служебные флаги (выход без боевой работы):
 
@@ -104,35 +104,35 @@ Systemd-юниты ходят по полному пути и не затраг�
 
 ## 5. Рантайм-артефакты (что создаёт бинарник)
 
-| Путь                                                              | Назначение                                                              | Права |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------------- | ----- |
-| `/etc/amberguard/config.json`                                     | Верифицированная конфигурация (генерация при первом старте)             | 0644  |
-| `/etc/amberguard/tarpit_inventory.json`                           | Декларативный инвентарь ловушек (клиенты пишут, демон исполняет)        | 0600  |
-| `/etc/amberguard/tarpit_inventory.json.lock`                      | Сайдкар-файл транзакционной блокировки инвентаря (flock)                | 0600  |
-| `/etc/amberguard/perimeter_inventory.json`                        | Инвентарь периметра: порты, обнаруженные службы (скан `/proc` + `ss`)   | 0644  |
-| `/etc/amberguard/backup_targets.json`                             | Цели резервного копирования (создаётся автоматически с дефолтами)       | 0644  |
-| `/etc/amberguard/certs/server.crt`, `server.key`                  | Самоподписанный TLS-сертификат веб-стука (ECDSA P-256, 10 лет)          | 0600  |
-| `/var/log/amberguard/amberguard.log`                              | Системный журнал (машинные коды + локализованные описания)              | 0644  |
-| `/var/log/amberguard/tarpit_connection.log`, `tarpit_report.log`  | SIEM-логи касаний и истощения (пишет ТОЛЬКО демон)                      | 0644  |
-| `/var/lib/amberguard/`                                            | Состояния, квитанции брони, инвентари                                   | 0755  |
-| `/var/lib/amberguard/states/agl_ssh_moved`                        | Маркер рокировки SSH (порт перенесён)                                   | 0644  |
-| `/var/lib/amberguard/states/agl_armor_active_port.N`              | Квитанция брони порта N                                                 | 0644  |
-| `/var/lib/amberguard/states/agl_armor_ratelimit_port.N`           | Летучий маркер rate-limit порта N                                       | 0644  |
-| `/var/lib/amberguard/states/agl_tarpit_listener_port.N`           | Маркер активного слушателя ловушки порта N (создаёт/удаляет демон)      | 0644  |
-| `/var/lib/amberguard/states/agl_rescue_active`                    | Маркер активного канала спасения                                        | 0644  |
-| `/var/lib/amberguard/states/agl_rescue_ip_pending`                | Маркер ожидания детекции IP админа (SSH_CONNECTION пуст)                | 0644  |
-| `/var/lib/amberguard/states/agl_moved_rule_type`                  | Тип правила перенесённого порта (allow / limit / reject)                | 0644  |
-| `/var/lib/amberguard/states/agl_admin_idle_counter`               | Счётчик простоя администратора (наблюдатель)                            | 0644  |
-| `/var/lib/amberguard/states/agl_autoupdate_last_run`              | Unix-время последнего успешного цикла автообновления                    | 0644  |
-| `/var/lib/amberguard/states/agl_autoupdate_pending_reboot`        | Маркер «ожидается ребут» после обновлений ядра                          | 0644  |
-| `/var/run/amberguard/<role>.lock`                                 | R-6: flock-предохранитель единственности (tmpfs)                        | 0600  |
-| `/var/run/amberguard/agl_autoupdate.lock`                         | Летучий flock-лок oneshot-запуска автообновления                        | 0600  |
-| `/dev/shm/amberguard.counter`                                     | IPC-счётчик ботов (мастер = демон, слейв = TUI)                         | tmpfs |
-| `/dev/shm/agl_proto_web_rescue/`                                  | Директория веб-стука (файл сигнала `agl_proto_web_knock.ip`)            | 0700  |
-| `/etc/systemd/system/agld_tarpit.service`                         | Юнит демона ловушек (генерируется из TUI)                               | 0644  |
-| `/etc/systemd/system/agld_watcher.service`                        | Юнит наблюдателя (Restart=on-failure)                                   | 0644  |
-| `/etc/systemd/system/agld_autoupdate.service`, `...timer`         | Юниты автообновления (декларативно создаются из SETTINGS)               | 0644  |
-| `/etc/logrotate.d/amberguard`                                     | Конфиг ротации логов (создаётся при первом старте)                      | 0644  |
+| Путь                                                             | Назначение                                                            | Права |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------- | ----- |
+| `/etc/amberguard/config.json`                                    | Верифицированная конфигурация (генерация при первом старте)           | 0644  |
+| `/etc/amberguard/tarpit_inventory.json`                          | Декларативный инвентарь ловушек (клиенты пишут, демон исполняет)      | 0600  |
+| `/etc/amberguard/tarpit_inventory.json.lock`                     | Сайдкар-файл транзакционной блокировки инвентаря (flock)              | 0600  |
+| `/etc/amberguard/perimeter_inventory.json`                       | Инвентарь периметра: порты, обнаруженные службы (скан `/proc` + `ss`) | 0644  |
+| `/etc/amberguard/backup_targets.json`                            | Цели резервного копирования (создаётся автоматически с дефолтами)     | 0644  |
+| `/etc/amberguard/certs/server.crt`, `server.key`                 | Самоподписанный TLS-сертификат веб-стука (ECDSA P-256, 10 лет)        | 0600  |
+| `/var/log/amberguard/amberguard.log`                             | Системный журнал (машинные коды + локализованные описания)            | 0644  |
+| `/var/log/amberguard/tarpit_connection.log`, `tarpit_report.log` | SIEM-логи касаний и истощения (пишет ТОЛЬКО демон)                    | 0644  |
+| `/var/lib/amberguard/`                                           | Состояния, квитанции брони, инвентари                                 | 0755  |
+| `/var/lib/amberguard/states/agl_ssh_moved`                       | Маркер рокировки SSH (порт перенесён)                                 | 0644  |
+| `/var/lib/amberguard/states/agl_armor_active_port.N`             | Квитанция брони порта N                                               | 0644  |
+| `/var/lib/amberguard/states/agl_armor_ratelimit_port.N`          | Летучий маркер rate-limit порта N                                     | 0644  |
+| `/var/lib/amberguard/states/agl_tarpit_listener_port.N`          | Маркер активного слушателя ловушки порта N (создаёт/удаляет демон)    | 0644  |
+| `/var/lib/amberguard/states/agl_rescue_active`                   | Маркер активного канала спасения                                      | 0644  |
+| `/var/lib/amberguard/states/agl_rescue_ip_pending`               | Маркер ожидания детекции IP админа (SSH_CONNECTION пуст)              | 0644  |
+| `/var/lib/amberguard/states/agl_moved_rule_type`                 | Тип правила перенесённого порта (allow / limit / reject)              | 0644  |
+| `/var/lib/amberguard/states/agl_admin_idle_counter`              | Счётчик простоя администратора (наблюдатель)                          | 0644  |
+| `/var/lib/amberguard/states/agl_autoupdate_last_run`             | Unix-время последнего успешного цикла автообновления                  | 0644  |
+| `/var/lib/amberguard/states/agl_autoupdate_pending_reboot`       | Маркер «ожидается ребут» после обновлений ядра                        | 0644  |
+| `/var/run/amberguard/<role>.lock`                                | R-6: flock-предохранитель единственности (tmpfs)                      | 0600  |
+| `/var/run/amberguard/agl_autoupdate.lock`                        | Летучий flock-лок oneshot-запуска автообновления                      | 0600  |
+| `/dev/shm/amberguard.counter`                                    | IPC-счётчик ботов (мастер = демон, слейв = TUI)                       | tmpfs |
+| `/dev/shm/agl_proto_web_rescue/`                                 | Директория веб-стука (файл сигнала `agl_proto_web_knock.ip`)          | 0700  |
+| `/etc/systemd/system/agld_tarpit.service`                        | Юнит демона ловушек (генерируется из TUI)                             | 0644  |
+| `/etc/systemd/system/agld_watcher.service`                       | Юнит наблюдателя (Restart=on-failure)                                 | 0644  |
+| `/etc/systemd/system/agld_autoupdate.service`, `...timer`        | Юниты автообновления (декларативно создаются из SETTINGS)             | 0644  |
+| `/etc/logrotate.d/amberguard`                                    | Конфиг ротации логов (создаётся при первом старте)                    | 0644  |
 
 ## 6. Журнал и локализация
 
@@ -153,15 +153,15 @@ Systemd-юниты ходят по полному пути и не затраг�
 
 ## 8. Быстрая диагностика
 
-| Симптом                                           | Причина                                                     | Лечение                                                                  |
-| ------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `cannot execute binary file: Exec format error`   | Mach-O или чужая архитектура на сервере                     | `file` + `uname -m`; пересобрать `make build-linux`                      |
-| Машинные коды вместо описаний в журнале           | Бинарник старше словарей ИЛИ вызов до `InitLanguage`        | Пересобрать из HEAD; порядок исправлен в 6.7.5                           |
-| `%!(EXTRA …)` в журнале                           | Бинарник старше `881e7da` (фолбэк без защиты)               | Пересобрать и перезапустить юниты                                        |
-| Журнал пуст после ротации                         | Ротация переименовала файл, демон пишет в старый inode      | Демон обрабатывает `SIGHUP` (переоткрытие лог-файлов). Текущий конфиг ротации использует `copytruncate` — проблема не возникает. Для перехода на `postrotate`: добавить `postrotate ... kill -HUP ...` и убрать `copytruncate` |
-| «роль уже выполняется другим процессом»           | Штатная работа R-6                                          | `pgrep -af agl`; не запускать второй экземпляр вручную                   |
-| Дубль `singleton.lock_held` при старте            | Норма: два юнита (tarpit + watcher) логируют свои роли      | Не дефект                                                                |
-| Автообновление не запускается                     | Тумблер `auto_update_enabled` выключен ИЛИ юниты не созданы | Проверить `systemctl status agld_autoupdate.timer`; включить в SETTINGS  |
+| Симптом                                         | Причина                                                     | Лечение                                                                                                                                                                                                                        |
+| ----------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `cannot execute binary file: Exec format error` | Mach-O или чужая архитектура на сервере                     | `file` + `uname -m`; пересобрать `make build-linux`                                                                                                                                                                            |
+| Машинные коды вместо описаний в журнале         | Бинарник старше словарей ИЛИ вызов до `InitLanguage`        | Пересобрать из HEAD; порядок исправлен в 6.7.5                                                                                                                                                                                 |
+| `%!(EXTRA …)` в журнале                         | Бинарник старше `881e7da` (фолбэк без защиты)               | Пересобрать и перезапустить юниты                                                                                                                                                                                              |
+| Журнал пуст после ротации                       | Ротация переименовала файл, демон пишет в старый inode      | Демон обрабатывает `SIGHUP` (переоткрытие лог-файлов). Текущий конфиг ротации использует `copytruncate` — проблема не возникает. Для перехода на `postrotate`: добавить `postrotate ... kill -HUP ...` и убрать `copytruncate` |
+| «роль уже выполняется другим процессом»         | Штатная работа R-6                                          | `pgrep -af agl`; не запускать второй экземпляр вручную                                                                                                                                                                         |
+| Дубль `singleton.lock_held` при старте          | Норма: два юнита (tarpit + watcher) логируют свои роли      | Не дефект                                                                                                                                                                                                                      |
+| Автообновление не запускается                   | Тумблер `auto_update_enabled` выключен ИЛИ юниты не созданы | Проверить `systemctl status agld_autoupdate.timer`; включить в SETTINGS                                                                                                                                                        |
 
 ## 9. Чек-лист аудитора
 

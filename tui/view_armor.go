@@ -255,6 +255,18 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	armorList.Title = i18n.T.ViewArmorListTitle
 	armorList.Rows = rows
 	armorList.SetRect(2, 4, 102, 18) // ЖЕСТКАЯ ФИКСАЦИЯ (было 18, оставлено 18 для совместимости)
+
+	// v9.0.0: КОСМЕТИКА — полоса выделения до правого края блока.
+	innerWidth := armorList.GetRect().Dx() - 2
+	paddedRows := make([]string, len(rows))
+	for i, row := range rows {
+		if n := visibleRunes(row); n < innerWidth {
+			row += strings.Repeat(" ", innerWidth-n)
+		}
+		paddedRows[i] = row
+	}
+	armorList.Rows = paddedRows
+
 	armorList.BorderStyle.Fg = ui.ColorCyan
 	armorList.SelectedRow = selectedRow
 	armorList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)

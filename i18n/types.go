@@ -82,6 +82,7 @@ type UITranslation struct {
 	ConfigErrCloseTempFile      string
 	ConfigErrRenameConfig       string
 	ConfigErrSaveAfterPrefixGen string
+	ConfigErrSaveAfterNormalize string
 
 	// --- config/config_inventory.go (ошибки и системные сообщения) ---
 	ConfigErrInitScan              string // Ошибка инициализации при сканировании
@@ -194,29 +195,33 @@ type UITranslation struct {
 	TlsCertFileFailed      string
 
 	// --- internal/backup/backup.go ---
-	BackupControlDiskCheck      string
-	BackupWarningPrefix         string
-	BackupFailSessionDirCreate  string
-	BackupDpkgExport            string
-	BackupSuccessPackageList    string
-	BackupErrorDpkgExport       string
-	BackupTarSysRecovery        string
-	BackupCriticalSysTarFail    string
-	BackupLogTarForensics       string
-	BackupCriticalLogTarFail    string
-	BackupSuccessArchivesDone   string
-	BackupFsStatFailed          string
-	BackupDiskDeficitFifo       string
-	BackupBackupRootReadErr     string
-	BackupFifoDeleteOld         string
-	BackupFifoSafeThreshold     string
-	BackupFifoFailThreshold     string
-	BackupArchiveFileCreateFail string
-	BackupTarCompressObject     string
-	BackupSkipObjectMissing     string
-	BackupRecursivePackFail     string
-	BackupTarFlushFail          string
-	BackupGzipFlushFail         string
+	BackupControlDiskCheck        string
+	BackupWarningPrefix           string
+	BackupFailSessionDirCreate    string
+	BackupDpkgExport              string
+	BackupSuccessPackageList      string
+	BackupErrorDpkgExport         string
+	BackupTarSysRecovery          string
+	BackupCriticalSysTarFail      string
+	BackupLogTarForensics         string
+	BackupCriticalLogTarFail      string
+	BackupSuccessArchivesDone     string
+	BackupFsStatFailed            string
+	BackupDiskDeficitFifo         string
+	BackupBackupRootReadErr       string
+	BackupFifoDeleteOld           string
+	BackupFifoSafeThreshold       string
+	BackupFifoFailThreshold       string
+	BackupArchiveFileCreateFail   string
+	BackupTarCompressObject       string
+	BackupSkipObjectMissing       string
+	BackupRecursivePackFail       string
+	BackupTarFlushFail            string
+	BackupGzipFlushFail           string
+	ViewBackupProgressTitle       string
+	ViewBackupProgressBody        string
+	BackupUserTarPersonal         string
+	BackupCriticalUserDataTarFail string
 
 	// --- internal/forensics/tarpit_report.go ---
 	ForensicsReportTitle           string

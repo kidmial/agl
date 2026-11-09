@@ -13,6 +13,8 @@ package tui
 import (
 	"fmt"
 	"os"
+	"strings"
+	"unicode/utf8"
 
 	"agl/i18n"
 	"agl/internal/sys"
@@ -136,7 +138,22 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 	actionList := widgets.NewList()
 	actionList.Title = i18n.T.ViewTrapCardListTitle
 	actionList.Rows = menuRows
-	actionList.SetRect(2, 8, 102, 16)
+	actionList.SetRect(2, 8, 102, 15)
+
+	// v9.0.0: КОСМЕТИКА — полоса выделения до правого края блока.
+	innerWidth := actionList.GetRect().Dx() - 2
+	paddedRows := make([]string, len(menuRows))
+	for i, row := range menuRows {
+		if n := utf8.RuneCountInString(row); n < innerWidth {
+			row += strings.Repeat(" ", innerWidth-n)
+		}
+		paddedRows[i] = row
+	}
+	actionList.Rows = paddedRows
+
+	actionList.BorderStyle.Fg = ui.ColorCyan
+	actionList.SelectedRow = selectedRow
+	actionList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
 	actionList.BorderStyle.Fg = ui.ColorCyan
 	actionList.SelectedRow = selectedRow
 	actionList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
@@ -147,7 +164,7 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 	hintBox := widgets.NewParagraph()
 	hintBox.Title = i18n.T.ViewTrapCardHintTitle
 	hintBox.Text = getTrapCardHint(selectedRow, trapExists, isRunning, markerExists)
-	hintBox.SetRect(2, 16, 102, 22)
+	hintBox.SetRect(2, 15, 102, 29)
 	hintBox.BorderStyle.Fg = ui.ColorYellow
 	hintBox.TextStyle.Fg = ui.ColorCyan
 	hintBox.WrapText = false

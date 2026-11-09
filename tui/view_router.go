@@ -286,21 +286,44 @@ func handlePanelEvent(e ui.Event, state *PanelState) (shouldQuit bool) {
 	// 1. ОБНОВЛЕННАЯ ЛОГИКА <ESCAPE> (Переход на один уровень вверх)
 	// =====================================================================
 	case "<Escape>":
-		// НОВОЕ В v8.0.3: Выход из редактора ловушки
-		if state.currentScreen == "TRAP_EDITOR" {
+		// v9.0.0: ВЫХОД ИЗ МАСТЕРА СОЗДАНИЯ ЛОВУШКИ
+		if state.currentScreen == "TRAP_CREATOR" {
 			if IsTrapEditMode {
+				// В режиме ввода: отменить ввод, очистить буфер, вернуться к навигации
 				IsTrapEditMode = false
 				CurrentTrapInputBuf = ""
+				TrapAlertMessage = ""
 			} else {
-				state.currentScreen = "TRAP_CARD"
+				// В режиме навигации: возврат в MULTI_TARPIT
+				state.currentScreen = "MULTI_TARPIT"
 				state.currentRow = 0
 			}
 			renderScreen(state)
 			return false
 		} else if state.currentScreen == "TRAP_CARD" {
-			// НОВОЕ В v8.0.3: Выход из карточки ловушки → обратно в список
-			state.currentScreen = "MULTI_TARPIT"
-			state.currentRow = 0
+			if IsTrapEditMode {
+				// В режиме ввода: отменить ввод, очистить буфер, вернуться к навигации
+				IsTrapEditMode = false
+				CurrentTrapInputBuf = ""
+				TrapAlertMessage = ""
+			} else {
+				// В режиме навигации: возврат в MULTI_TARPIT
+				state.currentScreen = "MULTI_TARPIT"
+				state.currentRow = 0
+			}
+			renderScreen(state)
+			return false
+		} else if state.currentScreen == "TRAP_EDITOR" {
+			if IsTrapEditMode {
+				// В режиме ввода: отменить ввод, очистить буфер, вернуться к навигации
+				IsTrapEditMode = false
+				CurrentTrapInputBuf = ""
+				TrapAlertMessage = ""
+			} else {
+				// В режиме навигации: возврат в карточку ловушки
+				state.currentScreen = "TRAP_CARD"
+				state.currentRow = 0
+			}
 			renderScreen(state)
 			return false
 		} else if state.currentScreen == "ARMOR_CORE_SETTINGS" {

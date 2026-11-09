@@ -8,7 +8,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -44,9 +46,7 @@ type Config struct {
 	// --- Абсолютные пути к лог-файлам и журналам системы ---
 	AuthLog           string `json:"auth_log"`
 	BtmpLog           string `json:"btmp_log"`
-	F2bLog            string `json:"f2b_log"`
 	UfwLog            string `json:"ufw_log"`
-	NginxRadioLog     string `json:"nginx_radio_log"`
 	ApacheLog         string `json:"apache_log"`
 	TarpitConnLog     string `json:"tarpit_conn_log"`
 	TarpitRptLog      string `json:"tarpit_rpt_log"`
@@ -340,6 +340,7 @@ func LoadConfig(filePath string) error {
 
 	// --- M4a & M4b (v8.3.0): Генерация префиксов при первом запуске ---
 	prefixGenerated := false
+	normalized := false // v9.0.0: флаг нормализации доменных констант
 
 	if local.WebKnockHashPrefix == "" {
 		local.WebKnockHashPrefix = generateRandomPrefix(6) // 6 байт = 12 hex-символов
@@ -378,6 +379,30 @@ func LoadConfig(filePath string) error {
 	// ФИКС: Вместо критического падения — применяем мягкое восстановление лимита
 	if local.TarpitMaxConn <= 0 {
 		local.TarpitMaxConn = 100
+	}
+
+	if local.StandardSshPort != 22 {
+		// v9.0.0: Ранний лог ДО инициализации i18n — прямой bilingual-fallback.
+		// TrEventf здесь не работает (словари ещё не загружены), поэтому
+		// определяем язык по LANG env и логируем напрямую.
+		lang := "en"
+		if strings.HasPrefix(strings.ToLower(os.Getenv("LANG")), "ru") {
+			lang = "ru"
+		}
+		if lang == "ru" {
+			log.Printf("[CONFIG] [WARNING] StandardSshPort был %d, принудительно установлен в 22 (константа домена)", local.StandardSshPort)
+		} else {
+			log.Printf("[CONFIG] [WARNING] StandardSshPort was %d, forced to 22 (domain constant)", local.StandardSshPort)
+		}
+		local.StandardSshPort = 22
+		normalized = true
+	}
+
+	// v9.0.0: Сохраняем конфиг на диск, если были нормализации доменных констант
+	if normalized {
+		if err := saveConfigLocked(filePath, local); err != nil {
+			return fmt.Errorf(i18n.T.ConfigErrSaveAfterNormalize, err)
+		}
 	}
 
 	// =========================================================================
@@ -529,8 +554,6 @@ func Update(filePath string, fn func(c *Config)) error {
 	// Персистентность на диск без повторного взятия лока (saveConfigLocked не лочит).
 	return saveConfigLocked(filePath, C)
 }
-
-// GetSysctlParamNameByIndex возвращает строковое имя параметра ядра по индексу строки TUI-меню
 
 // GetSysctlParamNameByIndex возвращает строковое имя параметра ядра по индексу строки TUI-меню
 func GetSysctlParamNameByIndex(index int) string {

@@ -9,6 +9,7 @@ import (
 	"agl/internal/sys"
 	"fmt"
 	"os"
+	"strings"
 
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
@@ -86,6 +87,18 @@ func DrawPortMapGrid(selectedRow int) ([]ui.Drawable, int, []config.AppInventory
 	portList.Title = i18n.T.ViewPortMapListTitle
 	portList.Rows = menuRows
 	portList.SetRect(2, 5, 102, 18) // Высота 13 строк зафиксирована жестко по ТЗ
+
+	// v9.0.0: КОСМЕТИКА — полоса выделения до правого края блока.
+	innerWidth := portList.GetRect().Dx() - 2
+	paddedRows := make([]string, len(menuRows))
+	for i, row := range menuRows {
+		if n := visibleRunes(row); n < innerWidth {
+			row += strings.Repeat(" ", innerWidth-n)
+		}
+		paddedRows[i] = row
+	}
+	portList.Rows = paddedRows
+
 	portList.BorderStyle.Fg = ui.ColorCyan
 	portList.SelectedRow = selectedRow
 	portList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)

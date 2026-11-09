@@ -55,7 +55,11 @@ func InitSettingsRegistry() {
 		{Key: "lang", Label: func() string { return i18n.T.SettingsLabelLang }, Group: "LANG", ValueGetter: func() string { return strings.ToUpper(config.C.Lang) }},
 		// --- ГРУППА 2: ПАРАМЕТРЫ ЯДРА ДЕГТЯРНОЙ ЯМЫ SSH ---
 		{IsHeader: true, Group: "TARPIT"},
-		{Key: "standard_ssh_port", Label: func() string { return i18n.T.SettingsLabelStandardSshPort }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.StandardSshPort) }},
+		// v9.0.0: standard_ssh_port удалён из настроек.
+		// PURPOSE: порт 22 — константа домена (IANA SSH), а не параметр развёртывания.
+		// Вся геометрия комплекса (рокировка 22→скрытый, базовая яма на 22, броня на 22)
+		// захардкожена на 22 в port_move_protocol.go. Пункт меню давал иллюзию настройки,
+		// но изменение ломало обратный переезд. Админ с другим портом использует MULTI_TARPIT.
 		{Key: "real_ssh_port", Label: func() string { return i18n.T.SettingsLabelRealSshPort }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.RealSshPort) }},
 		{Key: "delay_step", Label: func() string { return i18n.T.SettingsLabelDelayStep }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.DelayStep) }},
 		{Key: "delay_variance", Label: func() string { return i18n.T.SettingsLabelDelayVariance }, Group: "TARPIT", ValueGetter: func() string { return fmt.Sprintf("%d", config.C.DelayVariance) }},
@@ -248,7 +252,17 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 		tuiToRegistryMap[visibleLineCounter] = regIdx
 		visibleLineCounter++
 	}
-	formBox.Rows = visibleRows
+
+	// v9.0.0: КОСМЕТИКА — полоса выделения до правого края блока.
+	innerWidth := formBox.GetRect().Dx() - 2
+	paddedRows := make([]string, len(visibleRows))
+	for i, row := range visibleRows {
+		if n := visibleRunes(row); n < innerWidth {
+			row += strings.Repeat(" ", innerWidth-n)
+		}
+		paddedRows[i] = row
+	}
+	formBox.Rows = paddedRows
 
 	tuiTargetFocusRow := 0
 	for tuiIdx, regIdx := range tuiToRegistryMap {
@@ -480,19 +494,17 @@ func SaveSettingValueToDisk(key, value string) string {
 			return i18n.T.SettingsUiOutOfBounds
 		}
 		// ВЕРСИЯ 6.0.0: ИБ-ПРЕДОХРАНИТЕЛИ И ВАЛИДАЦИЯ ПЕРЕСЕЧЕНИЙ ПОРТОВ
-		if key == "standard_ssh_port" || key == "real_ssh_port" {
+		// v9.0.0: standard_ssh_port удалён из настроек, валидация только для real_ssh_port.
+		if key == "real_ssh_port" {
 			// 1. Проверяем дублирование портов в памяти во избежание паники сокетов ядра
-			if key == "standard_ssh_port" && valInt == config.C.RealSshPort {
-				return i18n.T.ViewSettingsErrPortsConflictStandardReal
-			}
-			if key == "real_ssh_port" && valInt == config.C.StandardSshPort {
+			if valInt == config.C.StandardSshPort {
 				return i18n.T.ViewSettingsErrPortsConflictRealStandard
 			}
 			// 2. Блокируем изменение сетевой геометрии, если прямо сейчас развернуты активные рубежи защиты
-			if _, errCheck := os.Stat(config.TarpitMarkerPath(22)); errCheck == nil { // РЕБРЕНДИНГ
+			if _, errCheck := os.Stat(config.TarpitMarkerPath(22)); errCheck == nil {
 				return i18n.T.ViewSettingsErrPortsChangeTarpitActive
 			}
-			if _, errMoved := os.Stat(config.MarkerSshMoved); errMoved == nil { // РЕБРЕНДИНГ
+			if _, errMoved := os.Stat(config.MarkerSshMoved); errMoved == nil {
 				return i18n.T.ViewSettingsErrPortsChangeCastlingActive
 			}
 		}
@@ -510,8 +522,7 @@ func SaveSettingValueToDisk(key, value string) string {
 		}
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
 			switch key {
-			case "standard_ssh_port":
-				c.StandardSshPort = valInt
+			// v9.0.0: standard_ssh_port удалён — порт 22 константа домена.
 			case "real_ssh_port":
 				c.RealSshPort = valInt
 			case "delay_step":
@@ -605,7 +616,8 @@ func SaveSettingValueToDisk(key, value string) string {
 	}
 
 	// АКТИВАЦИЯ КОНТУРА SELF-HEALING (САМОВОССТАНОВЛЕНИЯ)
-	if key == "standard_ssh_port" || key == "real_ssh_port" {
+	// v9.0.0: standard_ssh_port удалён, self-healing только для real_ssh_port.
+	if key == "real_ssh_port" {
 		service.ResetUfwCacheSnapshot()
 	}
 

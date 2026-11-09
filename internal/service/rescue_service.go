@@ -107,13 +107,18 @@ func restoreMovedPortRule() {
 	if port == "" {
 		return
 	}
+
+	// v9.0.0: ПРОВЕРКА СУЩЕСТВОВАНИЯ ПРАВИЛА ПЕРЕД ВОССТАНОВЛЕНИЕМ
+	// PURPOSE: Правило восстанавливается ОДИН РАЗ, а не при каждом входе в TUI.
+	// CONTRACT: Если правило уже существует в UFW (детектировано через detectMovedRuleType),
+	// восстановление пропускается — идемпотентность без спама логов.
+	if detected := detectMovedRuleType(port); detected != "" {
+		// Правило уже восстановлено в UFW, ничего не делаем
+		return
+	}
+
 	ruleType := readMovedRuleTypeMarker()
 	if ruleType == "" {
-		// Самовосстановление (а): правило живо — маркер рождается из его типа.
-		if detected := detectMovedRuleType(port); detected != "" {
-			_ = os.WriteFile(config.MarkerMovedRuleType, []byte(detected), 0644)
-			return
-		}
 		// Самовосстановление (б): ни маркера, ни правила — консервативный фолбэк.
 		ruleType = "limit"
 		sys.LogAction("RESCUE", "MOVED_RULE_TYPE_FALLBACK", "WARNING",

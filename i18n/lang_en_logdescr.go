@@ -48,7 +48,7 @@ func init() {
 			"web_rescue.server_errorlog":        "HTTPS web-knock server service message: %s",
 
 			// --- internal/armor/watcher_protocol.go ---
-			"watcher.start":                  "Admin idle watcher started. Ticker period: 60 sec.",
+			"watcher.start":                  "Admin idle watcher started. Ticker period: 30 sec.",
 			"config.reload_failed":           "event=config.reload_failed err=%v. Continuing with the previous snapshot.",
 			"watcher.safe_reopened_knock":    "Web knock accepted. The watcher is active, cycle resumed.",
 			"watcher.safe_reopened_session":  "Admin session appeared in utmp. The watcher is active.",
@@ -221,6 +221,7 @@ func init() {
 			// --- internal/service/rescue_service.go ---
 			"rescue.moved_rule_purged":        "Moved-port rule purged upon protection enable: port %s, rules deleted: %d.",
 			"rescue.moved_rule_type_fallback": "Moved-port rule type marker missing: conservative type limit applied for port %s. Perform reverse castling and castling again to record the reference type.",
+			"rescue.moved_rule_restored":      "Moved port rule restored: %s %s/tcp",
 
 			// --- internal/tarpit/tarpit_listener.go ---
 			"geo.restored":           "event=geo.restored Geo analytics available again.",

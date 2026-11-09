@@ -262,20 +262,6 @@ func main() {
 		fmt.Printf("Amber Guard Laboratory %s (build %s)\n", buildinfo.Version, buildinfo.BuildTime)
 		os.Exit(0)
 	}
-	// --info: служебная геометрия из констант config/paths.go.
-	// Загрузка config.json НЕ требуется: пути — compile-time константы,
-	// поэтому --info безопасен даже при отсутствующем конфиге.
-	// if *info {
-	// 	fmt.Printf("Amber Guard Laboratory %s (build %s)\n", buildinfo.Version, buildinfo.BuildTime)
-	// 	fmt.Printf("Binary:     %s\n", config.FileBinary)
-	// 	fmt.Printf("Config:     %s\n", config.FileConfig)
-	// 	fmt.Printf("Journal:    %s\n", config.FileMainLog)
-	// 	fmt.Printf("States:     %s\n", config.DirLib)
-	// 	fmt.Printf("Runtime:    %s\n", config.DirRun)
-	// 	fmt.Printf("Shm counter: %s\n", config.FileShm)
-	// 	fmt.Println("Units:      agld_tarpit.service, agld_watcher.service")
-	// 	os.Exit(0)
-	// }
 
 	if *info {
 		ShowInfoPanel(*plain)
@@ -457,7 +443,7 @@ func main() {
 	// =========================================================================
 	//
 	// Если процесс запущен с флагом `--watcher`, он работает как
-	// 60-сек тикер для отслеживания простоя администратора.
+	// 30-сек тикер для отслеживания простоя администратора.
 	// Управляется юнитом `agld_watcher.service`.
 	// Старт при создании маркера `agl_ssh_moved`, стоп при удалении.
 	//
@@ -501,7 +487,7 @@ func main() {
 		// ИБ-АУДИТ: Фиксируем старт наблюдателя
 		sys.LogAction("WATCHER", "PROCESS_START", "SUCCESS",
 			i18n.TrEvent("main.watcher_process_start"))
-		// Запуск 60-сек тикера (БЛОКИРУЮЩИЙ вызов)
+		// Запуск 30-сек тикера (БЛОКИРУЮЩИЙ вызов)
 		armor.StartWatcherProtocol()
 		return
 	}
@@ -1232,10 +1218,10 @@ func waitForEnter(lang string) {
 
 func printInfoHeader(plain bool) {
 	lang := getLanguage()
-	title := "AMBER GUARD LABORATORY"
-	subtitle := "Asymmetric Perimeter Defense"
+	title := "                   AMBER GUARD LABORATORY"
+	subtitle := "                Asymmetric Perimeter Defense"
 	if lang == "ru" {
-		subtitle = "Асимметричная оборона периметра"
+		subtitle = "               Асимметричная оборона периметра"
 	}
 
 	if plain {
@@ -1243,10 +1229,11 @@ func printInfoHeader(plain bool) {
 		fmt.Println(subtitle)
 		fmt.Println(strings.Repeat("-", 56))
 	} else {
-		fmt.Println("\033[1;36m" + strings.Repeat("═", 56) + "\033[0m")
+		fmt.Println("\033[1;36m" + strings.Repeat("═", 60) + "\033[0m")
 		fmt.Printf("\033[1;36m%-56s\033[0m\n", title)
-		fmt.Printf("\033[1;33m%-56s\033[0m\n", subtitle)
-		fmt.Println("\033[1;36m" + strings.Repeat("═", 56) + "\033[0m")
+		fmt.Printf("\033[33m%-56s\033[0m\n", subtitle)
+		fmt.Println("\033[1;36m" + strings.Repeat("═", 60) + "\033[0m")
+		fmt.Println()
 	}
 }
 
@@ -1539,7 +1526,16 @@ func printNetworkParams(plain bool) {
 		lblStd, lblHidden, lblCast, lblJitter, lblLimit, lblIdle = "Стандартный порт:", "Скрытый порт:", "Рокировка:", "Джиттер:", "Лимит сессий:", "Таймаут простоя:"
 	}
 
+	// v9.0.0: Заголовок секции CORE-ловушки (базовая яма порта 22).
+	// PURPOSE: визуальное разделение двух секций экрана: базовая яма и пул мультиловушек.
+	// Цвет и стиль идентичны заголовку Multi-Traps Pool — единообразие секций.
+	lblCore := "CORE Trap"
+	if lang == "ru" {
+		lblCore = "CORE Ловушка"
+	}
+
 	if plain {
+		fmt.Printf("%s\n", lblCore)
 		fmt.Printf("%-20s %d\n", lblStd, c.StandardSshPort)
 		fmt.Printf("%-20s %d\n", lblHidden, c.RealSshPort)
 		fmt.Printf("%-20s %s\n", lblCast, castlingActive)
@@ -1547,12 +1543,70 @@ func printNetworkParams(plain bool) {
 		fmt.Printf("%-20s %d\n", lblLimit, c.TarpitMaxConn)
 		fmt.Printf("%-20s %d min\n", lblIdle, c.AdminIdleTimeout)
 	} else {
+		fmt.Printf("\033[1;36m%s\033[0m\n", lblCore)
 		fmt.Printf("\033[1;36m%-20s\033[0m \033[1;33m%d\033[0m\n", lblStd, c.StandardSshPort)
 		fmt.Printf("\033[1;36m%-20s\033[0m \033[1;33m%d\033[0m\n", lblHidden, c.RealSshPort)
 		fmt.Printf("\033[1;36m%-20s\033[0m \033[%s%s\033[0m\n", lblCast, colorizeStatusActive(castlingActive), castlingActive)
 		fmt.Printf("\033[1;36m%-20s\033[0m \033[1;33m%d ± %d sec\033[0m\n", lblJitter, c.DelayStep, c.DelayVariance)
 		fmt.Printf("\033[1;36m%-20s\033[0m \033[1;33m%d\033[0m\n", lblLimit, c.TarpitMaxConn)
 		fmt.Printf("\033[1;36m%-20s\033[0m \033[1;33m%d min\033[0m\n", lblIdle, c.AdminIdleTimeout)
+	}
+	fmt.Println()
+
+	// -------------------------------------------------------------
+	// v9.0.0: БЛОК МУЛЬТИЛОВУШЕК (Multi-Traps Pool)
+	// PURPOSE: Показать все ловушки из инвентаря с их трёхфакторным статусом.
+	// CONTRACT: Читает tarpit_inventory.json, выводит таблицу Port/Declared/Daemon/Marker.
+	// Если инвентарь пуст или недоступен — показывает сообщение.
+	// -------------------------------------------------------------
+	inv, errInv := sys.LoadTarpitInventory(config.FileTarpitInventory)
+	if errInv != nil || len(inv.Traps) == 0 {
+		if lang == "ru" {
+			fmt.Println("Пул мультиловушек: пуст (нет активных ловушек)")
+		} else {
+			fmt.Println("Multi-Traps Pool: empty (no active traps)")
+		}
+	} else {
+		lblPool := "Multi-Traps Pool"
+		if lang == "ru" {
+			lblPool = "Пул мультиловушек"
+		}
+
+		if plain {
+			fmt.Printf("\n%s\n", lblPool)
+			fmt.Printf("  %-6s │ %-9s │ %-9s │ %s\n", "Port", "Declared", "Daemon", "Marker")
+			fmt.Printf("  %s\n", strings.Repeat("-", 40))
+			for _, trap := range inv.Traps {
+				markerStr := "○"
+				if trap.MarkerFilePath != "" {
+					if _, errStat := os.Stat(trap.MarkerFilePath); errStat == nil {
+						markerStr = "●"
+					}
+				}
+				fmt.Printf("  %-6d │ %-9s │ %-9s │ %s\n", trap.Port, trap.State, trap.Status, markerStr)
+			}
+		} else {
+			fmt.Printf("\n\033[1;36m%s\033[0m\n", lblPool)
+			fmt.Printf("  \033[1;33m%-6s\033[0m │ \033[1;33m%-9s\033[0m │ \033[1;33m%-9s\033[0m │ \033[1;33m%s\033[0m\n", "Port", "Declared", "Daemon", "Marker")
+			fmt.Printf("  %s\n", strings.Repeat("-", 40))
+			for _, trap := range inv.Traps {
+				markerStr := "\033[0;37m○\033[0m" // серый
+				if trap.MarkerFilePath != "" {
+					if _, errStat := os.Stat(trap.MarkerFilePath); errStat == nil {
+						markerStr = "\033[1;32m●\033[0m" // зелёный
+					}
+				}
+				declaredColor := "\033[1;31m" // красный для STOPPED
+				if trap.State == sys.StateRunning {
+					declaredColor = "\033[1;32m" // зелёный для RUNNING
+				}
+				daemonColor := "\033[0;37m" // серый для DISABLED
+				if trap.Status == sys.StatusActive {
+					daemonColor = "\033[1;33m" // жёлтый для ACTIVE
+				}
+				fmt.Printf("  %-6d │ %s%-9s\033[0m │ %s%-9s\033[0m │ %s\n", trap.Port, declaredColor, trap.State, daemonColor, trap.Status, markerStr)
+			}
+		}
 	}
 	fmt.Println()
 }

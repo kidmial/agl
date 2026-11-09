@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	// Период тикера: 60 секунд
+	// Период тикера: 30 секунд
 	watcherTickInterval = 30 * time.Second
 	// Путь к счётчику простоя администратора
 	adminIdleCounterPath = config.FileAdminIdleCounter
@@ -54,7 +54,7 @@ var (
 	safeClosed bool
 )
 
-// StartWatcherProtocol запускает 60-сек тикер для отслеживания простоя администратора.
+// StartWatcherProtocol запускает 30-сек тикер для отслеживания простоя администратора.
 // Вызывается при старте процесса с флагом `--watcher`.
 // Блокирующий вызов — не возвращает управление до остановки процесса.
 func StartWatcherProtocol() {

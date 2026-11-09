@@ -42,6 +42,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"agl/config"
 	"agl/i18n"
@@ -220,6 +221,18 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 	paramList.Title = i18n.T.ViewTrapCreatorListTitle
 	paramList.Rows = menuRows
 	paramList.SetRect(2, 5, 102, 14)
+
+	// v9.0.0: КОСМЕТИКА — полоса выделения до правого края блока.
+	innerWidth := paramList.GetRect().Dx() - 2
+	paddedRows := make([]string, len(menuRows))
+	for i, row := range menuRows {
+		if n := utf8.RuneCountInString(row); n < innerWidth {
+			row += strings.Repeat(" ", innerWidth-n)
+		}
+		paddedRows[i] = row
+	}
+	paramList.Rows = paddedRows
+
 	paramList.BorderStyle.Fg = ui.ColorCyan
 	paramList.SelectedRow = selectedRow
 	paramList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
@@ -240,7 +253,7 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 		helpText = i18n.T.ViewTrapCreatorHelpVariance
 	case 3:
 		helpText = fmt.Sprintf(
-			i18n.T.ViewTrapCreatorHelpBanner+"[ %s ](fg:cyan,mod:bold)",
+			i18n.T.ViewTrapCreatorHelpBanner+"[ %s ](fg:yellow,mod:bold)",
 			SSHVersionPresets[CurrentTrapDraft.BannerIndex])
 	case 4:
 		helpText = i18n.T.ViewTrapCreatorHelpMaxConn
@@ -293,15 +306,18 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 				sysConsole.Text = "\n " + TrapAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorGreen
 				sysConsole.TextStyle.Fg = ui.ColorWhite
+				sysConsole.WrapText = false
 			} else {
 				sysConsole.Text = "\n  ⚠️ [" + i18n.T.ViewTrapCreatorValidationRejectPrefix + "](fg:red,mod:bold): " + TrapAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorRed
 				sysConsole.TextStyle.Fg = ui.ColorYellow
+				sysConsole.WrapText = false
 			}
 		} else {
 			sysConsole.Text = i18n.T.ViewTrapCreatorNavBody
 			sysConsole.BorderStyle.Fg = ui.ColorGreen
 			sysConsole.TextStyle.Fg = ui.ColorCyan
+			sysConsole.WrapText = false
 		}
 	}
 

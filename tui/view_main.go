@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
@@ -571,6 +572,18 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 		fmt.Sprintf(" EXIT          │ %s", i18n.T.ViewMainRowExit),
 	}
 	menuList.SetRect(2, 16, 102, 25)
+
+	// v9.0.0: КОСМЕТИКА — полоса выделения до правого края блока.
+	innerWidth := menuList.GetRect().Dx() - 2
+	paddedRows := make([]string, len(menuList.Rows))
+	for i, row := range menuList.Rows {
+		if n := utf8.RuneCountInString(row); n < innerWidth {
+			row += strings.Repeat(" ", innerWidth-n)
+		}
+		paddedRows[i] = row
+	}
+	menuList.Rows = paddedRows
+
 	menuList.BorderStyle.Fg = ui.ColorCyan
 	menuList.SelectedRow = selectedRow
 	menuList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
