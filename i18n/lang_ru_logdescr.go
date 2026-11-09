@@ -70,7 +70,7 @@ func init() {
 			"watcher.web_knock_processed":    "Веб-стук обработан. IP: %s, Порт: %s. UFW правило интегрировано.",
 			"watcher.unit_stale_rewritten":   "Юнит вотчера мигрирован: Restart=always заменён на on-failure. Петля рестартов устранена.",
 			"watcher.unit_ensured":           "Юнит вотчера поднят: хотя бы один тумблер (WebServerEnabled/WebRescueEnabled) включён.",
-			"watcher.unit_stopped_by_config": "Юнит вотчера остановлен: оба тумблера выключены.",
+			"watcher.unit_stopped_by_config": "Юнит вотчера не активен: оба тумблера выключены.",
 
 			// --- v8.4.7: Канал спасения (трёхфакторный статус) ---
 			"rescue.activating":              "Активация канала спасения: проверка трёх переменных.",

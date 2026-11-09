@@ -238,7 +238,7 @@ body { background: #0f141c; color: #a5b4fc; font-family: monospace; display: fle
 .key_entry:focus { border-color: #6366f1; }
 .button { background: #312e81; border: 1px solid #4338ca; color: #fff; padding: 10px 25px; cursor: pointer; font-size: 14px; font-weight: bold; width: 100%%; transition: 0.2s; }
 .button:hover { background: #3730a3; border-color: #4f46e5; }
-.error { color: #f43f5e; margin-top: 15px; font-weight: bold; }
+.error { color: #f43f5e; margin-top: 40px; font-weight: bold; }
 </style>
 </head>
 <body>

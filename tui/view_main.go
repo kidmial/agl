@@ -565,8 +565,8 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	menuList.Rows = []string{
 		fmt.Sprintf(" SETTINGS      │ %s", i18n.T.ViewMainRowSettings),
 		fmt.Sprintf(" ANTIDDOS      │ %s", i18n.T.ViewMainRowAntiddos),
-		fmt.Sprintf(" TARPIT        │ %s", i18n.T.ViewMainRowTarpit),
-		fmt.Sprintf(" MULTI TARPIT  │ %s", i18n.T.ViewMainRowMultiTarpit),
+		fmt.Sprintf(" CORE TRAP     │ %s", i18n.T.ViewMainRowTarpit),
+		fmt.Sprintf(" MULTI-TRAP    │ %s", i18n.T.ViewMainRowMultiTarpit),
 		fmt.Sprintf(" PORT MAP      │ %s", i18n.T.ViewMainRowPortMap),
 		fmt.Sprintf(" BACKUP        │ %s", i18n.T.ViewMainRowBackup),
 		fmt.Sprintf(" EXIT          │ %s", i18n.T.ViewMainRowExit),

@@ -183,7 +183,7 @@ body { background: #0f141c; color: #a5b4fc; font-family: monospace; display: fle
 .key_entry:focus { border-color: #6366f1; }
 .button { background: #312e81; border: 1px solid #4338ca; color: #fff; padding: 10px 25px; cursor: pointer; font-size: 14px; font-weight: bold; width: 100%%; transition: 0.2s; }
 .button:hover { background: #3730a3; border-color: #4f46e5; }
-.error { color: #f43f5e; margin-top: 15px; font-weight: bold; }
+.error { color: #f43f5e; margin-top: 40px; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -219,9 +219,9 @@ body { background: #0f141c; color: #00ff66; font-family: monospace; display: fle
 </style>
 </head>
 <body>
-<div class="success">%s<br>%s %s<br>%s<hr>%s</div>
+<div class="success">%s<br>%s<hr>%s</div>
 </body>
-</html>`, i18n.T.WebRescuePageSuccessTitle, i18n.T.WebRescuePageAccessGranted, i18n.T.WebRescuePageIPAddress, adminIP, i18n.T.WebRescuePageRecorded, i18n.T.WebRescuePageWaiting)
+</html>`, i18n.T.WebRescuePageSuccessTitle, i18n.T.WebRescuePageIPAddress, adminIP, i18n.T.WebRescuePageAccessGranted)
 
 	_, _ = w.Write([]byte(html))
 }

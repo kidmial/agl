@@ -313,7 +313,7 @@ func main() {
 	isConfigRecreated := false
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		isConfigRecreated = true
-		log.Printf("[%s] [ALERT] config.json not found on host! Regeneration started.",
+		log.Printf("[%s] [ALERT] config.json not found on host! Regeneration sucsess!",
 			time.Now().Format("2006-01-02 15:04:05"))
 	}
 	ensureDefaultConfig(configPath)
@@ -938,29 +938,29 @@ func showAlertScreen(configPath string) {
 	fmt.Println()
 
 	// EN блок
-	fmt.Println("                     " + "- First Run of the Complex -")
+	fmt.Println("                          " + "- Initialization -")
 	fmt.Println(strings.Repeat("-", 70))
-	fmt.Printf("\033[36m"+">"+"\033[0m"+"\033[33m"+" [ CONFIG ] "+"\033[0m"+" Configuration file creation "+"\033[32m"+"%s"+"\n"+"\033[0m", configPath)
+	fmt.Printf("\033[36m"+">"+"\033[0m"+"\033[33m"+" [ ALERT ] "+"\033[0m"+"  Configuration file creation "+"\033[32m"+"%s"+"\n"+"\033[0m", configPath)
 	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[32m" + " [ INFO ] " + "\033[0m" + "   File created with factory settings")
-	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ LOG ] " + "\033[0m" + "    Regeneration process will be recorded in " + "\033[32m" + "/var/log/amberguard/amberguard.log" + "\033[0m")
-	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ WEBPATH ] " + "\033[0m" + "Secret web paths will change after creation")
-	fmt.Println("              " + "Check current web paths: " + "\033[32m" + "agl --info" + "\033[0m")
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[32m" + " [ INFO ] " + "\033[0m" + "   Regeneration process has been recorded in the log " + "\033[32m" + "/var/log/amberguard/amberguard.log" + "\033[0m")
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ ALERT ] " + "\033[0m" + "  Secret web paths changed after configuration file generated!")
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[32m" + " [ INFO ] " + "\033[0m" + "   Check current web paths - command: " + "\033[32m" + "agl --info" + "\033[0m")
 	fmt.Println()
-	fmt.Println("  " + "If the file was corrupted or intentionally deleted - check Tar Pit ports")
+	fmt.Println("  " + "If the file was corrupted or intentionally deleted - check TRAPs ports")
 	fmt.Println("  " + "and network shield limits!")
 	fmt.Println(strings.Repeat("-", 70))
 	fmt.Println()
 
 	// RU блок
-	fmt.Println("                     " + "- Первый запуск комплекса -")
+	fmt.Println("                           " + "- Инициализация -")
 	fmt.Println(strings.Repeat("-", 70))
-	fmt.Printf("\033[36m"+">"+"\033[0m"+"\033[33m"+" [ КОНФИГ ] "+"\033[0m"+" Создание файла конфигурации "+"\033[32m"+"%s"+"\n"+"\033[0m", configPath)
+	fmt.Printf("\033[36m"+">"+"\033[0m"+"\033[33m"+" [ СИГНАЛ ] "+"\033[0m"+" Создание файла конфигурации "+"\033[32m"+"%s"+"\n"+"\033[0m", configPath)
 	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[32m" + " [ ИНФО ] " + "\033[0m" + "   Файл создан с заводскими параметрами")
-	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ ЛОГ ] " + "\033[0m" + "    Процесс регенерации будет записан в " + "\033[32m" + "/var/log/amberguard/amberguard.log" + "\033[0m")
-	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ ВЕБ ] " + "\033[0m" + "    Секретные веб пути изменятся после создания")
-	fmt.Println("              " + "Проверить текущие веб пути: " + "\033[32m" + "agl --info" + "\033[0m")
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[32m" + " [ ИНФО ] " + "\033[0m" + "   Процесс регенерации записан в журнал " + "\033[32m" + "/var/log/amberguard/amberguard.log" + "\033[0m")
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[33m" + " [ СИГНАЛ ] " + "\033[0m" + " После создания конфигурационного файла секретные веб пути изменились!")
+	fmt.Println("\033[36m" + ">" + "\033[0m" + "\033[32m" + " [ ИНФО ] " + "\033[0m" + "   Проверить текущие веб пути - команда: " + "\033[32m" + "agl --info" + "\033[0m")
 	fmt.Println()
-	fmt.Println("  " + "Если файл был испорчен или намеренно удален, рроверьте порты ловушек")
+	fmt.Println("  " + "Если файл был испорчен или намеренно удален, рроверьте порты Ловушек")
 	fmt.Println("  " + "и лимиты сетевой брони!")
 	fmt.Println(strings.Repeat("-", 70))
 	fmt.Println()

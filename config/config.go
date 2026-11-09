@@ -321,6 +321,11 @@ func LoadConfig(filePath string) error {
 	if local.WebHttpsPanelActive && local.WebPanelPasswordHash == "" {
 		local.WebHttpsPanelActive = false
 	}
+	// v9.0.0: нормализация иерархии истории (иерархия 05 Автозагрузка истории статистики ⊂ 04 Веб-панель статистики ⊂ 07 HTTPS Веб-сервер) — ПОСЛЕ fail-closed панели,
+	// чтобы учесть и панель, погасшую из-за отсутствия пароля. Защита от испорченных JSON.
+	if !local.WebHttpsPanelActive || !local.WebServerEnabled {
+		local.AnalyticsAutoRebuild = false
+	}
 
 	// v8.2.0 (1.2): есть хэш — plaintext в ОЗУ обязан быть пустым.
 	if local.WebRescuePasswordHash != "" {

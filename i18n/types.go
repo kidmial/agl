@@ -174,7 +174,7 @@ type UITranslation struct {
 	TarpitCoreTrapNotFound        string
 	TarpitUnknownAction           string
 
-	// --- internal/armor/web_rescue_server.go --- WEB Page ---
+	// --- internal/armor/web_rescue_server.go --- AUTH WEB Page ---
 	WebRescuePageInvalidIP     string
 	WebRescuePageFormTitle     string
 	WebRescuePageAccessDenied  string
@@ -183,8 +183,6 @@ type UITranslation struct {
 	WebRescuePageSuccessTitle  string
 	WebRescuePageAccessGranted string
 	WebRescuePageIPAddress     string
-	WebRescuePageRecorded      string
-	WebRescuePageWaiting       string
 
 	// --- internal/armor/web_rescue_tls.go ---
 	TlsCertDirCreateFailed string
@@ -548,6 +546,9 @@ type UITranslation struct {
 	ViewSettingsPasswordSet                  string
 	ViewSettingsPasswordNotSet               string
 	ViewSettingsErrRequiresServer            string
+	ViewSettingsErrRebuildRequiresPanel      string
+	ViewSettingsErrKnockRequiresPassword     string
+	ViewSettingsErrPanelRequiresPassword     string
 	SettingsLabelLang                        string
 	SettingsLabelStandardSshPort             string
 	SettingsLabelRealSshPort                 string

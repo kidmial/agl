@@ -70,7 +70,7 @@ func init() {
 			"watcher.web_knock_processed":    "Web knock processed. IP: %s, Port: %s. UFW rule injected.",
 			"watcher.unit_stale_rewritten":   "The watcher unit has been migrated: `Restart=always` has been replaced with `on-failure`. The restart loop has been resolved.",
 			"watcher.unit_ensured":           "The watcher unit is up: at least one toggle (WebServerEnabled/WebRescueEnabled) is enabled.",
-			"watcher.unit_stopped_by_config": "The watcher unit has been stopped: both toggle switches are turned off.",
+			"watcher.unit_stopped_by_config": "The watcher unit is not active: both toggle switches are turned off.",
 
 			// --- v8.4.7: Rescue channel (three-factor status) ---
 			"rescue.activating":              "Rescue channel activation: checking three variables.",

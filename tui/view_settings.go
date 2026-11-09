@@ -515,10 +515,29 @@ func SaveSettingValueToDisk(key, value string) string {
 			return i18n.T.ViewSettingsErrKnockRequiresAllow
 		}
 		// v8.5.0: валидация «B требует сервер» и «панель требует сервер».
-		// PURPOSE: опции B и C требуют физического HTTP-слушателя (WebServerEnabled).
-		// CONTRACT: если админ пытается включить B или панель при выключенном сервере → отказ записи.
 		if (key == "ssh_ip_web_knock" || key == "web_https_panel_active") && valInt == 1 && !config.C.WebServerEnabled {
 			return i18n.T.ViewSettingsErrRequiresServer
+		}
+		// v9.0.0: ВАЛИДАЦИЯ ОПЦИИ B (Веб-стук).
+		// PURPOSE: Веб-стук с испепелением бессмысленен и опасен без пароля:
+		// он будет молча отвергать попытки и спамить журнал BRUTEFORCE_LOCKOUT.
+		// CONTRACT: Запрещаем включение тумблера, если хэш пароля пуст.
+		if key == "ssh_ip_web_knock" && valInt == 1 && config.C.WebRescuePasswordHash == "" {
+			return i18n.T.ViewSettingsErrKnockRequiresPassword
+		}
+		// v9.0.0: ВАЛИДАЦИЯ ОПЦИИ C (Веб-панель).
+		// PURPOSE: Панель аналитики без пароля недоступна для входа (fail-closed в рантайме),
+		// но включённый тумблер вводит админа в заблуждение о работоспособности сервиса.
+		// CONTRACT: Запрещаем включение тумблера, если хэш пароля панели пуст.
+		if key == "web_https_panel_active" && valInt == 1 && config.C.WebPanelPasswordHash == "" {
+			return i18n.T.ViewSettingsErrPanelRequiresPassword
+		}
+		// v9.0.0: ИЕРАРХИЯ ИСТОРИИ СТАТИСТИКИ (05 ⊂ 04 ⊂ 07).
+		// PURPOSE: автозагрузка истории бессмысленна без веб-панели и физического сервера.
+		// Включение 05 при выключенных 04 или 07 — отказ записи ДО транзакции.
+		if key == "analytics_auto_rebuild" && valInt == 1 &&
+			(!config.C.WebHttpsPanelActive || !config.C.WebServerEnabled) {
+			return i18n.T.ViewSettingsErrRebuildRequiresPanel
 		}
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
 			switch key {
@@ -541,10 +560,20 @@ func SaveSettingValueToDisk(key, value string) string {
 				if valInt == 0 {
 					c.SshIpWebKnock = false
 					c.WebHttpsPanelActive = false
+					c.AnalyticsAutoRebuild = false // v9.0.0: иерархия 05 Автозагрузка истории статистики ⊂ 04 Веб-панель статистики ⊂ 07 HTTPS Веб-сервер
 				}
 			case "ssh_allow_in_from_ip":
 				// v8.5.0 (опция A): whitelist IP админа для скрытого порта SSH.
 				c.SshAllowInFromIp = (valInt == 1)
+				// v9.0.0: каскад при выключении A — опция B гасится в той же транзакции.
+				// PURPOSE: B (веб-стук с испепелением) требует A (постоянная дверь админа):
+				// без whitelist-двери испепеление временных дверей ведёт к локауту админа.
+				// CONTRACT: симметрично каскаду web_server_enabled — декларация на диске
+				// не врёт до следующей транзакции. Валидатор «B требует A» остаётся страховкой
+				// прямого включения, каскад закрывает обратный переход. Две линии обороны.
+				if valInt == 0 {
+					c.SshIpWebKnock = false
+				}
 			case "ssh_ip_web_knock":
 				// v8.5.0 (опция B): веб-стук с испепелением временных дверей.
 				c.SshIpWebKnock = (valInt == 1)
@@ -555,6 +584,8 @@ func SaveSettingValueToDisk(key, value string) string {
 				// Админ, активировавший панель, почти наверняка хочет видеть полную историю.
 				if valInt == 1 {
 					c.AnalyticsAutoRebuild = true
+				} else {
+					c.AnalyticsAutoRebuild = false // v9.0.0: симметричный каскад вниз
 				}
 			case "web_rescue_port":
 				// M3b (v8.1.2): Порт автономного HTTP-сервера веб-стука.
@@ -602,7 +633,9 @@ func SaveSettingValueToDisk(key, value string) string {
 	// v8.6.2: декларация загрузки истории приводится немедленно.
 	// Включил тумблер — watcher перезапустился и загрузил историю сам.
 	// Выключил — ничего не делаем: декларация сработает на следующем старте.
-	if key == "analytics_auto_rebuild" {
+	// v9.0.0: каскадный сброс 05 через выключение 04/07 тоже приводит факт сразу,
+	// иначе watcher продолжит грузить историю по устаревшей декларации.
+	if key == "analytics_auto_rebuild" || key == "web_https_panel_active" || key == "web_server_enabled" {
 		if errSync := service.SyncAnalyticsRebuild(); errSync != nil {
 			return i18n.T.ViewSettingsErrSavePrefix + errSync.Error()
 		}
