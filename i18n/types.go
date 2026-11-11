@@ -410,20 +410,12 @@ type UITranslation struct {
 	ViewForensicsInfoBoxTitle      string
 
 	// --- tui/view_main.go ---
-	ViewMainLabelMainMenu      string
 	ViewMainLabelDate          string
 	ViewMainLabelTime          string
 	ViewMainLabelCpu           string
 	ViewMainLabelRam           string
-	ViewMainLabelSwap          string
 	ViewMainLabelLoad          string
 	ViewMainLabelUsage         string
-	ViewMainLabelWebWatcher    string
-	ViewMainLabelTarpit        string
-	ViewMainLabelCastling      string
-	ViewMainLabelTlsGate       string
-	ViewMainLabelBotsTrapped   string
-	ViewMainPassportTitle      string
 	ViewMainServicesTitle      string
 	ViewMainMenuTitle          string
 	ViewMainRowSettings        string
@@ -439,7 +431,6 @@ type UITranslation struct {
 
 	// --- tui/view_main.go (stats block) ---
 	StatsBlockTitle    string
-	StatsTrapsActive   string
 	StatsOpenPorts     string
 	StatsLogProgram    string
 	StatsLogConnection string
@@ -453,23 +444,28 @@ type UITranslation struct {
 	StatsLogBlockTitle string
 
 	// --- tui/view_main.go (additional) ---
-	StatsLabelLogs      string
-	StatsLabelSnapshot  string
-	StatsLabelBackups   string
-	StatsLabelTraps     string
-	StatsLabelPorts     string
-	StatusOn            string
-	StatusOff           string
-	UnitMB              string
-	UnitKB              string
-	EmptyLog            string
-	DateFormat          string
-	TimeFormat          string
-	ViewMainHeaderTpl   string
-	ViewMainPassportTpl string
-	ViewMainServicesTpl string
-	ViewMainStatsTpl1   string
-	ViewMainStatsTpl2   string
+	StatsLabelLogs          string
+	UnitMB                  string
+	UnitKB                  string
+	EmptyLog                string
+	ViewMainLabelSshAdminIp string
+	ViewMainLabelPasswords  string
+
+	// Строка 01
+	ViewMainLabelWebWatcher  string
+	ViewMainLabelUfwStatus   string
+	ViewMainLabelCastlingSsh string
+	ViewMainLabelSshPort     string
+	// Строка 02
+	ViewMainLabelTlsCert   string
+	ViewMainLabelWebKnock  string
+	ViewMainLabelWebStat   string
+	ViewMainLabelWebServer string
+	// Строка 03
+	ViewMainLabelTrapsDaemon string
+	ViewMainLabelCoreTrap    string
+	ViewMainLabelTraps       string
+	ViewMainLabelTrappedNow  string
 
 	// --- tui/view_multi_tarpit.go ---
 	ViewMultiTarpitHeaderTitle            string

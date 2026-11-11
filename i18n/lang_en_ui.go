@@ -410,22 +410,14 @@ func init() {
 		ViewForensicsInfoBoxTitle:      " Regulations for conducting forensic investigation of incidents ",
 
 		// --- tui/view_main.go ---
-		ViewMainLabelMainMenu:      "Complex Main Menu",
 		ViewMainLabelDate:          "Date",
 		ViewMainLabelTime:          "Time",
 		ViewMainLabelCpu:           "CPU",
 		ViewMainLabelRam:           "RAM",
-		ViewMainLabelSwap:          "Swap",
-		ViewMainLabelLoad:          "Load",
-		ViewMainLabelUsage:         "Usage",
-		ViewMainLabelWebWatcher:    "WATCHER",
-		ViewMainLabelTarpit:        "TRAP-22",
-		ViewMainLabelCastling:      "Castling",
-		ViewMainLabelTlsGate:       "TLS Gateway",
-		ViewMainLabelBotsTrapped:   "Trapped now",
-		ViewMainPassportTitle:      " Host System Passport ",
+		ViewMainLabelLoad:          "CPU Load",
+		ViewMainLabelUsage:         "Used",
 		ViewMainServicesTitle:      " Service Status ",
-		ViewMainMenuTitle:          " Select an administrative section to work with: ",
+		ViewMainMenuTitle:          " Main Menu ",
 		ViewMainRowSettings:        "Global system configuration and complex parameter management",
 		ViewMainRowAntiddos:        "Network Armor Manager (large-scale attack and botnet storm defense)",
 		ViewMainRowTarpit:          "Activation page for port 22 relocation and main honeypot configuration",
@@ -439,8 +431,7 @@ func init() {
 
 		// --- tui/view_main.go (stats block) ---
 		StatsBlockTitle:    " Quick Statistics ",
-		StatsTrapsActive:   "Traps",
-		StatsOpenPorts:     "Open ports",
+		StatsOpenPorts:     "NETWORK (all open ports)",
 		StatsLogProgram:    "Program",
 		StatsLogConnection: "Connections",
 		StatsLogReport:     "Report",
@@ -453,26 +444,28 @@ func init() {
 		StatsLogBlockTitle: " System Logs ",
 
 		// --- tui/view_main.go (additional) ---
-		StatsLabelLogs:     "Logs",
-		StatsLabelSnapshot: "Last snapshot",
-		StatsLabelBackups:  "Backups",
-		StatsLabelTraps:    "Traps",
-		StatsLabelPorts:    "Ports",
-		StatusOn:           "ON",
-		StatusOff:          "OFF",
-		UnitMB:             "MB",
-		UnitKB:             "KB",
-		EmptyLog:           "[EMPTY LOG]",
-		DateFormat:         "2006-01-02",
-		TimeFormat:         "15:04:05",
-		ViewMainHeaderTpl:  " [ %s ](fg:cyan,mod:bold) │ %s: %s │ %s: %s",
-		ViewMainPassportTpl: " %s: %-40s │ %d×%d │ %s: [%d%%](fg:green,mod:bold)\n" +
-			" %s: %-22s │ %s: [%d%%](fg:green,mod:bold)\n" +
-			" %s: %-21s │ %s: [%d%%](fg:cyan,mod:bold)",
-		ViewMainServicesTpl: " %s: %s │ UFW: %s │ SSH: %-5s │ %s: %s\n" +
-			" %s: %s │ %s: %s │ %s: [%d](fg:yellow,mod:bold) │ %s: %d/%d │ %s: %d",
-		ViewMainStatsTpl1: " %s: %.1f %s (%s) + %.1f %s (%s) + %.1f %s (%s)\n",
-		ViewMainStatsTpl2: " %s: %s │ %s: %d",
+		StatsLabelLogs:          "Logs",
+		UnitMB:                  "MB",
+		UnitKB:                  "KB",
+		EmptyLog:                "[EMPTY LOG]",
+		ViewMainLabelSshAdminIp: "SSH Admin IP",
+		ViewMainLabelPasswords:  "Passwords:",
+
+		// Строка 01
+		ViewMainLabelWebWatcher:  "WATCHER:       ",
+		ViewMainLabelUfwStatus:   "UFW Status:  ",
+		ViewMainLabelCastlingSsh: "Castling SSH:  ",
+		ViewMainLabelSshPort:     "SSH Port:",
+		// Строка 02
+		ViewMainLabelTlsCert:   "TLS Cert:      ",
+		ViewMainLabelWebKnock:  "WEB Gate:",
+		ViewMainLabelWebStat:   "WEB Statistics:",
+		ViewMainLabelWebServer: "WEB Server:  ",
+		// Строка 03
+		ViewMainLabelTrapsDaemon: "Traps Daemon:  ",
+		ViewMainLabelCoreTrap:    "CORE TRAP:   ",
+		ViewMainLabelTraps:       "Traps  ",
+		ViewMainLabelTrappedNow:  "Trapped now",
 
 		// --- tui/view_multi_tarpit.go ---
 		ViewMultiTarpitHeaderTitle:            " Amber Guard Laboratory - Distributed Multi-Trap Pool - MULTI-TARPIT ",
@@ -610,10 +603,10 @@ func init() {
 		ViewTarpitCtlStartSuccess:           "[SUCCESS]: TRAP successfully activated. Daemon will pick up declaration.",
 		ViewTarpitCtlStopDismantle:          "[SYSTEM]: Dismounting TRAP from the system...",
 		ViewTarpitCtlStopSuccess:            "[SUCCESS]: TRAP deactivated.",
-		ViewTarpitCtlProtocolHeader:         "=== AMBER GUARD LAB. - DECEPTION TARPIT PROTOCOL ===",
+		ViewTarpitCtlProtocolHeader:         "=== AMBER GUARD LABORATORY - DECEPTION TARPIT PROTOCOL ===",
 		ViewTarpitCtlCastlingArmorLock:      "[LOCKOUT]: Castling rejected — armor is armed on port 22.\nDisarm the standard port first (ANTIDDOS), then perform castling.",
 		ViewTarpitCtlProtocolPressEnter:     " Press ENTER to return...",
-		ViewTarpitCtlProtocolText:           "Before enabling the CORE trap on port 22, you must select a backup port number in the SETTINGS menu,\nand then perform a port migration using MOVE_PORT. Only after these steps are\ncompleted will it be possible to activate CORE trap on port 22. To prevent\nthe administrator from locking themselves out, the algorithm prevents this sequence from being\nexecuted in any other order.\n\nTherefore, as long as the port migration (castling) is not complete, the system's algorithm\nwill prevent the CORE trap from being set on port 22, thereby preventing the server\nadministrator from locking themselves out.\n\nIf castling has not been performed, the safety interlock will block the CORE trap circuit\nfrom starting.\n\nThe CORE trap can be activated through the standard TARPIT -> TARPIT_ON menu. However,\nit is also managed via the MULTITARPIT menu, where it automatically takes a priority position\nwithin the pool managed by the system's central daemon.\n",
+		ViewTarpitCtlProtocolText:           "================================================================\n==================== AMBER GUARD LABORATORY ====================\n================= CORE TARPIT ENABLE PROTOCOL ==================\n=========================== PORT 22 ============================\n\nATTENTION: To activate the CORE TRAP, you must follow a\nstrict sequence to prevent administrative self-lock.\n\nStep 1: Set migration port number in the SETTINGS menu.\nDefault migration port: 2244\n\nStep 2: Run a port migration via MOVE_PORT.\n(OpenSSH service will be automatically moved.)\n\nStep 3: Activate the TRAP via TARPIT -> TARPIT_ON.\n\nThe safety interlock will prevent CORE TRAP launch if\nStep 2 has not been completed.\n\n================================================================\n",
 
 		// --- tui/view_tarpit_live_box.go ---
 		ViewTarpitLiveBoxHeaderText: " Scanner Exhaustion and Analysis Chronicle (TARPIT_LIVE_BOX)",

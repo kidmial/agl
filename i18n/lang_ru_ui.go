@@ -410,22 +410,13 @@ func init() {
 		ViewForensicsInfoBoxTitle:      " Регламент проведения криминалистического расследования инцидентов ",
 
 		// --- tui/view_main.go ---
-		ViewMainLabelMainMenu:      "Главное Меню Комплекса",
 		ViewMainLabelDate:          "Дата",
 		ViewMainLabelTime:          "Время",
 		ViewMainLabelCpu:           "CPU",
 		ViewMainLabelRam:           "RAM",
-		ViewMainLabelSwap:          "Swap",
 		ViewMainLabelLoad:          "Нагрузка",
-		ViewMainLabelUsage:         "Использование",
-		ViewMainLabelWebWatcher:    "СТРАЖ",
-		ViewMainLabelTarpit:        "TRAP-22",
-		ViewMainLabelCastling:      "Кастлинг",
-		ViewMainLabelTlsGate:       "TLS шлюз",
-		ViewMainLabelBotsTrapped:   "В капкане сейчас",
-		ViewMainPassportTitle:      " Системный паспорт хоста ",
-		ViewMainServicesTitle:      " Статус служб комплекса ",
-		ViewMainMenuTitle:          " Выберите административный раздел для работы: ",
+		ViewMainLabelUsage:         "Занято",
+		ViewMainMenuTitle:          " Главное Меню ",
 		ViewMainRowSettings:        "Глобальная настройка системы и управление параметрами комплекса",
 		ViewMainRowAntiddos:        "Менеджер сетевой брони (параметры защиты от масштабных атак и ботнет-штормов)",
 		ViewMainRowTarpit:          "Страница активации алгоритма переезда порта 22 и настройка основной ловушки",
@@ -438,9 +429,9 @@ func init() {
 		ViewMainFallbackZeroMb:     "0 MB / 0 MB",
 
 		// --- tui/view_main.go (stats block) ---
-		StatsBlockTitle:    " Краткая Статистика ",
-		StatsTrapsActive:   "Ловушек",
-		StatsOpenPorts:     "Открытых портов",
+		StatsBlockTitle: " Краткая Статистика ",
+		// StatsTrapsActive:   "Ловушек",
+		StatsOpenPorts:     "NETWORK (открытых портов)",
 		StatsLogProgram:    "Программа",
 		StatsLogConnection: "Соединения",
 		StatsLogReport:     "Отчет",
@@ -453,26 +444,28 @@ func init() {
 		StatsLogBlockTitle: " Логи комплекса ",
 
 		// --- tui/view_main.go (additional) ---
-		StatsLabelLogs:     "Логи",
-		StatsLabelSnapshot: "Последний снапшот",
-		StatsLabelBackups:  "Бэкапов",
-		StatsLabelTraps:    "Ловушек",
-		StatsLabelPorts:    "Портов",
-		StatusOn:           "ON",
-		StatusOff:          "OFF",
-		UnitMB:             "МБ",
-		UnitKB:             "КБ",
-		EmptyLog:           "[ПУСТОЙ ЛОГ]",
-		DateFormat:         "2006-01-02",
-		TimeFormat:         "15:04:05",
-		ViewMainHeaderTpl:  " [ %s ](fg:cyan,mod:bold) │ %s: %s │ %s: %s",
-		ViewMainPassportTpl: " %s: %-40s │ %d×%d │ %s: [%d%%](fg:green,mod:bold)\n" +
-			" %s: %-22s │ %s: [%d%%](fg:green,mod:bold)\n" +
-			" %s: %-21s │ %s: [%d%%](fg:cyan,mod:bold)",
-		ViewMainServicesTpl: " %s: %s │ UFW: %s │ SSH: %-5s │ %s: %s\n" +
-			" %s: %s │ %s: %s │ %s: [%d](fg:yellow,mod:bold) │ %s: %d/%d │ %s: %d",
-		ViewMainStatsTpl1: " %s: %.1f %s (%s) + %.1f %s (%s) + %.1f %s (%s)\n",
-		ViewMainStatsTpl2: " %s: %s │ %s: %d",
+		StatsLabelLogs:          "Логи",
+		UnitMB:                  "МБ",
+		UnitKB:                  "КБ",
+		EmptyLog:                "[ПУСТОЙ ЛОГ]",
+		ViewMainLabelSshAdminIp: "SSH Админ IP",
+		ViewMainLabelPasswords:  "Пароли:  ",
+
+		// Строка 01
+		ViewMainLabelWebWatcher:  "Наблюдатель:   ",
+		ViewMainLabelUfwStatus:   "UFW Статус:  ",
+		ViewMainLabelCastlingSsh: "Переезд SSH:   ",
+		ViewMainLabelSshPort:     "SSH Порт:",
+		// Строка 02
+		ViewMainLabelTlsCert:   "TLS Сертификат:",
+		ViewMainLabelWebKnock:  "Веб Стук:",
+		ViewMainLabelWebStat:   "Веб Статистика:",
+		ViewMainLabelWebServer: "Веб Сервер:  ",
+		// Строка 03
+		ViewMainLabelTrapsDaemon: "Демон ловушек: ",
+		ViewMainLabelCoreTrap:    "CORE Ловушка:",
+		ViewMainLabelTraps:       "Ловушки",
+		ViewMainLabelTrappedNow:  "В ловушках сейчас",
 
 		// --- tui/view_multi_tarpit.go ---
 		ViewMultiTarpitHeaderTitle:            " Amber Guard Laboratory - Пул Распределенных Мульти-Ловушек - MULTI-TARPIT ",
@@ -610,10 +603,10 @@ func init() {
 		ViewTarpitCtlStartSuccess:           "[УСПЕХ]: Ловушка успешно активирована. Демон подхватит декларацию.",
 		ViewTarpitCtlStopDismantle:          "[СИСТЕМА]: Демонтаж Ловушки из системы...",
 		ViewTarpitCtlStopSuccess:            "[УСПЕХ]: Ловушка деактивирована.",
-		ViewTarpitCtlProtocolHeader:         "=== AMBER GUARD LAB. - DECEPTION TARPIT PROTOCOL ===",
+		ViewTarpitCtlProtocolHeader:         "=== AMBER GUARD LABORATORY - DECEPTION TARPIT PROTOCOL ===",
 		ViewTarpitCtlCastlingArmorLock:      "[БЛОКИРОВКА]: Отказ рокировки — на порту 22 взведена броня.\nСначала снимите броню штатного порта (ANTIDDOS), затем выполняйте переезд.",
 		ViewTarpitCtlProtocolPressEnter:     " Нажмите ENTER для возврата...",
-		ViewTarpitCtlProtocolText:           "Перед включением CORE ловушки на порту 22, требуется выбрать номер резервного порта в меню\nSETTINGS, затем выполнить переезд порта через MOVE_PORT. Только после этих операций появится\nвозможность активировать CORE-ловушку на порту 22. Во избежание самоблокировки\nадминистратора, алгоритм не позволит выполнить эту последовательность в другом порядке.\n\nТаким образом, пока не выполнен переезд порта (рокировка, кастлинг), алгоритм комплекса\nне позволит установить CORE-ловушку на порт 22 тем самым предотвратив самоблокировку\nадминистратора сервера.\n\nЕсли рокировка не была выполнена, защитный предохранитель заблокирует запуск контура\nCORE-ловушки.\n\nCORE-ловушка включается в готовом функционале через меню TARPIT -> TARPIT_ON. Но так же,\nуправление CORE-ловушкой доступно и через меню MULTITARPIT, где она автоматически занимает\nприоритетную позицию в пуле под управлением общего демона комплекса.\n",
+		ViewTarpitCtlProtocolText:           "================================================================\n==================== AMBER GUARD LABORATORY ====================\n=============== ПРОТОКОЛ ВКЛЮЧЕНИЯ CORE ЛОВУШКИ ================\n=========================== ПОРТ 22 ============================\n\nВНИМАНИЕ: Для активации CORE ловушки необходимо выполнить\nстрогую последовательность действий, чтобы предотвратить\nсамоблокировку администратора.\n\nШаг 1: Установите номер порта для переезда в меню SETTINGS.\nПо умолчанию порт переезда установлен: 2244\n\nШаг 2: Выполните переезд порта через MOVE_PORT.\n(Служба OpenSSH будет перемещена автоматически)\n\nШаг 3: Активируйте ловушку через TARPIT -> TARPIT_ON.\n\nПредохранитель не позволит запустить CORE-ловушку,\nесли Шаг 2 не был выполнен.\n\n================================================================\n",
 
 		// --- tui/view_tarpit_live_box.go ---
 		ViewTarpitLiveBoxHeaderText: " Хроника Истощения и Анализа Сканеров (TARPIT_LIVE_BOX)",

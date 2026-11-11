@@ -2,6 +2,7 @@ package tui
 
 import (
 	"regexp"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -21,4 +22,15 @@ var uiTagRe = regexp.MustCompile(`\[(.*?)\]\([^)]*\)`)
 func visibleRunes(s string) int {
 	stripped := uiTagRe.ReplaceAllString(s, "$1")
 	return utf8.RuneCountInString(stripped)
+}
+
+// padVisible дополняет строку пробелами до заданной ВИДИМОЙ ширины.
+// PURPOSE: построение ровных колонок для строк, содержащих markup-теги termui:
+// fmt.Sprintf("%-Ns") считает сырую длину с тегами и рвёт колонки.
+// CONTRACT: если строка шире width — возвращается без изменений (без обрезки).
+func padVisible(s string, width int) string {
+	if n := visibleRunes(s); n < width {
+		return s + strings.Repeat(" ", width-n)
+	}
+	return s
 }
