@@ -129,27 +129,9 @@ func ensureDefaultConfig(configPath string) {
 		AglLogarchiveDir:    config.DirLog,                // БЛОК 4.4: Константа пути
 		BackupRootDir:       "/backup",
 		GeoTool:             "geoiplookup",
-		SysctlCore: config.SysctlCoreConfig{
-			// Default (Честный стандарт ядра Linux — безопасный baseline)
-			DefaultNetIpv4TcpSyncookies:       1,
-			DefaultNetIpv4TcpFinTimeout:       60,
-			DefaultNetIpv4TcpSynRetries:       6,
-			DefaultNetIpv4TcpSynackRetries:    5,
-			DefaultNetCoreSomaxconn:           128,
-			DefaultNetIpv4TcpMaxSynBacklog:    128,
-			DefaultNetIpv4ConfAllRpFilter:     0,
-			DefaultNetIpv4ConfDefaultRpFilter: 0,
-
-			// Armor (Боевые параметры под 1 ГБ RAM с защитой от OOM)
-			ArmorNetIpv4TcpSyncookies:       1,
-			ArmorNetIpv4TcpFinTimeout:       15,
-			ArmorNetIpv4TcpSynRetries:       2,
-			ArmorNetIpv4TcpSynackRetries:    2,
-			ArmorNetCoreSomaxconn:           2048, // Не задушит ОС по памяти при DDoS
-			ArmorNetIpv4TcpMaxSynBacklog:    4096, // syncookies спасет, память под SYN не течет
-			ArmorNetIpv4ConfAllRpFilter:     1,    // Strict mode для одиночных VPS
-			ArmorNetIpv4ConfDefaultRpFilter: 1,
-		},
+		// Эталон ядра берётся из единой спеки (config/sysctl_spec.go).
+		// Ведущий источник правды: этот генератор. config.json — ведомый.
+		SysctlCore: config.FactorySysctlCore(),
 	}
 
 	// Гарантируем транзакционное создание всей цепочки директорий хоста
@@ -510,6 +492,15 @@ func main() {
 	// =========================================================================
 	if err := config.LoadConfig(configPath); err != nil {
 		log.Fatalf("Критическая ошибка загрузки верифицированной конфигурации: %v", err)
+	}
+
+	// === АУДИТ КЛАМПА ПАРАМЕТРОВ ЯДРА ===
+	// LoadConfig мог исправить декларацию админа по ИБ-границам.
+	// Машинные токены, без естественного языка — i18n-безопасно.
+	if len(config.SysctlClampReports) > 0 {
+		sys.LogAction("CONFIG", "SYSCTL_CLAMPED", "WARNING",
+			fmt.Sprintf("event=config.sysctl_clamped %s",
+				strings.Join(config.SysctlClampReports, " ")))
 	}
 
 	// v8.3.0 (6.3): вычисление активного языка по приоритетам А.1:

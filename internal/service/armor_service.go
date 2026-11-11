@@ -93,6 +93,15 @@ func CheckSysctlProtocol() error {
 	return armor.SetSysctlProtocol("CHECK")
 }
 
+// IsSysctlArmorActive сообщает, включена ли броня ядра (по маркеру).
+// PURPOSE: пробник для TUI-решений «накатать / снять».
+// CONTRACT: не сверяет значения ядра с конфигом — для этого есть
+// CheckSysctlProtocol (диагностика рассинхрона).
+// SIDE-EFFECTS: нет.
+func IsSysctlArmorActive() bool {
+	return armor.SysctlArmorActive()
+}
+
 // ReloadFirewall перезагружает правила UFW.
 // PURPOSE: Командная функция для применения изменений в брандмауэре.
 // CONTRACT: Вызывает `ufw reload` с таймаутом. Логирует событие.

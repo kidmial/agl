@@ -1,9 +1,12 @@
+// /tui/helpers.go
 package tui
 
 import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/gizak/termui/v3/widgets"
 )
 
 // ============================================================================
@@ -33,4 +36,30 @@ func padVisible(s string, width int) string {
 		return s + strings.Repeat(" ", width-n)
 	}
 	return s
+}
+
+// padListRowsToWidth добивает строки виджета пробелами до внутренней ширины блока.
+// PURPOSE: единая точка геометрии для косметики «полоса выделения до края»:
+// termui красит SelectedRowStyle посимвольно, поэтому без добивки полоса
+// обрывается на последнем символе текста вместо полосы до рамки.
+// CONTRACT:
+//   - вызывать СТРОГО ПОСЛЕ SetRect: до него GetRect().Dx()==0 → guard выйдет;
+//   - идемпотентна: повторная добивка уже добитой строки — no-op
+//     (visibleRunes == width), поэтому перерисовки по тику не копят пробелы;
+//   - подменяет l.Rows НОВЫМ слайсом: исходный не мутируется, значит роутер
+//     кликов, держащий ссылку на прежние строки, видит чистый текст.
+//
+// SIDE-EFFECTS: только поле Rows виджета.
+func padListRowsToWidth(l *widgets.List) {
+	// Минус две вертикальные рамки = Inner.Dx() виджета.
+	innerWidth := l.GetRect().Dx() - 2
+	if innerWidth <= 0 {
+		return // геометрия ещё не задана — паддинг невозможен
+	}
+	padded := make([]string, len(l.Rows))
+	for i, row := range l.Rows {
+		// padVisible считает ВИДИМУЮ длину: markup-теги не занимают клеток.
+		padded[i] = padVisible(row, innerWidth)
+	}
+	l.Rows = padded
 }

@@ -26,7 +26,7 @@ func HandleArmorMenuClick(currentRow int, selectedRowStr string) string {
 	switch {
 	// --- ПЕРЕХОД В ПОДМЕНЮ: Перехватываем клик на CORE_SETTINGS ---
 	case strings.Contains(selectedRowStr, "CORE_SETTINGS"):
-		CoreAlertMessage = ""             // Очищаем старые алармы при входе в меню настроек ядра
+		clearCoreAlert()                  // гасим старый аларм при входе в меню настроек ядра
 		ActiveScreen = ScreenCoreSettings // Переключаем глобальный флаг экрана для ui.Event роутера
 		return ""
 
@@ -127,7 +127,10 @@ func HandleArmorMenuClick(currentRow int, selectedRowStr string) string {
 
 	case strings.Contains(selectedRowStr, "SYSCTL"):
 		// Одиночный переключатель системных оптимизаций ядра (ручной боевой тумблер)
-		if errCheck := service.CheckSysctlProtocol(); errCheck == nil {
+		// Тумблер обязан спрашивать «включена ли броня», а не «совпадает ли ядро».
+		// Иначе после правки параметра CHECK давал ошибку → вместо OFF накатывался ON,
+		// и админ не мог снять броню с первого нажатия.
+		if service.IsSysctlArmorActive() {
 			_ = service.ToggleSysctlProtocol("OFF")
 		} else {
 			_ = service.ToggleSysctlProtocol("ON")
@@ -202,31 +205,24 @@ func HandleCoreSettingsClick(currentRow int, selectedRowStr string) {
 
 	// 2. Кнопка СБРОСА К ЗАВОДСКИМ ЭТАЛОНАМ AMBER GUARD LAB
 	if strings.Contains(selectedRowStr, "RESET_TO_FACTORY") {
-		// v8.2.2 (волна гонки 2.3): мутация через config.Update —
-		// клон снепшота, применение дефолтов, публикация, атомарная запись на диск.
-		// Устраняет in-place мутации опубликованного снепшота и дублирует
-		// явный SaveConfig единой точкой saveConfigLocked.
+		// === СБРОС К ЗАВОДСКОМУ ЭТАЛОНУ AGL ===
+		// БЫЛО: Armor := Default* (честный Linux) → 128/128/0, то есть
+		// минимум защиты и выключенный anti-spoofing под маркером «броня ON».
+		// СТАЛО: единый ведущий эталон — тот же, что при первом старте.
+		// Сброс к чистому Linux остаётся только через ARMOR_OFF (базлайн).
 		if err := config.Update(config.FileConfig, func(c *config.Config) {
-			s := &c.SysctlCore
-			s.ArmorNetIpv4TcpSyncookies = s.DefaultNetIpv4TcpSyncookies
-			s.ArmorNetIpv4TcpFinTimeout = s.DefaultNetIpv4TcpFinTimeout
-			s.ArmorNetIpv4TcpSynRetries = s.DefaultNetIpv4TcpSynRetries
-			s.ArmorNetIpv4TcpSynackRetries = s.DefaultNetIpv4TcpSynackRetries
-			s.ArmorNetCoreSomaxconn = s.DefaultNetCoreSomaxconn
-			s.ArmorNetIpv4TcpMaxSynBacklog = s.DefaultNetIpv4TcpMaxSynBacklog
-			s.ArmorNetIpv4ConfAllRpFilter = s.DefaultNetIpv4ConfAllRpFilter
-			s.ArmorNetIpv4ConfDefaultRpFilter = s.DefaultNetIpv4ConfDefaultRpFilter // СИНХРОНИЗАЦИЯ: Сбрасываем добавленный параметр rp_filter
+			c.SysctlCore = config.FactorySysctlCore()
 		}); err != nil {
-			CoreAlertMessage = i18n.T.ViewArmorCtlCoreSaveFailPrefix + err.Error()
+			setCoreAlertError(i18n.T.ViewArmorCtlCoreSaveFailPrefix + err.Error())
 			return
 		}
 
-		// Мгновенно накатываем в рантайм, если Броня включена
-		if errCheck := service.CheckSysctlProtocol(); errCheck == nil {
+		// Накат по пробнику активности, не по сверке значений (см. H5).
+		if service.IsSysctlArmorActive() {
 			_ = service.ToggleSysctlProtocol("ON")
 		}
 
-		CoreAlertMessage = i18n.T.ViewArmorCtlCoreResetSuccess
+		setCoreAlertSuccess(i18n.T.ViewArmorCtlCoreResetSuccess)
 		return
 	}
 
@@ -234,27 +230,12 @@ func HandleCoreSettingsClick(currentRow int, selectedRowStr string) {
 	// При клике на строки с цифровыми параметрами (0-6) — активируем встроенный режим ввода
 	if currentRow >= 0 && currentRow < 7 {
 		IsCoreEditMode = true
-		CoreAlertMessage = ""
+		clearCoreAlert()
 
 		// Подтягиваем текущее значение в буфер ввода по умолчанию
+		// Буфер ввода наполняется по индексу спеки — без дубля switch.
 		cfg := config.C.SysctlCore
-		var currentVal int
-		switch currentRow {
-		case 0:
-			currentVal = cfg.ArmorNetIpv4TcpSyncookies
-		case 1:
-			currentVal = cfg.ArmorNetIpv4TcpFinTimeout
-		case 2:
-			currentVal = cfg.ArmorNetIpv4TcpSynRetries
-		case 3:
-			currentVal = cfg.ArmorNetIpv4TcpSynackRetries
-		case 4:
-			currentVal = cfg.ArmorNetCoreSomaxconn
-		case 5:
-			currentVal = cfg.ArmorNetIpv4TcpMaxSynBacklog
-		case 6:
-			currentVal = cfg.ArmorNetIpv4ConfAllRpFilter
-		}
+		currentVal, _ := cfg.ArmorByIndex(currentRow)
 		CurrentCoreInputBuf = fmt.Sprintf("%d", currentVal)
 	}
 }

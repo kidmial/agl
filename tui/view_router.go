@@ -612,7 +612,15 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 		if IsCoreEditMode {
 			IsCoreEditMode = false
 			// Передаем буфер в функцию валидации и сохранения
-			CoreAlertMessage = SaveCoreSettingToDisk(state.currentRow, CurrentCoreInputBuf)
+			// Тип аларма определяем сравнением с эталоном успеха.
+			// Сигнатуру SaveCoreSettingToDisk не меняем: она возвращает строку,
+			// а роутер решает, будет сообщение с TTL или sticky.
+			alertMsg := SaveCoreSettingToDisk(state.currentRow, CurrentCoreInputBuf)
+			if alertMsg == i18n.T.ViewCoreSettingsSuccessSaved {
+				setCoreAlertSuccess(alertMsg) // успех: исчезнет через 5 сек
+			} else {
+				setCoreAlertError(alertMsg) // отказ: живёт до следующего действия
+			}
 			CurrentCoreInputBuf = ""
 		} else {
 			if state.currentRow >= 0 && state.currentRow < len(GlobalCoreMenuRows) {
@@ -927,9 +935,10 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 				// 1. Показываем заглушку "Сканирую..."
 				ui.Clear()
 				loadingBox := widgets.NewParagraph()
-				loadingBox.Text = i18n.T.ViewRouterScanLoadingText
-				loadingBox.SetRect(2, 10, 102, 15)
+				loadingBox.Text = "\n  " + i18n.T.ViewRouterScanLoadingText + "\n  " + i18n.T.ViewRouterWaitText
+				loadingBox.SetRect(33, 10, 68, 16)
 				loadingBox.BorderStyle.Fg = ui.ColorYellow
+				loadingBox.WrapText = false
 				ui.Render(loadingBox)
 				// 2. Запускаем сканирование.
 				//

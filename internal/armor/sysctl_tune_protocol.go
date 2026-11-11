@@ -45,6 +45,20 @@ func runSysctlCmd(param, value string) {
 // sysctlBaselinePath — слепок значений ядра до наката брони.
 var sysctlBaselinePath = filepath.Join(config.DirLib, "sysctl_baseline.json")
 
+// sysctlMarkerPath — рантайм-маркер активности брони ядра (tmpfs).
+// Вынесен из SetSysctlProtocol: пробник активности читает тот же путь.
+var sysctlMarkerPath = filepath.Join(config.DirRun, "agl_sysctl.state")
+
+// SysctlArmorActive reports whether the kernel armor marker is present.
+// PURPOSE: чистый пробник «включена ли броня» БЕЗ сверки значений.
+// CONTRACT: в отличие от CHECK не сравнивает ядро с конфигом, поэтому
+// пригоден для решения «накатывать ли изменения» после правки админом.
+// SIDE-EFFECTS: нет (только os.Stat).
+func SysctlArmorActive() bool {
+	_, err := os.Stat(sysctlMarkerPath)
+	return err == nil
+}
+
 // sysctlParams — упорядоченный список параметров, управляемых протоколом.
 var sysctlParams = []string{
 	"net.ipv4.tcp_syncookies",
@@ -150,8 +164,8 @@ func restoreSysctlBaseline() {
 
 // SetSysctlProtocol осуществляет низкоуровневую оптимизацию и защиту сетевого стека ядра.
 func SetSysctlProtocol(action string) error {
-	// Летучий маркер состояния в ОЗУ tmpfs по стандартам Amber Guard Lab
-	markerFile := filepath.Join(config.DirRun, "agl_sysctl.state")
+	// Летучий маркер состояния в ОЗУ tmpfs (единый путь с пробником активности).
+	markerFile := sysctlMarkerPath
 
 	// Быстрая ссылка на контур боевых настроек ядра из config.json
 	// v8.2.2 (волна гонки 2.3): копия значения вместо указателя в снепшот.

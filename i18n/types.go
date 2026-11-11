@@ -3,15 +3,15 @@ package i18n
 
 import "fmt"
 
-// SysctlHelpDoc представляет локализованные данные для одного параметра ядра
+// SysctlHelpDoc — локализованные ТЕКСТОВЫЕ данные параметра ядра.
+// CONTRACT (доктрина 6.7): только переводимый текст.
+// Числа (эталон AGL, границы Min/Max) живут в config/sysctl_spec.go —
+// единственный источник правды. TUI передаёт их в справку аргументами.
 type SysctlHelpDoc struct {
-	ParamName   string
-	DefaultVal  string
-	MinVal      int
-	MaxVal      int
-	Description string
-	OnAttack    string
-	Risks       string
+	ParamName   string // машинное имя параметра (не переводится)
+	Description string // что делает параметр
+	OnAttack    string // рекомендация под атакой
+	Risks       string // риски неверного значения
 }
 
 // UITranslation описывает жесткий каркас всех текстовых строк TUI-интерфейса.
@@ -528,6 +528,7 @@ type UITranslation struct {
 	ViewRouterTrapPortReadOnly           string
 	ViewRouterErrSavePrefix              string
 	ViewRouterScanLoadingText            string
+	ViewRouterWaitText                   string
 
 	// --- tui/view_settings.go ---
 	ViewSettingsErrPasswordTooShort          string
@@ -593,6 +594,7 @@ type UITranslation struct {
 	CoreDocRisks   string
 	CoreDocCurVal  string
 	CoreDocLimit   string
+	CoreDocLimitTo string
 	CoreDocFactory string
 
 	// --- tui/view_tarpit_controller.go ---

@@ -192,6 +192,11 @@ var configMu sync.Mutex
 // PasswordJustMigrated — одноразовый флаг миграции plaintext→хэш (логирует вотчер).
 var PasswordJustMigrated bool
 
+// SysctlClampReports — машинные токены клампа последнего LoadConfig.
+// PURPOSE: config не может логировать (sys импортирует config → цикл),
+// поэтому отчёт публикуется наружу; вызывающий пишет WARNING с event-кодом.
+var SysctlClampReports []string
+
 // CheckFileExists — хелпер для проверки ленивых маркеров активности Брони
 func CheckFileExists(filePath string) (bool, error) {
 	_, err := os.Stat(filePath)
@@ -411,58 +416,22 @@ func LoadConfig(filePath string) error {
 	}
 
 	// =========================================================================
-	//   ЖЕСТКИЙ ИБ-ВАЛИДАТОР ГРАНИЦ И ЗАЩИТА ЯДРА ОТ ОКИРПИЧИВАНИЯ (FAIL-SAFE)
+	//   ЕДИНЫЙ ВАЛИДАТОР ГРАНИЦ (SPEC-DRIVEN, config/sysctl_spec.go)
 	// =========================================================================
-	s := &local.SysctlCore
+	// Baseline синхронизируется из спеки, Armor клампится по границам спеки.
+	// Хардкод чисел здесь удалён: ведущий источник — FactorySysctlCore().
+	reports, sysctlChanged := ValidateSysctlCore(&local.SysctlCore)
 
-	// 1. Синхронизируем заводские дефолты чистого ядра Linux (Контур отката)
-	s.DefaultNetIpv4TcpSyncookies = 1
-	s.DefaultNetIpv4TcpFinTimeout = 60
-	s.DefaultNetIpv4TcpSynRetries = 6
-	s.DefaultNetIpv4TcpSynackRetries = 5
-	s.DefaultNetCoreSomaxconn = 128
-	s.DefaultNetIpv4TcpMaxSynBacklog = 128
-	s.DefaultNetIpv4ConfAllRpFilter = 0
-	s.DefaultNetIpv4ConfDefaultRpFilter = 0
+	// Кламп — это изменение декларации админа. Молчать нельзя (доктрина
+	// предсказуемости), поэтому публикуем отчёт для журнала вызывающего.
+	SysctlClampReports = reports
 
-	// 2. Бронированная проверка боевых параметров администратора (armor_)
-	// При выходе за границы откатываемся к БЕЗОПАСНЫМ значениям Armor (под 1 ГБ RAM),
-	// а не к Default, чтобы сохранить уровень защиты даже при ошибке ввода.
-
-	if s.ArmorNetIpv4TcpSyncookies != 0 && s.ArmorNetIpv4TcpSyncookies != 1 {
-		s.ArmorNetIpv4TcpSyncookies = 1
-	}
-
-	// Границы таймаутов FIN-WAIT-2: строго от 10 до 60 секунд
-	if s.ArmorNetIpv4TcpFinTimeout < 10 || s.ArmorNetIpv4TcpFinTimeout > 60 {
-		s.ArmorNetIpv4TcpFinTimeout = 15 // Фолбэк на безопасный Armor
-	}
-
-	// Повторы SYN пакетов: от 1 до 5 попыток
-	if s.ArmorNetIpv4TcpSynRetries < 1 || s.ArmorNetIpv4TcpSynRetries > 5 {
-		s.ArmorNetIpv4TcpSynRetries = 2
-	}
-
-	// Повторы SYN-ACK ответов ядра: от 1 до 5 попыток
-	if s.ArmorNetIpv4TcpSynackRetries < 1 || s.ArmorNetIpv4TcpSynackRetries > 5 {
-		s.ArmorNetIpv4TcpSynackRetries = 2
-	}
-
-	// Системные буферы очередей: от 128 до 32768 соединений
-	if s.ArmorNetCoreSomaxconn < 128 || s.ArmorNetCoreSomaxconn > 32768 {
-		s.ArmorNetCoreSomaxconn = 2048 // Фолбэк на безопасный лимит под 1 ГБ
-	}
-	if s.ArmorNetIpv4TcpMaxSynBacklog < 128 || s.ArmorNetIpv4TcpMaxSynBacklog > 32768 {
-		s.ArmorNetIpv4TcpMaxSynBacklog = 4096
-	}
-
-	// Обратный фильтр маршрутов rp_filter: строго 0, 1 или 2
-	if s.ArmorNetIpv4ConfAllRpFilter < 0 || s.ArmorNetIpv4ConfAllRpFilter > 2 {
-		s.ArmorNetIpv4ConfAllRpFilter = 1
-	}
-
-	if s.ArmorNetIpv4ConfDefaultRpFilter < 0 || s.ArmorNetIpv4ConfDefaultRpFilter > 2 {
-		s.ArmorNetIpv4ConfDefaultRpFilter = 1
+	// Диск и ОЗУ не должны расходиться: персистим исправленные значения.
+	// Сбой записи не фатален — ОЗУ уже валидно, следующий Update допишет диск.
+	if sysctlChanged {
+		if err := saveConfigLocked(filePath, local); err != nil {
+			SysctlClampReports = append(SysctlClampReports, "persist_failed")
+		}
 	}
 
 	// Публикация снепшота: единое присвоение указателя.

@@ -21,7 +21,54 @@ var (
 	CurrentCoreInputBuf = ""
 	CoreAlertMessage    = ""
 	coreDigitOnlyRegex  = regexp.MustCompile(`^[0-9]+$`)
+
+	// coreAlertIsError — тип аларма. Заменяет хардкод-проверку префикса
+	// "[УСПЕХ]"/"[SUCCESS]" (доктрина 6.7: естественного языка в коде нет).
+	coreAlertIsError bool
+	// coreAlertUntil — момент истечения аларма. Zero = аларма нет.
+	coreAlertUntil time.Time
 )
+
+// coreAlertTTL — единый срок жизни любого аларма: и успех, и отказ.
+// 3 секунды
+const coreAlertTTL = 3 * time.Second
+
+// setCoreAlertSuccess показывает успех с TTL.
+// PURPOSE: одноразовая информация не должна висеть вечно.
+// SIDE-EFFECTS: только пакетное состояние рендера, I/O нет.
+func setCoreAlertSuccess(msg string) {
+	CoreAlertMessage = msg
+	coreAlertIsError = false // только цвет рамки, на срок жизни не влияет
+	coreAlertUntil = time.Now().Add(coreAlertTTL)
+}
+
+// setCoreAlertError показывает отказ с тем же TTL.
+// CONTRACT: тип аларма влияет ТОЛЬКО на цвет (красный/зелёный).
+// Sticky-режим убран: админ не должен искать способ закрыть сообщение.
+func setCoreAlertError(msg string) {
+	CoreAlertMessage = msg
+	coreAlertIsError = true
+	coreAlertUntil = time.Now().Add(coreAlertTTL)
+}
+
+// clearCoreAlert гасит аларм (вход в меню, начало ввода).
+func clearCoreAlert() {
+	CoreAlertMessage = ""
+	coreAlertIsError = false
+	coreAlertUntil = time.Time{}
+}
+
+// expireCoreAlert — ленивое истечение TTL в момент отрисовки.
+// PURPOSE: без отдельной горутины. Гонки с циклом рендера исключены:
+// состояние читает и пишет только UI-поток.
+func expireCoreAlert() {
+	if CoreAlertMessage == "" || coreAlertUntil.IsZero() {
+		return
+	}
+	if time.Now().After(coreAlertUntil) {
+		clearCoreAlert()
+	}
+}
 
 // GlobalCoreMenuRows хранит идентификаторы строк для роутера кликов
 var GlobalCoreMenuRows []string
@@ -29,24 +76,11 @@ var GlobalCoreMenuRows []string
 // CoreHeader — синглтон шапки экрана настроек ядра
 var CoreHeader *widgets.Paragraph
 
-// formatCoreHelpText собирает справку параметра ядра: скелет в коде, подписи в i18n (TD-2).
-func formatCoreHelpText(doc i18n.SysctlHelpDoc, curVal int) string {
-	if doc.ParamName == "" {
-		return i18n.T.CoreHelpSelectParam
-	}
-	return fmt.Sprintf(
-		" Параметр: %s \n"+
-			" %s %d (%s %s)\n"+
-			" %s [ %d ] до [ %d ]\n\n"+
-			"%s\n %s\n\n"+
-			"%s\n %s\n\n"+
-			"%s\n %s ",
-		doc.ParamName, i18n.T.CoreDocCurVal, curVal, i18n.T.CoreDocFactory, doc.DefaultVal, i18n.T.CoreDocLimit, doc.MinVal, doc.MaxVal, i18n.T.CoreDocDesc, doc.Description, i18n.T.CoreDocAttack, doc.OnAttack, i18n.T.CoreDocRisks, doc.Risks,
-	)
-}
-
 // DrawCoreSettingsGrid отрисовывает фиксированный экран тюнинга ядра (CORE_SETTINGS)
 func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
+	// Гасим старый успех ДО формирования консоли навигации.
+	expireCoreAlert()
+
 	var menuRows []string
 	cfg := config.C.SysctlCore
 	// Динамически подставляем числовые параметры из глобального ОЗУ-состояния синглтона.
@@ -88,31 +122,21 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	coreList.Rows = menuRows
 	coreList.SetRect(2, 5, 102, 13)
 	coreList.BorderStyle.Fg = ui.ColorCyan
+
+	// КОСМЕТИКА: полоса выделения до правого края. После SetRect.
+	// GlobalCoreMenuRows присвоен выше и указывает на исходный слайс —
+	// роутер кликов не увидит хвостовых пробелов.
+	padListRowsToWidth(coreList)
+
 	coreList.SelectedRow = selectedRow
 	coreList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
 
 	// Вычисляем интерактивный текст справки
 	var helpText string
-	if selectedRow < 7 {
-		doc := i18n.T.SysctlDocs[selectedRow]
-		var currentVal int
-		switch selectedRow {
-		case 0:
-			currentVal = cfg.ArmorNetIpv4TcpSyncookies
-		case 1:
-			currentVal = cfg.ArmorNetIpv4TcpFinTimeout
-		case 2:
-			currentVal = cfg.ArmorNetIpv4TcpSynRetries
-		case 3:
-			currentVal = cfg.ArmorNetIpv4TcpSynackRetries
-		case 4:
-			currentVal = cfg.ArmorNetCoreSomaxconn
-		case 5:
-			currentVal = cfg.ArmorNetIpv4TcpMaxSynBacklog
-		case 6:
-			currentVal = cfg.ArmorNetIpv4ConfAllRpFilter
-		}
-		helpText = formatCoreHelpText(doc, currentVal)
+	if spec, ok := config.SysctlSpecByIndex(selectedRow); ok && selectedRow < len(i18n.T.SysctlDocs) {
+		// Текущее значение и эталон берём по тому же индексу, что и спека.
+		curVal, _ := cfg.ArmorByIndex(selectedRow)
+		helpText = formatCoreHelpText(i18n.T.SysctlDocs[selectedRow], curVal, spec.Factory, spec.Min, spec.Max)
 	} else if selectedRow == 7 {
 		helpText = i18n.T.CoreResetWarning
 	} else {
@@ -123,40 +147,44 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	infoBox := widgets.NewParagraph()
 	infoBox.Title = i18n.T.CoreInfoBoxTitle
 	infoBox.Text = helpText
-	infoBox.SetRect(2, 13, 102, 24)
+	infoBox.SetRect(2, 13, 102, 25)
 	infoBox.BorderStyle.Fg = ui.ColorYellow
 	infoBox.TextStyle.Fg = ui.ColorCyan
 	infoBox.WrapText = false // Отключает автоперенос
 
 	// 4. Нижний блок: Консоль навигации и встроенного интерактивного изменения
 	sysConsole := widgets.NewParagraph()
-	sysConsole.SetRect(2, 24, 102, 30)
+	sysConsole.SetRect(2, 25, 102, 30)
 
 	if IsCoreEditMode {
 		sysConsole.Title = i18n.T.ViewCoreSettingsEditModeTitle
 
 		paramName := config.GetSysctlParamNameByIndex(selectedRow)
-		sysConsole.Text = fmt.Sprintf("  %s: %s\n  %s: [ %s_ ](fg:white,mod:bold)", i18n.T.ViewCoreSettingsLabelParam, paramName, i18n.T.ViewCoreSettingsLabelEnterNew, CurrentCoreInputBuf)
+		sysConsole.Text = fmt.Sprintf("  %s: [%s](fg:green)\n  %s: [ %s_ ](fg:white,mod:bold)", i18n.T.ViewCoreSettingsLabelParam, paramName, i18n.T.ViewCoreSettingsLabelEnterNew, CurrentCoreInputBuf)
 		sysConsole.BorderStyle.Fg = ui.ColorGreen // Рамка становится зеленой при вводе
 		sysConsole.TextStyle.Fg = ui.ColorWhite
 		sysConsole.WrapText = false
 	} else {
 		sysConsole.Title = i18n.T.CoreSysConsoleTitle
 		if CoreAlertMessage != "" {
-			// Выводим алармы ошибок или сообщения об успешной записи
-			if strings.HasPrefix(CoreAlertMessage, "[УСПЕХ]") || strings.HasPrefix(CoreAlertMessage, "[SUCCESS]") {
+			// Тип аларма — явный флаг. Префиксы "[УСПЕХ]"/"[SUCCESS]"
+			// больше не парсятся: естественный язык живёт только в i18n.
+			if !coreAlertIsError {
 				sysConsole.Text = "\n " + CoreAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorGreen
 				sysConsole.TextStyle.Fg = ui.ColorWhite
+				sysConsole.WrapText = false
 			} else {
 				sysConsole.Text = "\n  ⚠️ [" + i18n.T.ViewCoreSettingsErrWriteRejectPrefix + "](fg:red,mod:bold): " + CoreAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorRed // Красная подсветка при ошибке границ
 				sysConsole.TextStyle.Fg = ui.ColorYellow
+				sysConsole.WrapText = false
 			}
 		} else {
 			sysConsole.Text = i18n.T.CoreSysConsoleBody
 			sysConsole.BorderStyle.Fg = ui.ColorGreen
 			sysConsole.TextStyle.Fg = ui.ColorCyan
+			sysConsole.WrapText = false
 		}
 	}
 
@@ -175,42 +203,61 @@ func SaveCoreSettingToDisk(index int, value string) string {
 	}
 
 	valInt, _ := strconv.Atoi(value)
-	doc := i18n.T.SysctlDocs[index]
 
-	// Проверяем жесткие ИБ-границы безопасности для конкретного параметра ядра
-	if valInt < doc.MinVal || valInt > doc.MaxVal {
-		return fmt.Sprintf(i18n.T.ViewCoreSettingsErrOutOfBounds, doc.MinVal, doc.MaxVal)
+	// Границы — из единой спеки. Раньше брались из словаря i18n,
+	// что давало второй источник правды и дрейф с валидатором LoadConfig.
+	spec, ok := config.SysctlSpecByIndex(index)
+	if !ok {
+		return i18n.T.ViewCoreSettingsErrEmptyValue
+	}
+	if valInt < spec.Min || valInt > spec.Max {
+		return fmt.Sprintf(i18n.T.ViewCoreSettingsErrOutOfBounds, spec.Min, spec.Max)
 	}
 
-	// v8.2.2 (волна гонки 2.3): мутация через config.Update —
-	// клон снепшота, применение, публикация, атомарная запись на диск.
-	// Устраняет in-place мутации опубликованного снепшота и дублирует
-	// POSIX-контур (tmp + Sync + Rename) единой точкой saveConfigLocked.
+	// === МУТАЦИЯ КОНФИГА ===
+	// config.Update: клон снепшота → применение → публикация → атомарная запись.
+	// Прямая мутация config.C запрещена контрактом (снепшот неизменяем).
 	if err := config.Update(config.FileConfig, func(c *config.Config) {
-		switch index {
-		case 0:
-			c.SysctlCore.ArmorNetIpv4TcpSyncookies = valInt
-		case 1:
-			c.SysctlCore.ArmorNetIpv4TcpFinTimeout = valInt
-		case 2:
-			c.SysctlCore.ArmorNetIpv4TcpSynRetries = valInt
-		case 3:
-			c.SysctlCore.ArmorNetIpv4TcpSynackRetries = valInt
-		case 4:
-			c.SysctlCore.ArmorNetCoreSomaxconn = valInt
-		case 5:
-			c.SysctlCore.ArmorNetIpv4TcpMaxSynBacklog = valInt
-		case 6:
-			c.SysctlCore.ArmorNetIpv4ConfAllRpFilter = valInt
-		}
+		// Запись по индексу спеки: switch больше не дублируется в трёх местах.
+		c.SysctlCore.SetArmorByIndex(index, valInt)
 	}); err != nil {
 		return i18n.T.ViewCoreSettingsErrSaveFailPrefix + err.Error()
 	}
 
-	// Если брандмауэр ядра сейчас активен, мгновенно накатываем новые лимиты в рантайм
-	if errCheck := service.CheckSysctlProtocol(); errCheck == nil {
+	// === НАКАТ В РАНТАЙМ ===
+	// Пробник активности по маркеру, а НЕ сверка значений (CHECK).
+	// CHECK возвращал ошибку после любой реальной правки → ON не вызывался
+	// → значение не доезжало до ядра + ложный ALERT CORE_MISCONFIGURATION.
+	if service.IsSysctlArmorActive() {
 		_ = service.ToggleSysctlProtocol("ON")
 	}
 
+	// Успех: строка уйдёт в CoreAlertMessage и подсветится зелёным.
 	return i18n.T.ViewCoreSettingsSuccessSaved
+}
+
+// formatCoreHelpText собирает справку: скелет в коде, текст в i18n (TD-2).
+// Числа (эталон/границы) приходят из спеки config — в словарях цифр нет.
+func formatCoreHelpText(doc i18n.SysctlHelpDoc, curVal, factoryVal, minVal, maxVal int) string {
+	if doc.ParamName == "" {
+		return i18n.T.CoreHelpSelectParam
+	}
+	return fmt.Sprintf(
+		" %s"+": "+"[%s](fg:green)\n"+
+			// Последний глагол = factoryVal (int из спеки). БЫЛО %s — тип сменился
+			// вместе с уходом DefaultVal (string) из словаря.
+			" %s [[ %d ]](fg:white,mod:bold) ([%s %d](fg:green))\n"+
+			" %s [[ %d ]](fg:yellow,mod:bold) %s [[ %d ]](fg:yellow,mod:bold)\n\n"+
+			"[%s](fg:yellow)\n [%s](fg:green)\n"+
+			"[%s](fg:yellow)\n [%s](fg:white)\n"+
+			"[%s](fg:yellow)\n [%s](fg:white) ",
+		i18n.T.ViewCoreSettingsLabelParam, doc.ParamName,
+		i18n.T.CoreDocCurVal, curVal,
+		// Эталон AGL и границы — из ведущего источника, не из словаря.
+		i18n.T.CoreDocFactory, factoryVal,
+		i18n.T.CoreDocLimit, minVal, i18n.T.CoreDocLimitTo, maxVal,
+		i18n.T.CoreDocDesc, doc.Description,
+		i18n.T.CoreDocAttack, doc.OnAttack,
+		i18n.T.CoreDocRisks, doc.Risks,
+	)
 }

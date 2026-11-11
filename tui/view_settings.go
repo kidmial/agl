@@ -224,7 +224,7 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 			// меню целиком помещается в кадр (17 строк из 18 доступных).
 			// Группировка держится цветом, а не воздухом.
 			// Разметка живёт в коде, а не в словаре (доктрина 6.7).
-			visibleRows = append(visibleRows, " ["+strings.TrimSpace(headerText)+"](fg:cyan,mod:bold)")
+			visibleRows = append(visibleRows, " ["+strings.TrimSpace(headerText)+"](fg:cyan)")
 			visibleLineCounter++
 			continue
 		}

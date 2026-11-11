@@ -35,6 +35,11 @@ func DrawTarpitLiveBoxGrid() []ui.Drawable {
 	LiveTable.Title = i18n.T.ViewTarpitLiveBoxListTitle
 	LiveTable.Rows = forensics.GetTarpitLiveRows()
 
+	// КОСМЕТИКА: добивка ПОСЛЕ каждой подмены строк.
+	// Вызов внутри синглтон-блока мёртв: присваивание Rows ниже
+	// перезаписывает массив свежими строками без пробелов.
+	padListRowsToWidth(LiveTable)
+
 	// СБРОС КУРСОРА СТРОГО ОДИН РАЗ — ПРИ РУЧНОМ ВХОДЕ НА ЭКРАН!
 	// Предотвращает залипание каретки выделения в хвосте списка при повторных сессиях.
 	LiveTable.SelectedRow = 0
@@ -54,5 +59,9 @@ func UpdateTarpitLiveBoxData() {
 	if LiveTable != nil {
 		// Подменяем исключительно массив строк, текущая позиция SelectedRow остается нетронутой в ОЗУ.
 		LiveTable.Rows = forensics.GetTarpitLiveRows()
+
+		// КОСМЕТИКА: свежий массив приходит без добивки. Без этой строки
+		// полоса выделения обрывалась бы на следующем же тике тикера.
+		padListRowsToWidth(LiveTable)
 	}
 }

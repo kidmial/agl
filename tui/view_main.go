@@ -832,7 +832,7 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	servicesBlock.Title = i18n.T.ViewMainServicesTitle
 	servicesBlock.BorderStyle.Fg = ui.ColorCyan
 	servicesBlock.TitleStyle.Fg = ui.ColorYellow
-	servicesBlock.TitleStyle.Modifier = ui.ModifierBold
+	// servicesBlock.TitleStyle.Modifier = ui.ModifierBold
 	servicesBlock.WrapText = false
 
 	stateOn := "fg:green,mod:bold"
@@ -950,7 +950,7 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	statsBlock.SetRect(2, 19, 102, 23)
 	statsBlock.BorderStyle.Fg = ui.ColorCyan
 	statsBlock.TitleStyle.Fg = ui.ColorYellow
-	statsBlock.TitleStyle.Modifier = ui.ModifierBold
+	// statsBlock.TitleStyle.Modifier = ui.ModifierBold
 	statsBlock.WrapText = false
 
 	// ─────────────────────────────────────────────────────────────
@@ -958,6 +958,8 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	// ─────────────────────────────────────────────────────────────
 	menuList := widgets.NewList()
 	menuList.Title = i18n.T.ViewMainMenuTitle
+	menuList.TitleStyle.Fg = ui.ColorYellow
+	// menuList.TitleStyle.Modifier = ui.ModifierBold
 	menuList.Rows = []string{
 		fmt.Sprintf(" SETTINGS      │ %s", i18n.T.ViewMainRowSettings),
 		fmt.Sprintf(" ANTIDDOS      │ %s", i18n.T.ViewMainRowAntiddos),
@@ -1011,7 +1013,7 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	logBlock.SetRect(2, 23, 102, 30)
 	logBlock.BorderStyle.Fg = ui.ColorCyan
 	logBlock.TitleStyle.Fg = ui.ColorYellow
-	logBlock.TitleStyle.Modifier = ui.ModifierBold
+	// logBlock.TitleStyle.Modifier = ui.ModifierBold
 	logBlock.WrapText = false
 
 	return []ui.Drawable{header, servicesBlock, menuList, statsBlock, logBlock}, len(menuList.Rows)
