@@ -429,6 +429,15 @@ type UITranslation struct {
 	ViewMainFallbackError      string
 	ViewMainFallbackZeroMb     string
 
+	// --- tui/view_main.go --- MENU ---
+	ViewMainLabelSettings    string
+	ViewMainLabelAntiddos    string
+	ViewMainLabelTarpit      string
+	ViewMainLabelMultiTarpit string
+	ViewMainLabelPortMap     string
+	ViewMainLabelBackup      string
+	ViewMainLabelExit        string
+
 	// --- tui/view_main.go (stats block) ---
 	StatsBlockTitle    string
 	StatsOpenPorts     string
@@ -622,6 +631,14 @@ type UITranslation struct {
 	ViewTarpitLiveBoxHeaderText string
 	ViewTarpitLiveBoxListTitle  string
 	ViewTarpitLiveBoxHintExit   string
+
+	// --- tui/view_tarpit.go --- MENU ---
+	ViewTarpitLabelLiveBox   string
+	ViewTarpitLabelMovePort  string
+	ViewTarpitLabelTarpitOn  string
+	ViewTarpitLabelTarpitOff string
+	ViewTarpitLabelHelp      string
+	ViewTarpitLabelBack      string
 
 	// --- tui/view_tarpit.go ---
 	ViewTarpitHeaderTitle            string

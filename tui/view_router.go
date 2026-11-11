@@ -94,11 +94,36 @@ func getAnalyticsHint(row int) string {
 //   - currentRow           — индекс выбранной строки в текущем меню.
 //   - formAlert            — текст ошибки/успеха для экрана SETTINGS.
 //   - settingsParentScreen — экран, из которого открыты настройки (для BACK).
+//   - scanInProgress — флаг активного сканирования периметра (v9.0.0).
+//   - scanStartedAt — момент показа заглушки (для проверки минимальной выдержки) (v9.0.0).
 type PanelState struct {
 	currentScreen        string
 	currentRow           int
 	formAlert            string
 	settingsParentScreen string
+	scanInProgress       bool
+	scanStartedAt        time.Time
+}
+
+// =====================================================================
+// МОДАЛЬНАЯ ЗАГЛУШКА СКАНИРОВАНИЯ ПЕРИМЕТРА (v9.0.0)
+// =====================================================================
+
+// scanLoadingMinVisible — нижняя граница видимости заглушки.
+// Тикер идёт раз в секунду, поэтому фактически кадр живёт 500..1500 мс.
+const scanLoadingMinVisible = 500 * time.Millisecond
+
+// renderScanLoadingBox рисует модальный бокс "СКАНИРОВАНИЕ БЕЗОПАСНОСТИ".
+// Единая точка сборки: геометрия, цвет рамки и markup заголовка только здесь.
+// ui.Clear НЕ вызывает — очистку экрана решает вызывающий контекст.
+func renderScanLoadingBox() {
+	loadingBox := widgets.NewParagraph()
+	// markup termui разбирается при рендере; i18n-строка остаётся чистым текстом
+	loadingBox.Text = "\n  [" + i18n.T.ViewRouterScanLoadingText + "](fg:white,mod:bold)\n  " + i18n.T.ViewRouterWaitText
+	loadingBox.SetRect(33, 10, 68, 16)
+	loadingBox.BorderStyle.Fg = ui.ColorYellow
+	loadingBox.WrapText = false
+	ui.Render(loadingBox)
 }
 
 // =====================================================================
@@ -240,6 +265,13 @@ func renderScreen(state *PanelState) {
 //
 // ОБНОВЛЕНО В v8.2.2 (п. 4.6): Извлечено из StartTarpitControlPanel.
 func handlePanelEvent(e ui.Event, state *PanelState) (shouldQuit bool) {
+	// === БЛОКИРОВКА СОБЫТИЙ ВО ВРЕМЯ ОТЛОЖЕННЫХ ОПЕРАЦИЙ (v9.0.0) ===
+	// Пока висит модальное окно заглушка (скан периметра), игнорируем все клавиши.
+	// Это защищает от случайных нажатий, которые могут сбить состояние UI.
+	if state.scanInProgress {
+		return false
+	}
+
 	// --- ОБРАБОТКА ИЗМЕНЕНИЯ РАЗМЕРА И ВОЗВРАТА ФОКУСА ОКНА ---
 	if e.ID == "<Resize>" || e.ID == "<FocusIn>" {
 		renderScreen(state)
@@ -932,35 +964,13 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 			selectedRowStr := GlobalArmorMenuRows[state.currentRow]
 			// Перехватываем клик по SCAN_PERIMETER ДО вызова HandleArmorMenuClick
 			if strings.Contains(selectedRowStr, "SCAN_PERIMETER") {
-				// 1. Показываем заглушку "Сканирую..."
 				ui.Clear()
-				loadingBox := widgets.NewParagraph()
-				loadingBox.Text = "\n  " + i18n.T.ViewRouterScanLoadingText + "\n  " + i18n.T.ViewRouterWaitText
-				loadingBox.SetRect(33, 10, 68, 16)
-				loadingBox.BorderStyle.Fg = ui.ColorYellow
-				loadingBox.WrapText = false
-				ui.Render(loadingBox)
-				// 2. Запускаем сканирование.
-				//
-				// v8.2.3 (R-3a): прямой вызов config.RunPerimeterInventoryScan()
-				// заменяем на сервисный слой service.RunPerimeterInventoryScan().
-				//
-				// Что это даёт:
-				//   - TUI больше не знает о деталях реализации сканера;
-				//   - сервисный слой может добавить контекст, метрики, таймауты;
-				//   - архитектурный контракт "TUI -> Service -> Config" восстановлен.
-				//
-				// Передаём context.Background(), так как сканирование асинхронное
-				// и не должно прерываться при выходе из TUI-панели.
-				if err := service.RunPerimeterInventoryScan(context.Background()); err != nil {
-					sys.LogAction("ARMOR_ROUTER", "SCAN_FAIL", "ERROR", err.Error())
-				} else {
-					sys.LogAction("ARMOR_ROUTER", "SCAN_SUCCESS", "SUCCESS", i18n.TrEvent("armor_router.scan_success"))
-				}
-				// 3. Перерисовываем экран Armor с актуальными данными
-				ui.Clear()
-				armorWidgets, _ := DrawArmorMenuGrid(state.currentRow, getArmorHint(state.currentRow))
-				ui.Render(armorWidgets...)
+				renderScanLoadingBox() // v9.0.0: заглушка с жирным заголовком
+
+				// Откладываем скан до следующего тика — так заглушка гарантированно
+				// проживёт не меньше scanLoadingMinVisible (500..1500 мс).
+				state.scanInProgress = true
+				state.scanStartedAt = time.Now()
 				return false
 			}
 		}
@@ -1027,6 +1037,30 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 //
 // ОБНОВЛЕНО В v8.2.2 (п. 4.6): Извлечено из StartTarpitControlPanel.
 func handlePanelTick(state *PanelState) {
+	// === ОБРАБОТКА ОТЛОЖЕННОГО СКАНИРОВАНИЯ ПЕРИМЕТРА (v9.0.0) ===
+	// Если установлен флаг scanInProgress, значит пользователь кликнул SCAN_PERIMETER,
+	// но мы отложили выполнение до следующего тика, чтобы заглушка была видна ≥500 мс.
+	if state.scanInProgress {
+		if time.Since(state.scanStartedAt) < scanLoadingMinVisible {
+			// Держим заглушку, защита от resize артефактов
+			ui.Clear()
+			renderScanLoadingBox()
+			return
+		}
+
+		// Выдержка соблюдена — выполняем скан через сервисный слой
+		if err := service.RunPerimeterInventoryScan(context.Background()); err != nil {
+			sys.LogAction("ARMOR_ROUTER", "SCAN_FAIL", "ERROR", err.Error())
+		} else {
+			sys.LogAction("ARMOR_ROUTER", "SCAN_SUCCESS", "SUCCESS", i18n.TrEvent("armor_router.scan_success"))
+		}
+
+		state.scanInProgress = false
+		state.scanStartedAt = time.Time{}
+		renderScreen(state) // currentScreen == "ARMOR" по контракту блокировки событий
+		return
+	}
+
 	// ФИКС v7.1.5: Изолируем тикер главного меню от сетевых структур ловушек
 	if state.currentScreen == "MAIN" {
 		renderScreen(state)

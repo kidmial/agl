@@ -950,7 +950,6 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	statsBlock.SetRect(2, 19, 102, 23)
 	statsBlock.BorderStyle.Fg = ui.ColorCyan
 	statsBlock.TitleStyle.Fg = ui.ColorYellow
-	// statsBlock.TitleStyle.Modifier = ui.ModifierBold
 	statsBlock.WrapText = false
 
 	// ─────────────────────────────────────────────────────────────
@@ -959,15 +958,16 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	menuList := widgets.NewList()
 	menuList.Title = i18n.T.ViewMainMenuTitle
 	menuList.TitleStyle.Fg = ui.ColorYellow
-	// menuList.TitleStyle.Modifier = ui.ModifierBold
+	// v9.0.0: паддинг до 15 символов в коде (не в словарях), геометрия живёт здесь.
+	// CONTRACT: метки берутся из i18n, формат "%-15s" добивает пробелами справа.
 	menuList.Rows = []string{
-		fmt.Sprintf(" SETTINGS      │ %s", i18n.T.ViewMainRowSettings),
-		fmt.Sprintf(" ANTIDDOS      │ %s", i18n.T.ViewMainRowAntiddos),
-		fmt.Sprintf(" CORE TRAP     │ %s", i18n.T.ViewMainRowTarpit),
-		fmt.Sprintf(" MULTI-TRAP    │ %s", i18n.T.ViewMainRowMultiTarpit),
-		fmt.Sprintf(" PORT MAP      │ %s", i18n.T.ViewMainRowPortMap),
-		fmt.Sprintf(" BACKUP        │ %s", i18n.T.ViewMainRowBackup),
-		fmt.Sprintf(" EXIT          │ %s", i18n.T.ViewMainRowExit),
+		fmt.Sprintf(" %-15s │ %s", i18n.T.ViewMainLabelSettings, i18n.T.ViewMainRowSettings),
+		fmt.Sprintf(" %-15s │ %s", i18n.T.ViewMainLabelAntiddos, i18n.T.ViewMainRowAntiddos),
+		fmt.Sprintf(" %-15s │ %s", i18n.T.ViewMainLabelTarpit, i18n.T.ViewMainRowTarpit),
+		fmt.Sprintf(" %-15s │ %s", i18n.T.ViewMainLabelMultiTarpit, i18n.T.ViewMainRowMultiTarpit),
+		fmt.Sprintf(" %-15s │ %s", i18n.T.ViewMainLabelPortMap, i18n.T.ViewMainRowPortMap),
+		fmt.Sprintf(" %-15s │ %s", i18n.T.ViewMainLabelBackup, i18n.T.ViewMainRowBackup),
+		fmt.Sprintf(" %-15s │ %s", i18n.T.ViewMainLabelExit, i18n.T.ViewMainRowExit),
 	}
 	menuList.SetRect(2, 10, 102, 19)
 

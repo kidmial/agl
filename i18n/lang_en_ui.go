@@ -48,7 +48,7 @@ func init() {
 		CoreHeaderDesc:          " Modification of kernel intervals and Anti-DDoS protection parameters │ [%s](fg:yellow) │ [%s](fg:yellow)",
 		CoreHeaderWarning:       " WARNING: Before changing kernel parameters, make sure you understand the consequences!",
 		CoreListTitle:           " Select a parameter to change or view help ",
-		CoreResetWarning:        "\n [ WARNING ]: Pressing ENTER will reset user 'armor_' values in config.json\n to the factory defense constants of Amber Guard Lab.\n (somaxconn=4096, fin_timeout=15, etc.).\n\n Current settings will be completely overwritten.",
+		CoreResetWarning:        "\n [ ATTENTION ]\n\n  Pressing this button will discard all user-defined changes, which will then be overwritten\n  by the Amber Guard Laboratory protective vector.\n\n  The system will revert to AGL standard combat constants for DDoS protection.\n\n  The configuration restoration process will take effect instantaneously.",
 		CoreBackText:            "\n Return to the previous perimeter firewall interface.",
 		CoreInfoBoxTitle:        " Interactive Linux Kernel Parameters Reference ",
 		CoreSysConsoleTitle:     " SYSTEM NAVIGATION CONSOLE ",
@@ -353,7 +353,7 @@ func init() {
 		ViewArmorListBack:             "Back to the main menu",
 		ViewArmorHeaderTitle:          " [ Anti DDoS Perimeter Protection Subsystem Amber Guard Lab. ] ",
 		ViewArmorListTitle:            " Management of packet filtering boundaries and kernel protection ",
-		ViewArmorInfoBoxTitle:         " Technical regulation of existing boundary ",
+		ViewArmorInfoBoxTitle:         " Parameter description ",
 		ViewArmorConsoleTitle:         " SYSTEM NAVIGATION CONSOLE ",
 		ViewArmorHeaderDesc:           "Perimeter Network Armor Dispatcher",
 		ViewArmorLabelNav:             "NAVIGATION",
@@ -384,7 +384,7 @@ func init() {
 		ViewCoreSettingsRowSomaxconn:         "Accept() queue of ready socket sessions",
 		ViewCoreSettingsRowMaxSynBacklog:     "Max queue of half-open SYN connections",
 		ViewCoreSettingsRowRpFilter:          "Reverse path filter (Spoofing protection)",
-		ViewCoreSettingsRowResetToFactory:    "RESET ALL PARAMETERS TO AMBER GUARD LAB FACTORY COMBAT SETTINGS",
+		ViewCoreSettingsRowResetToFactory:    "RESTORE AMBER GUARD ARMOR PROFILE",
 		ViewCoreSettingsRowBackToArmor:       "Return to the main menu of the Perimeter Armor",
 		ViewCoreSettingsEditModeTitle:        " [ KERNEL PARAMETER EDIT MODE ] ",
 		ViewCoreSettingsLabelParam:           "Parameter",
@@ -428,6 +428,15 @@ func init() {
 		ViewMainFallbackUnknownCpu: "Unknown CPU",
 		ViewMainFallbackError:      "Error",
 		ViewMainFallbackZeroMb:     "0 MB / 0 MB",
+
+		// --- tui/view_main.go --- MENU ---
+		ViewMainLabelSettings:    "SETTINGS",
+		ViewMainLabelAntiddos:    "ANTIDDOS",
+		ViewMainLabelTarpit:      "CORE TRAP",
+		ViewMainLabelMultiTarpit: "MULTI-TRAP",
+		ViewMainLabelPortMap:     "PORT MAP",
+		ViewMainLabelBackup:      "BACKUP",
+		ViewMainLabelExit:        "EXIT",
 
 		// --- tui/view_main.go (stats block) ---
 		StatsBlockTitle:    " Quick Statistics ",
@@ -473,7 +482,7 @@ func init() {
 		ViewMultiTarpitLabelDeclaredState:     "Declarative state",
 		ViewMultiTarpitLabelAdminWants:        "Sequence of operations under the hood",
 		ViewMultiTarpitLabelDaemonConfirmed:   "Daemon takes on this task.",
-		ViewMultiTarpitLabelMarkerOnDisk:      "Is being created marker on the disk",
+		ViewMultiTarpitLabelMarkerOnDisk:      "Created marker on the disk",
 		ViewMultiTarpitErrLoadInventoryPrefix: " [ERROR]: Failed to load trap inventory from ",
 		ViewMultiTarpitInventoryEmpty:         " [EMPTY]: The inventory contains no traps. Press [ ADD NEW TRAP ] to create one.",
 		ViewMultiTarpitColPort:                "Port",
@@ -527,7 +536,7 @@ func init() {
 		ViewRouterTrapActivatedSuccess:       "[SUCCESS] Trap activated.",
 		ViewRouterTrapPortReadOnly:           "Trap port is read-only.",
 		ViewRouterErrSavePrefix:              "SAVE ERROR: ",
-		ViewRouterScanLoadingText:            "SECURITY SCANNING",
+		ViewRouterScanLoadingText:            "PERIMETER SCANNING",
 		ViewRouterWaitText:                   "Please wait...",
 
 		// --- tui/view_settings.go ---
@@ -614,6 +623,14 @@ func init() {
 		ViewTarpitLiveBoxHeaderText: " Scanner Exhaustion and Analysis Chronicle (TARPIT_LIVE_BOX)",
 		ViewTarpitLiveBoxListTitle:  " Incident Chronicle (Fresh attacks on top) ",
 		ViewTarpitLiveBoxHintExit:   " [ Press ESC or Q to close LIVE_BOX and return ] ",
+
+		// --- tui/view_tarpit.go --- MENU ---
+		ViewTarpitLabelLiveBox:   "LIVE_BOX",
+		ViewTarpitLabelMovePort:  "MOVE_PORT",
+		ViewTarpitLabelTarpitOn:  "TARPIT_ON",
+		ViewTarpitLabelTarpitOff: "TARPIT_OFF",
+		ViewTarpitLabelHelp:      "HELP",
+		ViewTarpitLabelBack:      "BACK",
 
 		// --- tui/view_tarpit.go ---
 		ViewTarpitHeaderTitle:            "Control Panel \"Tar Pit\" (SSH Deception TRAP)",

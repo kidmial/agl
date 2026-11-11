@@ -59,6 +59,42 @@ var GlobalArmorMenuRows []string
 var ArmorHeader *widgets.Paragraph
 
 // ============================================================================
+// ГЕОМЕТРИЯ СТРОК МЕНЮ БРОНИ (v9.0.0)
+// ============================================================================
+
+// armorStatusTag строит ячейку статуса фиксированной видимой ширины 10 рун.
+// plain центрируется в поле 8: статусы 6 символов — по 1 пробелу, 4 — по 2.
+// style == "" — простой тег без разметки (SCAN/EDIT).
+// PURPOSE: единый источник геометрии статусов — хвостовые пробелы больше не дрейфуют.
+func armorStatusTag(plain, style string) string {
+	pad := 8 - len(plain) // статусы-константы ASCII, 4 или 6 символов
+	if pad < 0 {
+		pad = 0
+	}
+	left := pad / 2
+	tag := "[" + strings.Repeat(" ", left) + plain + strings.Repeat(" ", pad-left) + "]"
+	if style == "" {
+		return tag
+	}
+	// markup termui: внешние скобки включают внутренние в окрашенную область
+	return fmt.Sprintf("[%s](%s)", tag, style)
+}
+
+// armorRow собирает строку меню из трёх фикс-ячеек: тег(15) | статус(10) | описание.
+// v9.0.0: границы ячеек жёсткие — описание стартует с фикс-колонки
+// независимо от статуса и языка.
+func armorRow(tag, status, desc string) string {
+	return fmt.Sprintf(" %-15s │ %s │ %s", tag, status, desc)
+}
+
+// indentBlock добавляет отступ 1 руна слева к каждой строке текстового блока.
+// PURPOSE: у Paragraph нет left-padding — отступ живёт в строке.
+// CONTRACT: словари дают чистый текст с "\n"; отступ — геометрия, её добавляет код.
+func indentBlock(s string) string {
+	return " " + strings.ReplaceAll(s, "\n", "\n ")
+}
+
+// ============================================================================
 // ОТРИСОВКА ЭКРАНА БРОНИ
 // ============================================================================
 // DrawArmorMenuGrid отрисовывает интерактивную суб-панель Брони комплекса Amber Guard Lab v6.3.8.
@@ -111,18 +147,18 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	// --------------------------------------------------------------------------
 
 	// 1. Системный рубеж оптимизации ядра Linux (SYSCTL)
-	statusSysctl := "[[ ACTIVE ]](fg:green,mod:bold) "
+	statusSysctl := armorStatusTag("ACTIVE", "fg:green,mod:bold")
 	if errSysctl := service.CheckSysctlProtocol(); errSysctl != nil {
-		statusSysctl = "[[ DISARM ]](fg:red,mod:bold)"
+		statusSysctl = armorStatusTag("DISARM", "fg:red")
 	}
-	rows = append(rows, fmt.Sprintf(" SYSCTL          │ %s │ %s", statusSysctl, i18n.T.ViewArmorListSysctl))
+	rows = append(rows, armorRow("SYSCTL", statusSysctl, i18n.T.ViewArmorListSysctl))
 
 	// 2. НОВОЕ В v8.0.2: Кнопка пересканирования периметра (перенесена из SETTINGS)
 	// Размещена сразу после SYSCTL для быстрого доступа к актуализации инвентаря.
-	rows = append(rows, " SCAN_PERIMETER  │ [  SCAN  ] │ "+i18n.T.ViewArmorListScanPerimeter)
+	rows = append(rows, armorRow("SCAN_PERIMETER", armorStatusTag("SCAN", ""), i18n.T.ViewArmorListScanPerimeter))
 
 	// 3. Ссылка на подменю детальной настройки (CORE_SETTINGS)
-	rows = append(rows, " CORE_SETTINGS   │ [  EDIT  ] │ "+i18n.T.ViewArmorListCoreSettings)
+	rows = append(rows, armorRow("CORE_SETTINGS", armorStatusTag("EDIT", ""), i18n.T.ViewArmorListCoreSettings))
 
 	// -------------------------------------------------------------
 	// АВТО-ОБНАРУЖЕННЫЕ ПОРТЫ ИЗ ИНВЕНТАРЯ ПЕРИМЕТРА
@@ -145,19 +181,19 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 			tarpitRuntimeMarker := config.TarpitMarkerPath(target.Port)
 			var statusPort string
 			if _, errTarpit := os.Stat(tarpitRuntimeMarker); errTarpit == nil {
-				statusPort = "[[ TARPIT ]](fg:magenta,mod:bold)"
+				statusPort = armorStatusTag("TARPIT", "fg:magenta,mod:bold")
 			} else {
 				if errCheck := service.CheckArmorRouteStatus(target.UUID); errCheck == nil {
-					statusPort = "[[ ACTIVE ]](fg:green,mod:bold)"
+					statusPort = armorStatusTag("ACTIVE", "fg:green,mod:bold")
 				} else {
-					statusPort = "[[ DISARM ]](fg:red,mod:bold) "
+					statusPort = armorStatusTag("DISARM", "fg:red")
 				}
 			}
 			paddedSysTag := fmt.Sprintf("%-15s", strings.ToUpper(target.SysTag))
 			if len(paddedSysTag) > 15 {
 				paddedSysTag = paddedSysTag[:15]
 			}
-			rows = append(rows, fmt.Sprintf(" %s │ %s │ "+i18n.T.ViewArmorListManualPort, paddedSysTag, statusPort, target.Port, target.Service))
+			rows = append(rows, armorRow(paddedSysTag, statusPort, fmt.Sprintf(i18n.T.ViewArmorListManualPort, target.Port, target.Service)))
 		}
 	}
 
@@ -188,14 +224,14 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 			var statusPort string
 			// Приоритет статусов: TARPIT > ARMOR > DISARM
 			if _, errTarpit := os.Stat(tarpitRuntimeMarker); errTarpit == nil {
-				statusPort = "[[ TARPIT ]](fg:magenta,mod:bold)"
+				statusPort = armorStatusTag("TARPIT", "fg:magenta,mod:bold")
 			} else {
 				// Опрашиваем исключительно быстрый файл-маркер квитанции.
 				// Нагрузка на CPU падает до нуля, навигация становится мгновенной.
 				if _, errArmor := os.Stat(armorRuntimeMarker); errArmor == nil {
-					statusPort = "[[ ACTIVE ]](fg:green,mod:bold)"
+					statusPort = armorStatusTag("ACTIVE", "fg:green,mod:bold")
 				} else {
-					statusPort = "[[ DISARM ]](fg:red,mod:bold) "
+					statusPort = armorStatusTag("DISARM", "fg:red")
 				}
 			}
 
@@ -219,7 +255,8 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 			// rows = append(rows, fmt.Sprintf(" %s │ %s │ Найдена служба %s на порту %d (%s)",
 			// 	paddedID, statusPort, formattedAppName, defPort, appStateLabel))
 			// Новая версия вывода
-			rows = append(rows, fmt.Sprintf(" %s │ %s │ [ STATUS: %s ] %s", paddedID, statusPort, appStateLabel, displayName))
+			// %-7s под эталон STOPPED: LISTEN добивается пробелом, скобка и имя не пляшут
+			rows = append(rows, armorRow(paddedID, statusPort, fmt.Sprintf("[ STATUS: %-7s ] %s", appStateLabel, displayName)))
 		}
 	}
 
@@ -276,8 +313,8 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	// -------------------------------------------------------------
 	infoBox := widgets.NewParagraph()
 	infoBox.Title = i18n.T.ViewArmorInfoBoxTitle
-	infoBox.Text = generateHint(selectedRow) // Используем генератор, а не переданный текст
-	infoBox.SetRect(2, 18, 102, 25)          // ЖЕСТКАЯ ФИКСАЦИЯ
+	infoBox.Text = indentBlock(generateHint(selectedRow)) // отступ 1 руна на каждую строку
+	infoBox.SetRect(2, 18, 102, 25)                       // ЖЕСТКАЯ ФИКСАЦИЯ
 	infoBox.BorderStyle.Fg = ui.ColorYellow
 	infoBox.TextStyle.Fg = ui.ColorCyan
 	infoBox.WrapText = false

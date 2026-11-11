@@ -248,14 +248,16 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	// -------------------------------------------------------------
 	tarpitList := widgets.NewList()
 	tarpitList.Title = i18n.T.ViewTarpitListTitle
+	// v9.0.0: метки меню из i18n, паддинг до 10 символов (длина TARPIT_OFF).
+	// SETTINGS берём из общего ключа ViewMainLabelSettings (уже "SETTINGS").
 	tarpitList.Rows = []string{
-		fmt.Sprintf("  LIVE_BOX    │ %s", i18n.T.ViewTarpitRowLiveBoxDesc),
-		fmt.Sprintf("  SETTINGS    │ %s", i18n.T.ViewTarpitRowSettingsDesc),
-		fmt.Sprintf("  MOVE_PORT   │ "+i18n.T.ViewTarpitRowMovePortDesc, config.C.RealSshPort),
-		fmt.Sprintf("  TARPIT_ON   │ %s", i18n.T.ViewTarpitRowOnDesc),
-		fmt.Sprintf("  TARPIT_OFF  │ %s", i18n.T.ViewTarpitRowOffDesc),
-		fmt.Sprintf("  HELP        │ %s", i18n.T.ViewTarpitRowHelpDesc),
-		fmt.Sprintf("  BACK        │ %s", i18n.T.ViewTarpitRowBackDesc),
+		fmt.Sprintf("  %-18s  │ %s", i18n.T.ViewTarpitLabelLiveBox, i18n.T.ViewTarpitRowLiveBoxDesc),
+		fmt.Sprintf("  %-18s  │ %s", i18n.T.ViewMainLabelSettings, i18n.T.ViewTarpitRowSettingsDesc),
+		fmt.Sprintf("  %-18s  │ "+i18n.T.ViewTarpitRowMovePortDesc, i18n.T.ViewTarpitLabelMovePort, config.C.RealSshPort),
+		fmt.Sprintf("  %-18s  │ %s", i18n.T.ViewTarpitLabelTarpitOn, i18n.T.ViewTarpitRowOnDesc),
+		fmt.Sprintf("  %-18s  │ %s", i18n.T.ViewTarpitLabelTarpitOff, i18n.T.ViewTarpitRowOffDesc),
+		fmt.Sprintf("  %-18s  │ %s", i18n.T.ViewTarpitLabelHelp, i18n.T.ViewTarpitRowHelpDesc),
+		fmt.Sprintf("  %-18s  │ %s", i18n.T.ViewTarpitLabelBack, i18n.T.ViewTarpitRowBackDesc),
 	}
 	tarpitList.SetRect(2, 6, 102, 14)
 

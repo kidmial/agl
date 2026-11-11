@@ -48,7 +48,7 @@ func init() {
 		CoreHeaderDesc:          " Модификация интервалов ядра и параметров Анти-DDoS защиты │  [%s](fg:yellow)  │  [%s](fg:yellow) ",
 		CoreHeaderWarning:       " ПРЕДУПРЕЖДЕНИЕ: Прежде чем изменить параметр ядра, убедитесь что вы осведомлены о последствиях! ",
 		CoreListTitle:           " Выберите параметр для изменения или просмотра справки ",
-		CoreResetWarning:        "\n [ ВНИМАНИЕ ]: Нажатие ENTER сбросит пользовательские значения 'armor_' в config.json\n к эталонным оборонительным константам комплекса Amber Guard Lab.\n (somaxconn=4096, fin_timeou t=15 и т.д.).\n\n Текущие настройки будут полностью перезаписаны. ",
+		CoreResetWarning:        "\n [ ВНИМАНИЕ ]\n\n  Нажатие кнопки приведет к отмене всех пользовательских изменений и будут перезаписаны\n  защитным вектором Amber Guard Laboratory.\n\n  Система переключится на эталонные боевые константы AGL для защиты от DDoS-атак.\n\n  Процесс восстановления конфигурации будет осуществлен моментально.",
 		CoreBackText:            "\n Возврат в предыдущий интерфейс управления брандмауэром периметра. ",
 		CoreInfoBoxTitle:        " Интерактивный Справочник Параметров Ядра Linux  ",
 		CoreSysConsoleTitle:     " СИСТЕМНАЯ КОНСОЛЬ НАВИГАЦИИ ",
@@ -353,7 +353,7 @@ func init() {
 		ViewArmorListBack:             "Назад в главное меню",
 		ViewArmorHeaderTitle:          " [ Подсистема Anti DDoS Защиты Периметра Amber Guard Lab. ] ",
 		ViewArmorListTitle:            " Управление границами фильтрации пакетов и защитой ядра ",
-		ViewArmorInfoBoxTitle:         " Техническое регулирование существующей границы ",
+		ViewArmorInfoBoxTitle:         " Описание параметра ",
 		ViewArmorConsoleTitle:         " СИСТЕМНАЯ КОНСОЛЬ НАВИГАЦИИ ",
 		ViewArmorHeaderDesc:           "Диспетчер Сетевой Брони Периметра",
 		ViewArmorLabelNav:             "НАВИГАЦИЯ",
@@ -384,7 +384,7 @@ func init() {
 		ViewCoreSettingsRowSomaxconn:         "Очередь accept() готовых сессий сокетов",
 		ViewCoreSettingsRowMaxSynBacklog:     "Макс. очередь полуоткрытых SYN соединений",
 		ViewCoreSettingsRowRpFilter:          "Обратный фильтр маршрутов (защита от Spoofing)",
-		ViewCoreSettingsRowResetToFactory:    "СБРОСИТЬ ВСЕ ПАРАМЕТРЫ К ЭТАЛОННЫМ БОЕВЫМ НАСТРОЙКАМ AMBER GUARD LAB",
+		ViewCoreSettingsRowResetToFactory:    "ВОССТАНОВИТЬ БОЕВОЙ ПРОФИЛЬ AMBER GUARD",
 		ViewCoreSettingsRowBackToArmor:       "Вернуться в главное меню Брони Периметра",
 		ViewCoreSettingsEditModeTitle:        " [ РЕЖИМ ИЗМЕНЕНИЯ ПАРАМЕТРА ЯДРА ] ",
 		ViewCoreSettingsLabelParam:           "Параметр",
@@ -428,6 +428,15 @@ func init() {
 		ViewMainFallbackUnknownCpu: "Неизвестный ЦП",
 		ViewMainFallbackError:      "Ошибка",
 		ViewMainFallbackZeroMb:     "0 MB / 0 MB",
+
+		// --- tui/view_main.go --- MENU ---
+		ViewMainLabelSettings:    "НАСТРОЙКИ",
+		ViewMainLabelAntiddos:    "ANTIDDOS",
+		ViewMainLabelTarpit:      "CORE ЛОВУШКА",
+		ViewMainLabelMultiTarpit: "МУЛЬТИ ЛОВУШКИ",
+		ViewMainLabelPortMap:     "КАРТА ПОРТОВ",
+		ViewMainLabelBackup:      "АРХИВАЦИЯ",
+		ViewMainLabelExit:        "ВЫХОД",
 
 		// --- tui/view_main.go (stats block) ---
 		StatsBlockTitle:    " Краткая Статистика ",
@@ -473,7 +482,7 @@ func init() {
 		ViewMultiTarpitLabelDeclaredState:     "Декларативный стейт",
 		ViewMultiTarpitLabelAdminWants:        "Очерёдность операций под капотом",
 		ViewMultiTarpitLabelDaemonConfirmed:   "Демон исполняет эту задачу",
-		ViewMultiTarpitLabelMarkerOnDisk:      "Создаётся Маркер на диске",
+		ViewMultiTarpitLabelMarkerOnDisk:      "Создан Маркер на диске",
 		ViewMultiTarpitErrLoadInventoryPrefix: " [ОШИБКА]: Не удалось загрузить инвентарь ловушек из ",
 		ViewMultiTarpitInventoryEmpty:         " [ПУСТО]: В инвентаре нет ни одной ловушки. Нажмите [ ADD NEW TRAP ] для создания.",
 		ViewMultiTarpitColPort:                "Порт",
@@ -527,8 +536,8 @@ func init() {
 		ViewRouterTrapActivatedSuccess:       "[УСПЕХ] Ловушка активирована.",
 		ViewRouterTrapPortReadOnly:           "Порт ловушки доступен только для чтения.",
 		ViewRouterErrSavePrefix:              "ОШИБКА СОХРАНЕНИЯ: ",
-		ViewRouterScanLoadingText:            "СКАНИРОВАНИЕ БЕЗОПАСНОСТИ",
-		ViewRouterWaitText:                   "Пожалуйста, подождите.",
+		ViewRouterScanLoadingText:            "СКАНИРОВАНИЕ ПЕРИМЕТРА",
+		ViewRouterWaitText:                   "Пожалуйста, подождите...",
 
 		// --- tui/view_settings.go ---
 		ViewSettingsErrPasswordTooShort:          "Пароль слишком короткий! Минимум 8 символов — это канал спасения.",
@@ -614,6 +623,14 @@ func init() {
 		ViewTarpitLiveBoxHeaderText: " Хроника Истощения и Анализа Сканеров (TARPIT_LIVE_BOX)",
 		ViewTarpitLiveBoxListTitle:  " Хроника инцидентов (Свежие атаки сверху) ",
 		ViewTarpitLiveBoxHintExit:   " [ Нажмите ESC или Q для закрытия LIVE_BOX и возврата ] ",
+
+		// --- tui/view_tarpit.go --- MENU ---
+		ViewTarpitLabelLiveBox:   "СОБЫТИЯ",
+		ViewTarpitLabelMovePort:  "ПЕРЕЕЗД SSH",
+		ViewTarpitLabelTarpitOn:  "ВКЛЮЧЕНИЕ ЛОВУШКИ",
+		ViewTarpitLabelTarpitOff: "ВЫКЛЮЧЕНИЕ ЛОВУШКИ",
+		ViewTarpitLabelHelp:      "СПРАВКА",
+		ViewTarpitLabelBack:      "НАЗАД",
 
 		// --- tui/view_tarpit.go ---
 		ViewTarpitHeaderTitle:            "Контрольная Панель «Дегтярная Яма» (SSH Deception Tar-pit)",
