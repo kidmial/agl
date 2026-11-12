@@ -2,6 +2,8 @@
 package tui
 
 import (
+	"fmt"
+
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
 
@@ -16,11 +18,10 @@ var LiveTable *widgets.List
 // DrawTarpitLiveBoxGrid вызывается первично при интерактивном входе администратора в окно.
 // Нативно инициализирует List-компонент termui и осуществляет жесткий сброс курсора на нулевую строку.
 func DrawTarpitLiveBoxGrid() []ui.Drawable {
-	header := widgets.NewParagraph()
-	header.Text = i18n.T.ViewTarpitLiveBoxHeaderText
-	header.SetRect(2, 1, 102, 4)
-	header.BorderStyle.Fg = ui.ColorCyan
-	header.TextStyle.Fg = ui.ColorYellow
+	// v9.0.0: единая шапка; титул экрана переиспользует ключ титула таблицы.
+	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.ViewTarpitLiveBoxListTitle), 2, 1, 102, 4)
+	header.Text = " " + i18n.T.ViewTarpitLiveBoxHeaderText
+	header.TextStyle.Fg = ui.ColorCyan
 
 	// ПАТТЕРН СИНГЛТОН: Инициализируем List-виджет строго один раз в памяти ОЗУ.
 	// Это гарантирует стабильность ссылки для фонового секундного тикера рендерера.

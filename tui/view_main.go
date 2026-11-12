@@ -642,20 +642,9 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	// 1. ШАПКА (3 строки: y: 1-4)
 	// ─────────────────────────────────────────────────────────────
 	// v9.0.0: ШАПКА + СИСТЕМНЫЙ ПАСПОРТ объединены (макет строки 01-05).
-	header := widgets.NewParagraph()
-	// v9.0.0: ДАТА/ВРЕМЯ НА ЛИНИИ ТИТУЛА (макет строка 01), единый стиль TitleStyle.
-	// CONTRACT: титульная область = 96 рун (эмпирика): дефисы рамки дорисовывают
-	// хвост сами, дата встаёт вплотную к правому краю с одним дефисом перед уголком.
-	now := time.Now()
-	titleLeft := fmt.Sprintf(" Amber Guard Laboratory - %s ", buildinfo.Version)
-	titleRight := fmt.Sprintf(" %s: %s | %s: %s ",
-		i18n.T.ViewMainLabelDate, now.Format("2006-01-02"),
-		i18n.T.ViewMainLabelTime, now.Format("15:04:05"))
-	padRunes := 96 - utf8.RuneCountInString(titleLeft) - utf8.RuneCountInString(titleRight)
-	if padRunes < 1 {
-		padRunes = 1
-	}
-	header.Title = titleLeft + strings.Repeat("─", padRunes) + titleRight
+	// v9.0.0: единый построитель шапки (helpers.go) — эталон всех экранов.
+	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrand, buildinfo.Version), 2, 1, 102, 5)
+
 	// v9.0.0: ПРАВЫЙ КРАЙ ШАПКИ — опция A и статус паролей (макет строки 02-03).
 	// PURPOSE: две охранно-критичные декларации видны без входа в SETTINGS:
 	// доступ админа по IP и установленность обоих паролей канала спасения.

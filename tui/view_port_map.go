@@ -20,14 +20,9 @@ import (
 // ГЕОМЕТРИЯ v6.4.1: Высота блока сокетов жестко зажата на 13 строк для предотвращения мерцания сетки.
 func DrawPortMapGrid(selectedRow int) ([]ui.Drawable, int, []config.AppInventoryItem) {
 	// 1. Верхний текстовый блок заголовка (Высота 4 строки: y: 1 - 5)
-	header := widgets.NewParagraph()
-	header.Title = fmt.Sprintf(" [ %s │ PORT_MAP ] ", i18n.T.ViewPortMapHeaderTitle)
-	header.Text = i18n.T.ViewPortMapHeaderDesc
-	header.SetRect(2, 1, 102, 5)
-	header.BorderStyle.Fg = ui.ColorCyan
-	header.TitleStyle.Fg = ui.ColorYellow
-	header.TitleStyle.Modifier = ui.ModifierBold
-	header.WrapText = false
+	// v9.0.0: единая шапка; описание экрана остаётся в теле.
+	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.ViewPortMapHeaderTitle), 2, 1, 102, 5)
+	header.Text = " " + i18n.T.ViewPortMapHeaderDesc
 
 	// Загружаем сырой инвентарь напрямую из файла через стабильный бэкенд config_inventory.go.
 	// Используем приватный метод через обертку или создаем безопасный срез.

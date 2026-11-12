@@ -73,9 +73,6 @@ func expireCoreAlert() {
 // GlobalCoreMenuRows хранит идентификаторы строк для роутера кликов
 var GlobalCoreMenuRows []string
 
-// CoreHeader — синглтон шапки экрана настроек ядра
-var CoreHeader *widgets.Paragraph
-
 // DrawCoreSettingsGrid отрисовывает фиксированный экран тюнинга ядра (CORE_SETTINGS)
 func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	// Гасим старый успех ДО формирования консоли навигации.
@@ -96,31 +93,16 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	menuRows = append(menuRows, " BACK_TO_ARMOR          │ "+i18n.T.ViewCoreSettingsRowBackToArmor)
 	GlobalCoreMenuRows = menuRows
 
-	// 1. Фиксированная шапка (Высота 3 строки)
-	if CoreHeader == nil {
-		CoreHeader = widgets.NewParagraph()
-		CoreHeader.SetRect(2, 1, 102, 5)
-		CoreHeader.BorderStyle.Fg = ui.ColorCyan
-		CoreHeader.TitleStyle.Fg = ui.ColorCyan
-		CoreHeader.TitleStyle.Modifier = ui.ModifierBold
-	}
-	timeStr := time.Now().Format("15:04:05")
-	dateStr := time.Now().Format("2006-01-02")
-
-	// Форматируем основной текст шапки
-	mainText := fmt.Sprintf(i18n.T.CoreHeaderDesc, dateStr, timeStr)
-
-	// Добавляем предупреждение внизу основного текста
-	CoreHeader.Text = mainText + "\n" + i18n.T.CoreHeaderWarning
-
-	CoreHeader.Title = i18n.T.CoreTitleText
-	CoreHeader.WrapText = false // Отключает автоперенос
+	// v9.0.0: единая шапка; предупреждение — единственная строка тела.
+	// Дата/время живут на линии титула.
+	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.CoreTitleText), 2, 1, 102, 4)
+	header.Text = " " + i18n.T.CoreHeaderWarning
 
 	// 2. Верхний блок: Слайдер-список параметров (Высота 7 строк)
 	coreList := widgets.NewList()
 	coreList.Title = i18n.T.CoreListTitle
 	coreList.Rows = menuRows
-	coreList.SetRect(2, 5, 102, 13)
+	coreList.SetRect(2, 4, 102, 15) // v9.0.0: все 9 строк меню без скролла
 	coreList.BorderStyle.Fg = ui.ColorCyan
 
 	// КОСМЕТИКА: полоса выделения до правого края. После SetRect.
@@ -147,7 +129,7 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	infoBox := widgets.NewParagraph()
 	infoBox.Title = i18n.T.CoreInfoBoxTitle
 	infoBox.Text = helpText
-	infoBox.SetRect(2, 13, 102, 25)
+	infoBox.SetRect(2, 15, 102, 25)
 	infoBox.BorderStyle.Fg = ui.ColorYellow
 	infoBox.TextStyle.Fg = ui.ColorCyan
 	infoBox.WrapText = false // Отключает автоперенос
@@ -188,7 +170,7 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 		}
 	}
 
-	return []ui.Drawable{CoreHeader, coreList, infoBox, sysConsole}, len(coreList.Rows)
+	return []ui.Drawable{header, coreList, infoBox, sysConsole}, len(coreList.Rows)
 }
 
 // SaveCoreSettingToDisk выполняет валидацию ИБ-границ и атомарную перезапись config.json

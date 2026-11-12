@@ -44,8 +44,7 @@ func init() {
 		TarpitHintSettings:      "[SETTINGS]: Access the timeout, jitter, and network configuration editor. ",
 		TarpitHintProtocol:      "[HELP]: Display interactive security help and documentation for the TRAP Lab Deception protocol. ",
 		TarpitHintMove:          "[ACTION]: Move real SSH to hidden port. Isolate port 22. ",
-		CoreTitleText:           " [ System Configuration Section: CORE_SETTINGS ] ",
-		CoreHeaderDesc:          " Modification of kernel intervals and Anti-DDoS protection parameters │ [%s](fg:yellow) │ [%s](fg:yellow)",
+		CoreTitleText:           "Kernel Configuration Section",
 		CoreHeaderWarning:       " WARNING: Before changing kernel parameters, make sure you understand the consequences!",
 		CoreListTitle:           " Select a parameter to change or view help ",
 		CoreResetWarning:        "\n [ ATTENTION ]\n\n  Pressing this button will discard all user-defined changes, which will then be overwritten\n  by the Amber Guard Laboratory protective vector.\n\n  The system will revert to AGL standard combat constants for DDoS protection.\n\n  The configuration restoration process will take effect instantaneously.",
@@ -351,7 +350,7 @@ func init() {
 		ViewArmorListArmorOn:          "ENABLE FULL ARMOR OF ALL DEFENSE PERIMETERS",
 		ViewArmorListArmorOff:         "DISABLE AND RESET ALL NETWORK PROTECTION",
 		ViewArmorListBack:             "Back to the main menu",
-		ViewArmorHeaderTitle:          " [ Anti DDoS Perimeter Protection Subsystem Amber Guard Lab. ] ",
+		ViewArmorHeaderTitle:          "Anti DDoS Perimeter Protection Subsystem",
 		ViewArmorListTitle:            " Management of packet filtering boundaries and kernel protection ",
 		ViewArmorInfoBoxTitle:         " Parameter description ",
 		ViewArmorConsoleTitle:         " SYSTEM NAVIGATION CONSOLE ",
@@ -477,7 +476,7 @@ func init() {
 		ViewMainLabelTrappedNow:  "Trapped now",
 
 		// --- tui/view_multi_tarpit.go ---
-		ViewMultiTarpitHeaderTitle:            " Amber Guard Laboratory - Distributed Multi-Trap Pool - MULTI-TARPIT ",
+		ViewMultiTarpitHeaderTitle:            "Distributed Multi-Trap Pool",
 		ViewMultiTarpitHeaderDesc:             "───────────────────── Managing active traps to emulate legitimate services ─────────────────────",
 		ViewMultiTarpitLabelDeclaredState:     "Declarative state",
 		ViewMultiTarpitLabelAdminWants:        "Sequence of operations under the hood",
@@ -592,9 +591,7 @@ func init() {
 		SettingsLabelWebPanelPassword:            "Set Web Statistics Panel Password.",
 		SettingsLabelBack:                        "Back to Main Menu",
 		SettingsUiTitleBox:                       " Amber Guard Laboratory ",
-		SettingsUiHeaderDesc:                     "Global Perimeter Configuration (SETTINGS) ",
-		SettingsUiFormTitle:                      " Modification of Ports, Kernel, Limits, and Service Protocols ",
-		SettingsUiEditingMode:                    " PARAMETER EDITING MODE ",
+		SettingsUiFormTitle:                      "Global Perimeter Configuration",
 		SettingsUiEnterNew:                       "Enter new value  ",
 		SettingsUiInputPrompt:                    "VALUE  ",
 		SettingsUiHintNav1:                       "[ NAVIGATION ]: ↑/↓ Arrows | [ MODIFY ]: Press ENTER to edit value,\n or [ 0 ] / [ 1 ] for changes (←/→)",
@@ -652,7 +649,7 @@ func init() {
 		ViewTarpitLabelBack:      "BACK",
 
 		// --- tui/view_tarpit.go ---
-		ViewTarpitHeaderTitle:            "Control Panel \"Tar Pit\" (SSH Deception TRAP)",
+		ViewTarpitHeaderTitle:            "«Tar Pit» - CORE TRAP Control Panel)",
 		ViewTarpitLabelCurrentSshPort:    "Current OpenSSH port:",
 		ViewTarpitLabelCastling:          "       Castling:",
 		ViewTarpitLabelJitterSec:         "Trap jitter sec:",
@@ -719,9 +716,7 @@ func init() {
 		ViewTrapCardHintInfoPrefix: "INFO",
 
 		// --- tui/view_trap_creator.go ---
-		ViewTrapCreatorHeaderTitle:            "Multi-Tarpit Pool Configurator",
-		ViewTrapCreatorLabelDate:              "Current date",
-		ViewTrapCreatorLabelTime:              "System time",
+		ViewTrapCreatorHeaderTitle:            "New Trap Configurator Wizard",
 		ViewTrapCreatorHeaderDesc1:            "Configuring the parameters of the trap being created.",
 		ViewTrapCreatorHeaderDesc2:            "All traps from this wizard have the is_core = false flag (multi-traps).",
 		ViewTrapCreatorListTitle:              " Linear-interactive list of modifiable worker parameters: ",
@@ -784,8 +779,6 @@ func init() {
 		ViewTrapEditorRowCancel:              "Discard changes and return to the card",
 		ViewTrapEditorHeaderTitle:            "Trap Editor",
 		ViewTrapEditorLabelPort:              "Port",
-		ViewTrapEditorLabelDate:              "Date",
-		ViewTrapEditorLabelTime:              "Time",
 		ViewTrapEditorHeaderDesc1:            "Editing parameters of an existing trap. Port is fixed.",
 		ViewTrapEditorHeaderDesc2:            "Changes are applied via atomic write to the inventory (POSIX).",
 		ViewTrapEditorListTitle:              " Trap parameters (port — read-only): ",

@@ -34,7 +34,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"agl/i18n"
@@ -118,22 +117,9 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 	// -------------------------------------------------------------
 	// ШАПКА
 	// -------------------------------------------------------------
-	header := widgets.NewParagraph()
-	header.Title = fmt.Sprintf(" [ %s │ %s %d ] ", i18n.T.ViewTrapEditorHeaderTitle, i18n.T.ViewTrapEditorLabelPort, TrapEditDraft.Port)
-	timeStr := time.Now().Format("15:04:05")
-	dateStr := time.Now().Format("2006-01-02")
-	header.Text = fmt.Sprintf(
-		"  %s: [%s](fg:yellow,mod:bold)  │  %s: [%s](fg:yellow,mod:bold)\n"+
-			"  %s\n"+
-			"  %s",
-		i18n.T.ViewTrapEditorLabelDate, dateStr, i18n.T.ViewTrapEditorLabelTime, timeStr,
-		i18n.T.ViewTrapEditorHeaderDesc1,
-		i18n.T.ViewTrapEditorHeaderDesc2)
-	header.SetRect(2, 1, 102, 5)
-	header.BorderStyle.Fg = ui.ColorCyan
-	header.TitleStyle.Fg = ui.ColorYellow
-	header.TitleStyle.Modifier = ui.ModifierBold
-	header.WrapText = false
+	// v9.0.0: единая шапка; порт остаётся частью левого текста титула.
+	header := newScreenHeader(fmt.Sprintf("%s - %s │ %s %d", HeaderBrandShort, i18n.T.ViewTrapEditorHeaderTitle, i18n.T.ViewTrapEditorLabelPort, TrapEditDraft.Port), 2, 1, 102, 5)
+	header.Text = "  " + i18n.T.ViewTrapEditorHeaderDesc1 + "\n  " + i18n.T.ViewTrapEditorHeaderDesc2
 
 	// -------------------------------------------------------------
 	// СПИСОК ПАРАМЕТРОВ

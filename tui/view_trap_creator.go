@@ -41,7 +41,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"agl/config"
@@ -195,24 +194,11 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 		fmt.Sprintf(" [ CANCEL ]                           │ %s", i18n.T.ViewTrapCreatorRowCancel))
 
 	// -------------------------------------------------------------
-	// 1. ФИКСИРОВАННАЯ ШАПКА МАСТЕРА (Высота 3 строки)
+	// 1. ФИКСИРОВАННАЯ ШАПКА МАСТЕРА
 	// -------------------------------------------------------------
-	header := widgets.NewParagraph()
-	header.Title = fmt.Sprintf(" [ %s │ TRAP_CREATOR ] ", i18n.T.ViewTrapCreatorHeaderTitle)
-	timeStr := time.Now().Format("15:04:05")
-	dateStr := time.Now().Format("2006-01-02")
-	header.Text = fmt.Sprintf(
-		"  %s: [%s](fg:yellow,mod:bold)  │  %s: [%s](fg:yellow,mod:bold)\n"+
-			"  %s\n"+
-			"  %s",
-		i18n.T.ViewTrapCreatorLabelDate, dateStr, i18n.T.ViewTrapCreatorLabelTime, timeStr,
-		i18n.T.ViewTrapCreatorHeaderDesc1,
-		i18n.T.ViewTrapCreatorHeaderDesc2)
-	header.SetRect(2, 1, 102, 5)
-	header.BorderStyle.Fg = ui.ColorCyan
-	header.TitleStyle.Fg = ui.ColorYellow
-	header.TitleStyle.Modifier = ui.ModifierBold
-	header.WrapText = false
+	// v9.0.0: единая шапка; дата/время на титуле, тело несёт только описания.
+	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.ViewTrapCreatorHeaderTitle), 2, 1, 102, 5)
+	header.Text = "  " + i18n.T.ViewTrapCreatorHeaderDesc1 + "\n  " + i18n.T.ViewTrapCreatorHeaderDesc2
 
 	// -------------------------------------------------------------
 	// 2. БЛОК СПИСКА ПАРАМЕТРОВ (Высота 9 строк)

@@ -9,7 +9,6 @@ import (
 
 	// "path/filepath" // Добавлен для вычисления абсолютных траекторий config.json
 	"agl/config"
-	"agl/internal/buildinfo"
 	"agl/internal/service" // Интегрируем пакет брони для проверки active-маркеров рантайма
 	"regexp"
 	"strconv"
@@ -194,24 +193,14 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 		lastAlertMessage = ""
 	}
 
-	// 1. Сборка верхней информационной шапки
-	header := widgets.NewList()
-	// header.Title = i18n.T.SettingsUiTitleBox
-	header.Title = fmt.Sprintf(" Amber Guard Laboratory - %s ", buildinfo.Version)
-	header.Rows = []string{" " + i18n.T.SettingsUiHeaderDesc}
-	// ЖЕСТКАЯ ФИКСАЦИЯ КООРДИНАТ
-	header.SetRect(2, 1, 102, 4)
-	header.BorderStyle.Fg = ui.ColorCyan
-	header.TitleStyle.Fg = ui.ColorYellow
-	header.TextStyle.Fg = ui.ColorYellow
-	header.TextStyle.Modifier = ui.ModifierBold
-
-	// 2. Сборка центрального интерактивного блока параметров
+	// v9.0.0: единственный основной блок экрана (макет): титул несёт
+	// бренд+титул+дату/время, тело стартует сразу с групповых разделителей.
 	formBox := widgets.NewList()
-	formBox.Title = i18n.T.SettingsUiFormTitle
-	// ЖЕСТКАЯ ФИКСАЦИЯ КООРДИНАТ (ВЫСОТА ДО 23 СТРОКИ)
-	formBox.SetRect(2, 4, 102, 24)
+	formBox.Title = screenTitleLine(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.SettingsUiFormTitle))
+	formBox.SetRect(2, 1, 102, 24)
 	formBox.BorderStyle.Fg = ui.ColorCyan
+	formBox.TitleStyle.Fg = ui.ColorCyan
+	formBox.TitleStyle.Modifier = ui.ModifierBold
 	formBox.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
 
 	// Ширина блока известна до сборки строк: разделители групп добиваются до неё.
@@ -278,7 +267,8 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	statusBox := widgets.NewParagraph()
 	statusBox.SetRect(2, 24, 102, 30)
 	if IsEditMode {
-		statusBox.Title = i18n.T.SettingsUiEditingMode
+		// v9.0.0: единый титул консоли; режим ввода говорят сами строки приглашения.
+		statusBox.Title = i18n.T.SettingsUiStatusConsoleTitle
 		currentItem := SettingsRegistry[ActiveRowIndex]
 		label := currentItem.Label()
 		statusBox.Text = fmt.Sprintf("  %s: [ %s ]\n  %s: [ %s_ ](fg:white,mod:bold)",
@@ -315,7 +305,7 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 			statusBox.WrapText = false
 		}
 	}
-	return []ui.Drawable{header, formBox, statusBox}
+	return []ui.Drawable{formBox, statusBox}
 }
 
 // HandleSettingsNavigation обрабатывает транзакционные перемещения и клики по кнопкам

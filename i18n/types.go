@@ -58,7 +58,6 @@ type UITranslation struct {
 	TarpitHintProtocol      string
 	TarpitHintMove          string
 	CoreTitleText           string
-	CoreHeaderDesc          string
 	CoreHeaderWarning       string
 	CoreListTitle           string
 	CoreResetWarning        string
@@ -594,9 +593,7 @@ type UITranslation struct {
 	SettingsLabelWebPanelPassword     string // Пароль веб-панели статистики
 	SettingsLabelBack                 string
 	SettingsUiTitleBox                string
-	SettingsUiHeaderDesc              string
 	SettingsUiFormTitle               string
-	SettingsUiEditingMode             string
 	SettingsUiEnterNew                string
 	SettingsUiInputPrompt             string
 	SettingsUiHintNav1                string
@@ -728,8 +725,6 @@ type UITranslation struct {
 
 	// --- tui/view_trap_creator.go ---
 	ViewTrapCreatorHeaderTitle            string
-	ViewTrapCreatorLabelDate              string
-	ViewTrapCreatorLabelTime              string
 	ViewTrapCreatorHeaderDesc1            string
 	ViewTrapCreatorHeaderDesc2            string
 	ViewTrapCreatorListTitle              string
@@ -792,8 +787,6 @@ type UITranslation struct {
 	ViewTrapEditorRowCancel              string
 	ViewTrapEditorHeaderTitle            string
 	ViewTrapEditorLabelPort              string
-	ViewTrapEditorLabelDate              string
-	ViewTrapEditorLabelTime              string
 	ViewTrapEditorHeaderDesc1            string
 	ViewTrapEditorHeaderDesc2            string
 	ViewTrapEditorListTitle              string

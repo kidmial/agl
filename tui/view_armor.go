@@ -41,7 +41,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
@@ -54,9 +53,6 @@ import (
 // GlobalArmorMenuRows удерживает актуальный динамический маппинг строк меню
 // для корректной маршрутизации кликов в view_router.go.
 var GlobalArmorMenuRows []string
-
-// ArmorHeader — глобальный указатель на шапку панели (синглтон).
-var ArmorHeader *widgets.Paragraph
 
 // ============================================================================
 // ГЕОМЕТРИЯ СТРОК МЕНЮ БРОНИ (v9.0.0)
@@ -270,20 +266,10 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	// Синхронизируем строки с глобальной памятью для роутера клавиш
 	GlobalArmorMenuRows = rows
 
-	// -------------------------------------------------------------
-	// ИНИЦИАЛИЗАЦИЯ ШАПКИ (Синглтон, Высота 3 строки: y: 1 - 4)
-	// -------------------------------------------------------------
-	if ArmorHeader == nil {
-		ArmorHeader = widgets.NewParagraph()
-		ArmorHeader.SetRect(2, 1, 102, 4) // ЖЕСТКАЯ ФИКСАЦИЯ
-		ArmorHeader.BorderStyle.Fg = ui.ColorCyan
-		ArmorHeader.TitleStyle.Fg = ui.ColorCyan
-		ArmorHeader.TitleStyle.Modifier = ui.ModifierBold
-	}
-	timeStr := time.Now().Format("15:04:05")
-	dateStr := time.Now().Format("2006-01-02")
-	ArmorHeader.Title = i18n.T.ViewArmorHeaderTitle
-	ArmorHeader.Text = fmt.Sprintf(" %s │ [%s](fg:yellow,mod:bold) │ [%s](fg:yellow,mod:bold)", i18n.T.ViewArmorHeaderDesc, dateStr, timeStr)
+	// v9.0.0: единая шапка: AGL + титул + дата/время на линии титула.
+	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.ViewArmorHeaderTitle), 2, 1, 102, 4)
+	// Дата/время ушли на титул: тело несёт только описание, без жёлтого.
+	header.Text = " " + i18n.T.ViewArmorHeaderDesc
 
 	// -------------------------------------------------------------
 	// СПИСОК МЕНЮ (Фиксированная высота 14 строк: y: 4 - 18)
@@ -330,5 +316,5 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	sysConsole.TextStyle.Fg = ui.ColorCyan
 	sysConsole.WrapText = false
 
-	return []ui.Drawable{ArmorHeader, armorList, infoBox, sysConsole}, len(armorList.Rows)
+	return []ui.Drawable{header, armorList, infoBox, sysConsole}, len(armorList.Rows)
 }

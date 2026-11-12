@@ -44,8 +44,7 @@ func init() {
 		TarpitHintSettings:      "[НАСТРОЙКИ]: Перейти в диспетчер редактирования тайм-аутов, джиттера и сетевых конфигов ",
 		TarpitHintProtocol:      "[СПРАВКА]: Вывод интерактивной ИБ-справки и документации протокола Deception Tarpit Lab ",
 		TarpitHintMove:          "[ДЕЙСТВИЕ]: Перенос реального SSH на скрытый порт. Изоляция порта 22. ",
-		CoreTitleText:           " [ Раздел Конфигурации Системы: CORE_SETTINGS ]  ",
-		CoreHeaderDesc:          " Модификация интервалов ядра и параметров Анти-DDoS защиты │  [%s](fg:yellow)  │  [%s](fg:yellow) ",
+		CoreTitleText:           "Конфигурация Ядра Системы",
 		CoreHeaderWarning:       " ПРЕДУПРЕЖДЕНИЕ: Прежде чем изменить параметр ядра, убедитесь что вы осведомлены о последствиях! ",
 		CoreListTitle:           " Выберите параметр для изменения или просмотра справки ",
 		CoreResetWarning:        "\n [ ВНИМАНИЕ ]\n\n  Нажатие кнопки приведет к отмене всех пользовательских изменений и будут перезаписаны\n  защитным вектором Amber Guard Laboratory.\n\n  Система переключится на эталонные боевые константы AGL для защиты от DDoS-атак.\n\n  Процесс восстановления конфигурации будет осуществлен моментально.",
@@ -351,7 +350,7 @@ func init() {
 		ViewArmorListArmorOn:          "ВКЛЮЧИТЬ ПОЛНУЮ БРОНЮ ВСЕХ РУБЕЖЕЙ ЗАЩИТЫ",
 		ViewArmorListArmorOff:         "ОТКЛЮЧИТЬ И СБРОСИТЬ ВСЮ СЕТЕВУЮ ЗАЩИТУ",
 		ViewArmorListBack:             "Назад в главное меню",
-		ViewArmorHeaderTitle:          "[ Подсистема Anti DDoS Защиты Периметра Amber Guard Lab. ]",
+		ViewArmorHeaderTitle:          "Подсистема Anti DDoS Защиты Периметра",
 		ViewArmorListTitle:            " Управление границами фильтрации пакетов и защитой ядра ",
 		ViewArmorInfoBoxTitle:         " Описание параметра ",
 		ViewArmorConsoleTitle:         " СИСТЕМНАЯ КОНСОЛЬ НАВИГАЦИИ ",
@@ -477,7 +476,7 @@ func init() {
 		ViewMainLabelTrappedNow:  "В ловушках сейчас",
 
 		// --- tui/view_multi_tarpit.go ---
-		ViewMultiTarpitHeaderTitle:            " Amber Guard Laboratory - Пул Распределенных Мульти-Ловушек - MULTI-TARPIT ",
+		ViewMultiTarpitHeaderTitle:            "Пул Распределенных Мульти-Ловушек",
 		ViewMultiTarpitHeaderDesc:             "──────────────── Управление активными ловушками для эмуляции легитимных сервисов ───────────────",
 		ViewMultiTarpitLabelDeclaredState:     "Декларативный стейт",
 		ViewMultiTarpitLabelAdminWants:        "Очерёдность операций под капотом",
@@ -592,9 +591,7 @@ func init() {
 		SettingsLabelWebPanelPassword:            "Установка пароля на панель веб-статистики",
 		SettingsLabelBack:                        "Назад в главное меню",
 		SettingsUiTitleBox:                       " Amber Guard Laboratory ",
-		SettingsUiHeaderDesc:                     "Глобальная Конфигурация Периметра (SETTINGS) ",
-		SettingsUiFormTitle:                      " Модификация портов, ядра, лимитов и сервисных протоколов системы ",
-		SettingsUiEditingMode:                    " РЕЖИМ РЕДАКТИРОВАНИЯ ПАРАМЕТРА ",
+		SettingsUiFormTitle:                      "Глобальная Конфигурация Периметра",
 		SettingsUiEnterNew:                       "Введите новое значение  ",
 		SettingsUiInputPrompt:                    "ЗНАЧЕНИЕ  ",
 		SettingsUiHintNav1:                       "[ НАВИГАЦИЯ ]: Стрелки ↑/↓ │ [ ИЗМЕНЕНИЕ ]: Нажмите ENTER, чтобы открыть параметр\n Изменение [ 0 ] / [ 1 ] - Стрелки ←/→",
@@ -652,7 +649,7 @@ func init() {
 		ViewTarpitLabelBack:      "НАЗАД",
 
 		// --- tui/view_tarpit.go ---
-		ViewTarpitHeaderTitle:            "Контрольная Панель «Дегтярная Яма» (SSH Deception Tar-pit)",
+		ViewTarpitHeaderTitle:            "«Дегтярная Яма» - Контрольная Панель CORE Ловушки",
 		ViewTarpitLabelCurrentSshPort:    "Текущий порт OpenSSH:",
 		ViewTarpitLabelCastling:          "Рокировка (Кастлинг):",
 		ViewTarpitLabelJitterSec:         "Джиттер  ловушки сек:",
@@ -719,9 +716,7 @@ func init() {
 		ViewTrapCardHintInfoPrefix: "ИНФО",
 
 		// --- tui/view_trap_creator.go ---
-		ViewTrapCreatorHeaderTitle:            "Конфигуратор пула Multi-Tarpit",
-		ViewTrapCreatorLabelDate:              "Текущая дата",
-		ViewTrapCreatorLabelTime:              "Системное время",
+		ViewTrapCreatorHeaderTitle:            "Мастер создания ловушки",
 		ViewTrapCreatorHeaderDesc1:            "Настройка параметров создаваемой ловушки",
 		ViewTrapCreatorHeaderDesc2:            "Все ловушки этого мастера имеют флаг is_core = false (мульти-ловушки).",
 		ViewTrapCreatorListTitle:              " Линейно-интерактивный список изменяемых параметров воркера: ",
@@ -784,8 +779,6 @@ func init() {
 		ViewTrapEditorRowCancel:              "Отменить изменения и вернуться к карточке",
 		ViewTrapEditorHeaderTitle:            "Редактор Ловушки",
 		ViewTrapEditorLabelPort:              "Порт",
-		ViewTrapEditorLabelDate:              "Дата",
-		ViewTrapEditorLabelTime:              "Время",
 		ViewTrapEditorHeaderDesc1:            "Редактирование параметров существующей ловушки. Порт зафиксирован.",
 		ViewTrapEditorHeaderDesc2:            "Изменения применяются через атомарную запись в инвентарь (POSIX).",
 		ViewTrapEditorListTitle:              " Параметры ловушки (порт — только чтение): ",

@@ -22,6 +22,49 @@ import (
 // (например "[ ACTIVE ]"), отбрасывая невидимый модификатор.
 var uiTagRe = regexp.MustCompile(`\[(.*?)\]\([^)]*\)`)
 
+// headerTitleBudget — титульная область шапки в рунах (эмпирика главного экрана):
+// дефисы рамки дорисовывают хвост сами, дата встаёт вплотную к правому краю.
+const headerTitleBudget = 96
+
+// HeaderBrand — имя продукта для линии титула.
+// CONTRACT: версия сборки живёт только на главном экране (экран-паспорт);
+// суб-экраны несут бренд + короткий локализованный титул.
+const HeaderBrand = "Aber Guard Laboratory"
+
+// HeaderBrandShort — бренд суб-экранов.
+const HeaderBrandShort = "AGL"
+
+// screenTitleLine собирает линию титула: левый текст + добивка линиями + дата/время.
+// Единый источник для шапок-Paragraph и титулов одиночных блоков (List).
+func screenTitleLine(titleLeft string) string {
+	now := time.Now()
+	right := fmt.Sprintf(" %s: %s | %s: %s ",
+		i18n.T.ViewMainLabelDate, now.Format("2006-01-02"),
+		i18n.T.ViewMainLabelTime, now.Format("15:04:05"))
+	// Длинный титул языка режем по рунам с многоточием: рамка не ломается никогда.
+	left := trunc(" "+titleLeft+" ", headerTitleBudget-utf8.RuneCountInString(right)-1)
+	pad := headerTitleBudget - utf8.RuneCountInString(left) - utf8.RuneCountInString(right)
+	if pad < 1 {
+		pad = 1
+	}
+	return left + strings.Repeat("─", pad) + right
+}
+
+// newScreenHeader собирает шапку экрана в едином виде v9.0.0:
+// титул = левый текст + добивка линиями + дата/время справа; cyan, без жёлтого.
+// CONTRACT: дата/время живут только на линии титула; тело шапки их не дублирует.
+// Ключи даты/времени переиспользованы с главного экрана (один источник).
+func newScreenHeader(titleLeft string, x0, y0, x1, y1 int) *widgets.Paragraph {
+	h := widgets.NewParagraph()
+	h.Title = screenTitleLine(titleLeft)
+	h.SetRect(x0, y0, x1, y1)
+	h.BorderStyle.Fg = ui.ColorCyan
+	h.TitleStyle.Fg = ui.ColorCyan
+	h.TitleStyle.Modifier = ui.ModifierBold
+	h.WrapText = false
+	return h
+}
+
 // visibleRunes возвращает длину строки ТАК, как её видит терминал:
 // markup-модификаторы termui не отображаются и не занимают ячеек экрана.
 // PURPOSE: корректное дополнение строк списка пробелами для полосы выделения.

@@ -61,8 +61,8 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 	// -------------------------------------------------------------
 	// ШАПКА: детали ловушки и трёхфакторный статус
 	// -------------------------------------------------------------
-	header := widgets.NewParagraph()
-	header.Title = fmt.Sprintf(" [ %s │ %s %d ] ", i18n.T.ViewTrapCardHeaderTitle, i18n.T.ViewTrapCardLabelPort, SelectedTrapPort)
+	// v9.0.0: единая шапка; порт остаётся частью левого текста титула.
+	header := newScreenHeader(fmt.Sprintf("%s - %s │ %s %d", HeaderBrandShort, i18n.T.ViewTrapCardHeaderTitle, i18n.T.ViewTrapCardLabelPort, SelectedTrapPort), 2, 1, 102, 8)
 
 	var headerText string
 	if !trapExists {
@@ -98,11 +98,6 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 			i18n.T.ViewTrapCardLabelStatus, declaredStr, daemonStr, markerStr, i18n.T.ViewTrapCardLabelCore, coreVal)
 	}
 	header.Text = headerText
-	header.SetRect(2, 1, 102, 8)
-	header.BorderStyle.Fg = ui.ColorCyan
-	header.TitleStyle.Fg = ui.ColorYellow
-	header.TitleStyle.Modifier = ui.ModifierBold
-	header.WrapText = false
 
 	// -------------------------------------------------------------
 	// СПИСОК ДЕЙСТВИЙ

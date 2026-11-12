@@ -23,6 +23,10 @@ func DrawBackupProgressGrid() {
 	gaugeBorder.Title = i18n.T.ViewBackupGaugeTitle
 	gaugeBorder.SetRect(2, 1, 102, 4)
 	gaugeBorder.Border = true
+	// v9.0.0: стиль контейнера транзакции — cyan, как у шапок экранов.
+	gaugeBorder.BorderStyle.Fg = ui.ColorCyan
+	gaugeBorder.TitleStyle.Fg = ui.ColorCyan
+	gaugeBorder.TitleStyle.Modifier = ui.ModifierBold
 
 	// 1б. Внутренняя полоса прогресса (pGauge) с отступами в 1 символ по бокам
 	pGauge := widgets.NewGauge()
@@ -101,6 +105,16 @@ func DrawBackupProgressGrid() {
 	ui.Clear()
 	ui.Render(gaugeBorder, pGauge, consoleList, confirmBox)
 
+	// v9.0.0: гасим клавиши, накопленные во время архивации: подтверждение
+	// читается свежими глазами, устаревший Escape не проскакивает экран.
+	drained := false
+	for !drained {
+		select {
+		case <-ui.PollEvents():
+		default:
+			drained = true
+		}
+	}
 	// Указатель текущего виртуального скролла в памяти
 	scrollOffset := 0
 	// -----------------------------------------------------------------

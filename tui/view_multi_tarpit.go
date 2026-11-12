@@ -75,21 +75,16 @@ import (
 // ОБНОВЛЕНО В v8.0.1: Добавлена трёхфакторная индикация и расширенная информация.
 func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 	// -------------------------------------------------------------
-	// 1. ФИКСИРОВАННАЯ ШАПКА (Высота 4 строки)
+	// 1. ШАПКА
 	// -------------------------------------------------------------
-	header := widgets.NewParagraph()
-	header.Title = i18n.T.ViewMultiTarpitHeaderTitle
+	// v9.0.0: единая шапка; легенда факторов остаётся в теле.
+	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.ViewMultiTarpitHeaderTitle), 2, 1, 102, 6)
 	header.Text = fmt.Sprintf(" %s\n "+
 		" %s: [DECLARED](fg:cyan) = %s\n "+
 		" [MARKER](fg:green) = %s │ [DAEMON](fg:yellow) = %s ",
 		i18n.T.ViewMultiTarpitHeaderDesc,
 		i18n.T.ViewMultiTarpitLabelDeclaredState, i18n.T.ViewMultiTarpitLabelAdminWants,
 		i18n.T.ViewMultiTarpitLabelMarkerOnDisk, i18n.T.ViewMultiTarpitLabelDaemonConfirmed)
-	header.SetRect(2, 1, 102, 6)
-	header.BorderStyle.Fg = ui.ColorCyan
-	header.TitleStyle.Fg = ui.ColorYellow
-	header.TitleStyle.Modifier = ui.ModifierBold
-	header.WrapText = false
 
 	// Устанавливаем ширину текста для более компактного отображения
 	// header.TextStyle.Width = 102 - len(header.Text)

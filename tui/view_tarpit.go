@@ -201,12 +201,6 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	maxDelay := config.C.DelayStep + config.C.DelayVariance
 
 	// -------------------------------------------------------------
-	// ШАГ 4: ИЗВЛЕЧЕНИЕ ВРЕМЕНИ И ДАТЫ
-	// -------------------------------------------------------------
-	dateStr := time.Now().Format("2006-01-02")
-	timeStr := time.Now().Format("15:04:05")
-
-	// -------------------------------------------------------------
 	// ШАГ 5: ИЗВЛЕЧЕНИЕ СЧЁТЧИКА БОТОВ ИЗ IPC-МОСТА
 	// Читаем из `/dev/shm/amberguard.counter` через обновлённый
 	// `tarpit_tracker.go`. Если демон не запущен, используется
@@ -219,10 +213,9 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 
 	// -------------------------------------------------------------
 	// ШАПКА ПАНЕЛИ
-	// Высота: 6 строк (y: 1 - 7)
 	// -------------------------------------------------------------
-	header := widgets.NewParagraph()
-	header.Title = fmt.Sprintf(" %s │ %s │ %s ", i18n.T.ViewTarpitHeaderTitle, dateStr, timeStr)
+	// v9.0.0: единая шапка; дата/время на линии титула, дубль убран.
+	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.ViewTarpitHeaderTitle), 2, 1, 102, 6)
 
 	// ВЫРАВНИВАНИЕ КОЛОНОК ПО СЕТКЕ С УЧЁТОМ СЧЁТЧИКА AGL_CRON_WATCHER
 	// ОБНОВЛЕНО В v8.0.1: Без изменений формата.
@@ -237,10 +230,6 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 		// Строка 03
 		i18n.T.ViewTarpitLabelRetentionRange, minDelay, maxDelay, i18n.T.ViewTarpitLabelSec, i18n.T.ViewTarpitLabelBotsInTrap, liveBots,
 	)
-
-	header.SetRect(2, 1, 102, 6)
-	header.BorderStyle.Fg = ui.ColorCyan
-	header.TitleStyle.Fg = ui.ColorYellow
 
 	// -------------------------------------------------------------
 	// МЕНЮ УПРАВЛЕНИЯ
