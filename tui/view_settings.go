@@ -39,6 +39,9 @@ var (
 	// (v8.6.2): Задержки отображения alert-сообщений
 	alertMessageTime time.Time
 	lastAlertMessage string
+	// v9.0.0: признак ошибки живёт в той же памяти, что сообщение и время:
+	// тиковые перерисовки с пустым параметром не должны перекрашивать алерт.
+	lastAlertIsError bool
 )
 
 var digitOnlyRegex = regexp.MustCompile(`^[0-9]+$`)
@@ -172,7 +175,7 @@ func ensureActiveRowSelectable() {
 }
 
 // DrawSettingsGrid производит динамическую транзакционную отрисовку экрана SETTINGS
-func DrawSettingsGrid(alertMessage string) []ui.Drawable {
+func DrawSettingsGrid(alertMessage string, alertIsError bool) []ui.Drawable {
 	InitSettingsRegistry()
 	ensureActiveRowSelectable() // ФИКС v8.4.1: курсор всегда на выбираемом пункте
 
@@ -180,17 +183,21 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	// Если пришло новое сообщение - запоминаем его и время
 	if alertMessage != "" && alertMessage != lastAlertMessage {
 		lastAlertMessage = alertMessage
+		lastAlertIsError = alertIsError
 		alertMessageTime = time.Now()
 	}
 
 	// Проверяем, прошло ли 3 секунды
 	effectiveAlertMessage := ""
+	effectiveIsError := false
 	if !alertMessageTime.IsZero() && time.Since(alertMessageTime) < 3*time.Second {
 		effectiveAlertMessage = lastAlertMessage
+		effectiveIsError = lastAlertIsError
 	} else {
-		// Время вышло, сбрасываем
+		// Время вышло: сбрасываем сообщение, признак и время вместе
 		alertMessageTime = time.Time{}
 		lastAlertMessage = ""
+		lastAlertIsError = false
 	}
 
 	// v9.0.0: единственный основной блок экрана (макет): титул несёт
@@ -281,8 +288,8 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 		statusBox.Title = i18n.T.SettingsUiStatusConsoleTitle
 		// ИЗМЕНЕНО: используем effectiveAlertMessage вместо alertMessage
 		if effectiveAlertMessage != "" {
-			// Выводим алармы ошибок или сообщения об успешном сканировании
-			if strings.HasPrefix(effectiveAlertMessage, "[ OK ]") {
+			// v9.0.0: признак берём из памяти алерта (сообщение+флаг+время — одно состояние).
+			if !effectiveIsError {
 				statusBox.Text = "\n " + effectiveAlertMessage
 				statusBox.BorderStyle.Fg = ui.ColorGreen // При успехе рамка становится зеленой
 				statusBox.TextStyle.Fg = ui.ColorWhite
@@ -309,7 +316,8 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 }
 
 // HandleSettingsNavigation обрабатывает транзакционные перемещения и клики по кнопкам
-func HandleSettingsNavigation(key string) (bool, string) {
+// HandleSettingsNavigation: (shouldQuit, msg, isError). Семантика shouldExit не изменена.
+func HandleSettingsNavigation(key string) (bool, string, bool) {
 	InitSettingsRegistry()
 	ensureActiveRowSelectable() // ФИКС v8.4.1: Enter по заголовку больше не обработается
 	currentItem := SettingsRegistry[ActiveRowIndex]
@@ -318,25 +326,25 @@ func HandleSettingsNavigation(key string) (bool, string) {
 		if key == "<Escape>" {
 			IsEditMode = false
 			CurrentInputBuf = ""
-			return false, ""
+			return false, "", false
 		}
 		if key == "<Enter>" {
 			IsEditMode = false
-			errStr := SaveSettingValueToDisk(currentItem.Key, CurrentInputBuf)
+			msg, isErr := SaveSettingValueToDisk(currentItem.Key, CurrentInputBuf)
 			CurrentInputBuf = ""
-			return true, errStr
+			return true, msg, isErr
 		}
 		if key == "<Backspace>" || key == "C-8" {
 			if len(CurrentInputBuf) > 0 {
 				CurrentInputBuf = CurrentInputBuf[:len(CurrentInputBuf)-1]
 			}
-			return false, ""
+			return false, "", false
 		}
 		if len(key) == 1 {
 			CurrentInputBuf += key
-			return false, ""
+			return false, "", false
 		}
-		return false, ""
+		return false, "", false
 	}
 
 	// ОБЫЧНЫЙ РЕЖИМ НАВИГАЦИИ ПО МЕНЮ (Без циклической прокрутки. С триггером для выбора языка стрелками влево/вправо)
@@ -375,8 +383,8 @@ func HandleSettingsNavigation(key string) (bool, string) {
 			}
 			// v8.3.0 (6.9): config.Update + i18n.InitLanguage внутри SaveSettingValueToDisk.
 			// Возвращаем false — остаёмся в меню, но перерисовываем с новым языком.
-			errStr := SaveSettingValueToDisk("lang", newLang)
-			return false, errStr
+			msg, isErr := SaveSettingValueToDisk("lang", newLang)
+			return false, msg, isErr
 		}
 		// M5 (v8.4.0) + v8.4.7: бинарные тумблеры — инверсия 0/1 стрелками без входа в режим ввода
 		if currentItem.Key == "auto_update_enabled" || currentItem.Key == "auto_update_reboot" ||
@@ -387,21 +395,21 @@ func HandleSettingsNavigation(key string) (bool, string) {
 			if currentItem.ValueGetter() == "1" {
 				newVal = "0"
 			}
-			errStr := SaveSettingValueToDisk(currentItem.Key, newVal)
-			return false, errStr
+			msg, isErr := SaveSettingValueToDisk(currentItem.Key, newVal)
+			return false, msg, isErr
 		}
 	case "<Enter>":
 		// ФИКС v8.4.1: заголовок группы не выбираем — игнорируем Enter,
 		// иначе nil ValueGetter уронит панель (инцидент nil pointer dereference).
 		if currentItem.IsHeader {
-			return false, ""
+			return false, "", false
 		}
 		if currentItem.Key == "BACK" {
-			return true, ""
+			return true, "", false
 		}
 		// ПРЕДОХРАНИТЕЛЬ: Запрещаем провал в режим ручкого ввода (IsEditMode) для языка!
 		if currentItem.Key == "lang" {
-			return false, ""
+			return false, "", false
 		}
 		// Для всех остальных числовых параметров — штатно открываем окно транзакции ввода
 		IsEditMode = true
@@ -411,19 +419,21 @@ func HandleSettingsNavigation(key string) (bool, string) {
 			CurrentInputBuf = currentItem.ValueGetter()
 		}
 	case "<Escape>":
-		return true, ""
+		return true, "", false
 	}
-	return false, ""
+	return false, "", false
 }
 
-// SaveSettingValueToDisk производит атомарную фиксацию измененного параметра на диск по стандартам Amber Guard Lab
-func SaveSettingValueToDisk(key, value string) string {
+// SaveSettingValueToDisk производит атомарную фиксацию измененного параметра на диск по стандартам Amber Guard Lab.
+// SaveSettingValueToDisk производит атомарную фиксацию параметра на диск.
+// Возвращает (msg, isError): признак ошибки — явный флаг, не префикс строки.
+func SaveSettingValueToDisk(key, value string) (string, bool) {
 	value = strings.TrimSpace(value)
 	if key == "SCAN_PERIMETER" || key == "BACK" {
-		return ""
+		return "", false
 	}
 	if value == "" {
-		return i18n.T.SettingsUiEmptyVal
+		return i18n.T.SettingsUiEmptyVal, true
 	}
 
 	// v8.2.2 (волна гонки 2.3): все мутации — через config.Update
@@ -435,15 +445,15 @@ func SaveSettingValueToDisk(key, value string) string {
 		// M3g (v8.1.3): минимум 8, технический потолок 128.
 		// Храним ТОЛЬКО bcrypt хэш; plaintext в синглтоне не задерживается.
 		if len(value) < 8 {
-			return i18n.T.ViewSettingsErrPasswordTooShort
+			return i18n.T.ViewSettingsErrPasswordTooShort, true
 		}
 		if len(value) > 128 {
-			return i18n.T.ViewSettingsErrPasswordTooLong
+			return i18n.T.ViewSettingsErrPasswordTooLong, true
 		}
 		// v8.2.0 (1.7): bcrypt с солью внутри хэша вместо SHA-256.
 		hash, errB := bcrypt.GenerateFromPassword([]byte(value), bcrypt.DefaultCost)
 		if errB != nil {
-			return i18n.T.ViewSettingsErrHashGenerationFail
+			return i18n.T.ViewSettingsErrHashGenerationFail, true
 		}
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
 			c.WebRescuePasswordHash = string(hash)
@@ -452,21 +462,21 @@ func SaveSettingValueToDisk(key, value string) string {
 	} else if key == "web_panel_password" {
 		// v8.6.2: пароль веб-панели статистики — отдельный от rescue password.
 		if len(value) < 8 {
-			return i18n.T.ViewSettingsErrPasswordTooShort
+			return i18n.T.ViewSettingsErrPasswordTooShort, true
 		}
 		if len(value) > 128 {
-			return i18n.T.ViewSettingsErrPasswordTooLong
+			return i18n.T.ViewSettingsErrPasswordTooLong, true
 		}
 		hash, errB := bcrypt.GenerateFromPassword([]byte(value), bcrypt.DefaultCost)
 		if errB != nil {
-			return i18n.T.ViewSettingsErrHashGenerationFail
+			return i18n.T.ViewSettingsErrHashGenerationFail, true
 		}
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
 			c.WebPanelPasswordHash = string(hash)
 		})
 	} else if key != "lang" {
 		if !digitOnlyRegex.MatchString(value) {
-			return i18n.T.SettingsErrDigits
+			return i18n.T.SettingsErrDigits, true
 		}
 		valInt, _ := strconv.Atoi(value)
 		// M5 (v8.4.0): бинарные тумблеры валидируются строго 0/1 и минуют
@@ -479,56 +489,56 @@ func SaveSettingValueToDisk(key, value string) string {
 			key == "analytics_auto_rebuild"
 		if isBinaryKey {
 			if valInt != 0 && valInt != 1 {
-				return i18n.T.SettingsUiOutOfBounds
+				return i18n.T.SettingsUiOutOfBounds, true
 			}
 		} else if valInt <= 0 || valInt > 65535 {
-			return i18n.T.SettingsUiOutOfBounds
+			return i18n.T.SettingsUiOutOfBounds, true
 		}
 		// ВЕРСИЯ 6.0.0: ИБ-ПРЕДОХРАНИТЕЛИ И ВАЛИДАЦИЯ ПЕРЕСЕЧЕНИЙ ПОРТОВ
 		// v9.0.0: standard_ssh_port удалён из настроек, валидация только для real_ssh_port.
 		if key == "real_ssh_port" {
 			// 1. Проверяем дублирование портов в памяти во избежание паники сокетов ядра
 			if valInt == config.C.StandardSshPort {
-				return i18n.T.ViewSettingsErrPortsConflictRealStandard
+				return i18n.T.ViewSettingsErrPortsConflictRealStandard, true
 			}
 			// 2. Блокируем изменение сетевой геометрии, если прямо сейчас развернуты активные рубежи защиты
 			if _, errCheck := os.Stat(config.TarpitMarkerPath(22)); errCheck == nil {
-				return i18n.T.ViewSettingsErrPortsChangeTarpitActive
+				return i18n.T.ViewSettingsErrPortsChangeTarpitActive, true
 			}
 			if _, errMoved := os.Stat(config.MarkerSshMoved); errMoved == nil {
-				return i18n.T.ViewSettingsErrPortsChangeCastlingActive
+				return i18n.T.ViewSettingsErrPortsChangeCastlingActive, true
 			}
 		}
 		// v8.5.0: валидация иерархии защитных опций (B требует A).
 		// PURPOSE: опция B (веб-стук с испепелением) требует опцию A (whitelist IP админа).
 		// CONTRACT: если админ пытается включить B при выключенном A → отказ записи.
 		if key == "ssh_ip_web_knock" && valInt == 1 && !config.C.SshAllowInFromIp {
-			return i18n.T.ViewSettingsErrKnockRequiresAllow
+			return i18n.T.ViewSettingsErrKnockRequiresAllow, true
 		}
 		// v8.5.0: валидация «B требует сервер» и «панель требует сервер».
 		if (key == "ssh_ip_web_knock" || key == "web_https_panel_active") && valInt == 1 && !config.C.WebServerEnabled {
-			return i18n.T.ViewSettingsErrRequiresServer
+			return i18n.T.ViewSettingsErrRequiresServer, true
 		}
 		// v9.0.0: ВАЛИДАЦИЯ ОПЦИИ B (Веб-стук).
 		// PURPOSE: Веб-стук с испепелением бессмысленен и опасен без пароля:
 		// он будет молча отвергать попытки и спамить журнал BRUTEFORCE_LOCKOUT.
 		// CONTRACT: Запрещаем включение тумблера, если хэш пароля пуст.
 		if key == "ssh_ip_web_knock" && valInt == 1 && config.C.WebRescuePasswordHash == "" {
-			return i18n.T.ViewSettingsErrKnockRequiresPassword
+			return i18n.T.ViewSettingsErrKnockRequiresPassword, true
 		}
 		// v9.0.0: ВАЛИДАЦИЯ ОПЦИИ C (Веб-панель).
 		// PURPOSE: Панель аналитики без пароля недоступна для входа (fail-closed в рантайме),
 		// но включённый тумблер вводит админа в заблуждение о работоспособности сервиса.
 		// CONTRACT: Запрещаем включение тумблера, если хэш пароля панели пуст.
 		if key == "web_https_panel_active" && valInt == 1 && config.C.WebPanelPasswordHash == "" {
-			return i18n.T.ViewSettingsErrPanelRequiresPassword
+			return i18n.T.ViewSettingsErrPanelRequiresPassword, true
 		}
 		// v9.0.0: ИЕРАРХИЯ ИСТОРИИ СТАТИСТИКИ (05 ⊂ 04 ⊂ 07).
 		// PURPOSE: автозагрузка истории бессмысленна без веб-панели и физического сервера.
 		// Включение 05 при выключенных 04 или 07 — отказ записи ДО транзакции.
 		if key == "analytics_auto_rebuild" && valInt == 1 &&
 			(!config.C.WebHttpsPanelActive || !config.C.WebServerEnabled) {
-			return i18n.T.ViewSettingsErrRebuildRequiresPanel
+			return i18n.T.ViewSettingsErrRebuildRequiresPanel, true
 		}
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
 			switch key {
@@ -595,7 +605,7 @@ func SaveSettingValueToDisk(key, value string) string {
 	} else {
 		langLower := strings.ToLower(value)
 		if langLower != "ru" && langLower != "en" {
-			return i18n.T.SettingsUiLangSupport
+			return i18n.T.SettingsUiLangSupport, true
 		}
 		updateErr = config.Update(config.FileConfig, func(c *config.Config) {
 			c.Lang = langLower
@@ -610,14 +620,14 @@ func SaveSettingValueToDisk(key, value string) string {
 	// пост-синхронизации не выполняются (та же семантика, что и в оригинале
 	// при ошибке SaveConfig).
 	if updateErr != nil {
-		return i18n.T.ViewSettingsErrSavePrefix + updateErr.Error()
+		return i18n.T.ViewSettingsErrSavePrefix + updateErr.Error(), true
 	}
 
 	// M5 (v8.4.0): декларативная сверка systemd-юнитов автообновления.
 	// Декларация в конфиге УЖЕ опубликована → приводим факт через сервисный мост.
 	if key == "auto_update_enabled" {
 		if errUnits := service.SyncAutoUpdateUnits(config.C.AutoUpdateEnabled); errUnits != nil {
-			return i18n.T.ViewSettingsErrSavePrefix + errUnits.Error()
+			return i18n.T.ViewSettingsErrSavePrefix + errUnits.Error(), true
 		}
 	}
 
@@ -628,14 +638,14 @@ func SaveSettingValueToDisk(key, value string) string {
 	// иначе watcher продолжит грузить историю по устаревшей декларации.
 	if key == "analytics_auto_rebuild" || key == "web_https_panel_active" || key == "web_server_enabled" {
 		if errSync := service.SyncAnalyticsRebuild(); errSync != nil {
-			return i18n.T.ViewSettingsErrSavePrefix + errSync.Error()
+			return i18n.T.ViewSettingsErrSavePrefix + errSync.Error(), true
 		}
 	}
 
 	// v8.5.0: новые тумблеры защиты декларативны; факт приводим через сервисный мост.
 	if key == "web_server_enabled" || key == "ssh_allow_in_from_ip" || key == "ssh_ip_web_knock" || key == "web_https_panel_active" {
 		if errSync := service.SyncRescueChannelState(); errSync != nil {
-			return i18n.T.ViewSettingsErrSavePrefix + errSync.Error()
+			return i18n.T.ViewSettingsErrSavePrefix + errSync.Error(), true
 		}
 	}
 
@@ -655,7 +665,7 @@ func SaveSettingValueToDisk(key, value string) string {
 		_ = service.SyncGlobalConfigToCoreTrap()
 		// Демон подхватит новые параметры на следующем тике (15 сек)
 	}
-	return ""
+	return "", false
 }
 
 // execCommandSelfHealingCheck — вспомогательный низкоуровневый триггер синхронизации ОС при рассинхронизации параметров

@@ -93,13 +93,15 @@ func getAnalyticsHint(row int) string {
 //   - currentScreen        — активный экран ("MAIN", "ARMOR", "TARPIT", ...).
 //   - currentRow           — индекс выбранной строки в текущем меню.
 //   - formAlert            — текст ошибки/успеха для экрана SETTINGS.
+//   - formAlertIsError     - явный признак ошибки алерта SETTINGS
 //   - settingsParentScreen — экран, из которого открыты настройки (для BACK).
 //   - scanInProgress — флаг активного сканирования периметра (v9.0.0).
 //   - scanStartedAt — момент показа заглушки (для проверки минимальной выдержки) (v9.0.0).
 type PanelState struct {
 	currentScreen        string
 	currentRow           int
-	formAlert            string
+	formAlert            string // Сообщение валидации/транзакции SETTINGS
+	formAlertIsError     bool   // v9.0.0: явный признак ошибки алерта SETTINGS
 	settingsParentScreen string
 	scanInProgress       bool
 	scanStartedAt        time.Time
@@ -267,7 +269,7 @@ func renderScreen(state *PanelState) {
 		w, _ := DrawTrapCreatorGrid(state.currentRow)
 		ui.Render(w...)
 	case "SETTINGS":
-		ui.Render(DrawSettingsGrid(state.formAlert)...)
+		ui.Render(DrawSettingsGrid(state.formAlert, state.formAlertIsError)...)
 	case "PORT_MAP":
 		w, _, _ := DrawPortMapGrid(state.currentRow)
 		ui.Render(w...)
@@ -309,15 +311,18 @@ func handlePanelEvent(e ui.Event, state *PanelState) (shouldQuit bool) {
 	// --- ОБРАБОТКА НАСТРОЕК (Settings) ---
 	if state.currentScreen == "SETTINGS" {
 		state.formAlert = ""
-		isBackTriggered, errAlert := HandleSettingsNavigation(e.ID)
+		state.formAlertIsError = false
+		isBackTriggered, msg, isErr := HandleSettingsNavigation(e.ID)
 		if isBackTriggered {
 			state.currentScreen = state.settingsParentScreen
 			renderScreen(state)
 			return false
 		}
-		state.formAlert = errAlert
+		// Сообщение и признак выставляются атомарно, в одном месте.
+		state.formAlert = msg
+		state.formAlertIsError = isErr
 		ui.Clear()
-		ui.Render(DrawSettingsGrid(state.formAlert)...)
+		ui.Render(DrawSettingsGrid(state.formAlert, state.formAlertIsError)...)
 		return false
 	}
 
@@ -698,7 +703,7 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 			state.currentScreen = "SETTINGS"
 			state.settingsParentScreen = "MAIN"
 			ui.Clear()
-			ui.Render(DrawSettingsGrid("")...)
+			ui.Render(DrawSettingsGrid("", false)...)
 			return false
 		case 1:
 			state.currentScreen = "ARMOR"
@@ -762,7 +767,7 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 			case "LIVE_BOX":
 				ui.Render(DrawTarpitLiveBoxGrid()...)
 			case "SETTINGS":
-				ui.Render(DrawSettingsGrid("")...)
+				ui.Render(DrawSettingsGrid("", false)...)
 			case "MAIN":
 				// Фокусируем курсор на строке TARPIT (индекс 2), откуда только что вышли
 				state.currentRow = 2
@@ -1187,7 +1192,7 @@ func handlePanelTick(state *PanelState) {
 		return
 	} else if state.currentScreen == "SETTINGS" {
 		if !IsEditMode {
-			ui.Render(DrawSettingsGrid("")...)
+			ui.Render(DrawSettingsGrid("", false)...)
 		}
 		return
 	} else if state.currentScreen == "PORT_MAP" {
