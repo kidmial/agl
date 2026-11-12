@@ -2,10 +2,12 @@
 package service
 
 import (
+	"agl/config"
 	"agl/i18n"
 	"agl/internal/armor"
 	"agl/internal/sys"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 )
@@ -18,6 +20,96 @@ import (
 //           Возвращает явные error, логирует события через sys.LogAction.
 // SIDE-EFFECTS: Изменяет правила UFW, модифицирует sysctl параметры ядра.
 // ============================================================================
+
+// PlanArmorOperation строит целевое множество портов для пакетной операции
+// брони. Возвращает два списка (инвентарь + авто-службы) и вердикт.
+//
+// Вердикты:
+//   - "OK" — цели непусты либо sysctl требует переключения
+//   - "ALREADY_ON" — все порты защищены, броня уже взведена
+//   - "ALREADY_OFF" — все порты без брони, броня уже отключена
+//   - "INVENTORY_UNREADABLE" — сбой чтения источников (fail closed)
+//
+// CONTRACT: предохранитель читает маркеры брони (факт на диске), а не
+// декларацию is_armor_enabled. Маркер — тот же источник, что пишет
+// исполнительный контур (config.ArmorMarkerPath), поэтому исполнение
+// не разъезжается с дисплеем ARMOR (ACTIVE/DISARM).
+func PlanArmorOperation(direction string) ([]config.PortTarget, []config.AppInventoryItem, string) {
+	// Загружаем оба источника инвентаря
+	ports, errPorts := LoadInventory()
+	apps, errApps := LoadDetectedApps()
+	if errPorts != nil || errApps != nil {
+		// Fail closed: не можем прочитать состояние периметра → операция не запускается
+		return nil, nil, "INVENTORY_UNREADABLE"
+	}
+
+	// Проверяем состояние sysctl для вердикта пустой операции
+	sysctlActive := IsSysctlArmorActive()
+
+	// Фильтруем цели по направлению операции
+	var filteredPorts []config.PortTarget
+	var filteredApps []config.AppInventoryItem
+
+	_, isSshMoved := os.Stat(config.MarkerSshMoved)
+
+	for _, p := range ports {
+		// Guard 1: порт запущенной ловушки исключён (маркер на диске)
+		if _, errT := os.Stat(config.TarpitMarkerPath(p.Port)); errT == nil {
+			continue
+		}
+		// Guard 2: порт 22 при рокировке SSH исключён
+		if p.Port == 22 && isSshMoved == nil {
+			continue
+		}
+		// Guard 3: направление операции
+		armorMarkerExists := false
+		if _, errA := os.Stat(config.ArmorMarkerPath(p.Port)); errA == nil {
+			armorMarkerExists = true
+		}
+		if direction == "ON" && !armorMarkerExists {
+			filteredPorts = append(filteredPorts, p)
+		} else if direction == "OFF" && armorMarkerExists {
+			filteredPorts = append(filteredPorts, p)
+		}
+	}
+
+	for _, app := range apps {
+		if app.Port <= 0 {
+			continue
+		}
+		// Guard 1: порт запущенной ловушки исключён
+		if _, errT := os.Stat(config.TarpitMarkerPath(app.Port)); errT == nil {
+			continue
+		}
+		// Guard 2: порт 22 при рокировке SSH исключён
+		if app.Port == 22 && isSshMoved == nil {
+			continue
+		}
+		// Guard 3: направление операции
+		armorMarkerExists := false
+		if _, errA := os.Stat(config.ArmorMarkerPath(app.Port)); errA == nil {
+			armorMarkerExists = true
+		}
+		if direction == "ON" && !armorMarkerExists {
+			filteredApps = append(filteredApps, app)
+		} else if direction == "OFF" && armorMarkerExists {
+			filteredApps = append(filteredApps, app)
+		}
+	}
+
+	// Вердикт: если цели пусты, проверяем sysctl
+	if len(filteredPorts) == 0 && len(filteredApps) == 0 {
+		if direction == "ON" && sysctlActive {
+			return nil, nil, "ALREADY_ON"
+		}
+		if direction == "OFF" && !sysctlActive {
+			return nil, nil, "ALREADY_OFF"
+		}
+		// Цели пусты, но sysctl требует переключения → OK
+	}
+
+	return filteredPorts, filteredApps, "OK"
+}
 
 // ToggleArmorRoute включает или выключает броню на заданном порту/сервисе.
 // targetID может быть UUID из инвентаря или "port_auto_N" для авто-портов.

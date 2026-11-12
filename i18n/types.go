@@ -315,6 +315,9 @@ type UITranslation struct {
 	ViewArmorCtlProgDisarmPort        string
 	ViewArmorCtlProgDeactivateService string
 	ViewArmorCtlProgNetfilterCleanup  string
+	ViewArmorCtlHintAlreadyOn         string
+	ViewArmorCtlHintAlreadyOff        string
+	ViewArmorCtlHintInventoryError    string
 	ViewArmorCtlHintArmorOffDone      string
 	ViewArmorCtlHintTarpitReject      string
 	ViewArmorCtlErrorPrefix           string
@@ -330,9 +333,6 @@ type UITranslation struct {
 	ViewArmorProgressNetfilterRebuilt  string
 	ViewArmorProgressLabelSuccess      string
 	ViewArmorProgressArmorTransferred  string
-	ViewArmorProgressHintExit          string
-	ViewArmorProgressHintOr            string
-	ViewArmorProgressHintReturn        string
 
 	// --- tui/view_armor.go ---
 	ViewArmorHintSysctl           string
@@ -537,6 +537,7 @@ type UITranslation struct {
 	ViewRouterTrapPortReadOnly           string
 	ViewRouterErrSavePrefix              string
 	ViewRouterScanLoadingText            string
+	ViewRouterArmorOpTitle               string
 	ViewRouterWaitText                   string
 
 	// --- tui/view_settings.go ---

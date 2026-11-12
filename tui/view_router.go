@@ -113,17 +113,45 @@ type PanelState struct {
 // Тикер идёт раз в секунду, поэтому фактически кадр живёт 500..1500 мс.
 const scanLoadingMinVisible = 500 * time.Millisecond
 
-// renderScanLoadingBox рисует модальный бокс "СКАНИРОВАНИЕ БЕЗОПАСНОСТИ".
-// Единая точка сборки: геометрия, цвет рамки и markup заголовка только здесь.
-// ui.Clear НЕ вызывает — очистку экрана решает вызывающий контекст.
 func renderScanLoadingBox() {
 	loadingBox := widgets.NewParagraph()
-	// markup termui разбирается при рендере; i18n-строка остаётся чистым текстом
 	loadingBox.Text = "\n  [" + i18n.T.ViewRouterScanLoadingText + "](fg:white,mod:bold)\n  " + i18n.T.ViewRouterWaitText
 	loadingBox.SetRect(33, 10, 68, 16)
 	loadingBox.BorderStyle.Fg = ui.ColorYellow
 	loadingBox.WrapText = false
 	ui.Render(loadingBox)
+}
+
+// renderArmorOperationBox отрисовывает информационный бокс "ОПЕРАЦИЯ ВЫПОЛНЯЕТСЯ".
+// Показывается на всё время выполнения операции активации/деактивации брони.
+// CONTRACT: заголовок из i18n.ViewRouterArmorOpTitle, вторая строка из
+// i18n.ViewRouterWaitText (переиспользование существующего ключа).
+func renderArmorOperationBox() {
+	opBox := widgets.NewParagraph()
+	opBox.Text = "\n  [" + i18n.T.ViewRouterArmorOpTitle + "](fg:white,mod:bold)\n  " + i18n.T.ViewRouterWaitText
+	opBox.SetRect(33, 10, 68, 16)
+	opBox.BorderStyle.Fg = ui.ColorYellow
+	opBox.WrapText = false
+	ui.Render(opBox)
+}
+
+// armorHintHold — выдержка бокса вердикта предохранителя: секунда на чтение фразы.
+// PURPOSE: четыре ветки вердиктов (ALREADY_ON / ALREADY_OFF / 2×INVENTORY_UNREADABLE)
+// выражают ОДНО UX-решение; константа фиксирует его в одной точке — правка выдержки
+// физически не может «забыть» одну из веток (защита от дрейфа дубликатов).
+const armorHintHold = 1000 * time.Millisecond
+
+// renderArmorMessage отрисовывает короткий информационный бокс для вердиктов
+// предохранителя (ALREADY_ON, ALREADY_OFF, INVENTORY_UNREADABLE).
+// CONTRACT: сообщение из i18n, жирный заголовок, жёлтая рамка ожидания.
+// Используется для явной обратной связи при «пустых» операциях.
+func renderArmorMessage(msg string) {
+	msgBox := widgets.NewParagraph()
+	msgBox.Text = "\n  [" + msg + "](fg:white,mod:bold)"
+	msgBox.SetRect(33, 10, 68, 15)
+	msgBox.BorderStyle.Fg = ui.ColorYellow
+	msgBox.WrapText = false
+	ui.Render(msgBox)
 }
 
 // =====================================================================
@@ -266,7 +294,7 @@ func renderScreen(state *PanelState) {
 // ОБНОВЛЕНО В v8.2.2 (п. 4.6): Извлечено из StartTarpitControlPanel.
 func handlePanelEvent(e ui.Event, state *PanelState) (shouldQuit bool) {
 	// === БЛОКИРОВКА СОБЫТИЙ ВО ВРЕМЯ ОТЛОЖЕННЫХ ОПЕРАЦИЙ (v9.0.0) ===
-	// Пока висит модальное окно заглушка (скан периметра), игнорируем все клавиши.
+	// Пока висит модальная заглушка (скан периметра), игнорируем все клавиши.
 	// Это защищает от случайных нажатий, которые могут сбить состояние UI.
 	if state.scanInProgress {
 		return false
@@ -307,12 +335,6 @@ func handlePanelEvent(e ui.Event, state *PanelState) (shouldQuit bool) {
 	switch e.ID {
 	case "<C-c>":
 		return true // Принудительный выход
-	case "q":
-		// Если мы в главной или основных меню, то выход
-		if state.currentScreen == "MAIN" || state.currentScreen == "TARPIT" || state.currentScreen == "ARMOR" || state.currentScreen == "F_REPORTS" {
-			return true
-		}
-		return false
 
 	// =====================================================================
 	// 1. ОБНОВЛЕННАЯ ЛОГИКА <ESCAPE> (Переход на один уровень вверх)
@@ -965,12 +987,72 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 			// Перехватываем клик по SCAN_PERIMETER ДО вызова HandleArmorMenuClick
 			if strings.Contains(selectedRowStr, "SCAN_PERIMETER") {
 				ui.Clear()
-				renderScanLoadingBox() // v9.0.0: заглушка с жирным заголовком
+				renderScanLoadingBox()
 
-				// Откладываем скан до следующего тика — так заглушка гарантированно
-				// проживёт не меньше scanLoadingMinVisible (500..1500 мс).
 				state.scanInProgress = true
 				state.scanStartedAt = time.Now()
+				return false
+			}
+		}
+		// =============================================================
+		// ОБРАБОТКА ARMOR_ON / ARMOR_OFF (v9.0.0)
+		// =============================================================
+		// =============================================================
+		// ДОЛГИЕ ОПЕРАЦИИ БРОНИ (v9.0.0): бокс на всё время операции
+		// =============================================================
+		// Инверсия рубежа (ACTIVE/DISARM/TARPIT) и глобальные ARMOR_ON/OFF
+		// применяют правила Netfilter/UFW до 4 секунд. Бокс рисуем ДО
+		// синхронного вызова контроллера — он живёт всё время операции.
+		if state.currentRow >= 0 && state.currentRow < len(GlobalArmorMenuRows) {
+			selectedRowStr := GlobalArmorMenuRows[state.currentRow]
+			// Тег строки — первая ячейка до "│". Сравнение ТОЛЬКО точное:
+			// Contains дал бы префиксные коллизии SysTag с статическими тегами.
+			tag := strings.TrimSpace(strings.SplitN(selectedRowStr, "│", 2)[0])
+			switch tag {
+			case "SYSCTL", "SCAN_PERIMETER", "CORE_SETTINGS", "BACK":
+				// быстрые операции или уже перехваченные — уходим в стандартную обработку
+			default:
+				// динамический рубеж (PORT N / SysTag) или ARMOR_ON / ARMOR_OFF
+				ui.Clear()
+				renderArmorOperationBox()
+				// v9.0.0: модальная операция — UI-поток становится event-sink.
+				// Операция идёт в воркере; главный поток глотает клавиши, нажатые
+				// во время модалки (у неё нет элементов управления по дизайну).
+				// Без этого устаревший Escape срабатывает на живом экране ARMOR
+				// и уносит админа в MAIN вместо возврата на уровень вверх.
+				done := make(chan string, 1)
+				go func() {
+					done <- HandleArmorMenuClick(state.currentRow, selectedRowStr)
+				}()
+				evCh := ui.PollEvents()
+				var hintText string
+			sink:
+				for {
+					select {
+					case hint := <-done:
+						hintText = hint
+						break sink
+					case <-evCh:
+						// проглатываем: модальное окно не имеет органов управления
+					}
+				}
+				// v9.0.0: дренируем буфер канала событий. ui.PollEvents() возвращает
+				// буферизованный канал; события, нажатые в последние миллисекунды
+				// операции, накапливаются в буфере. Без дренирования они срабатывают
+				// после возврата из handlePanelEvent на живом экране ARMOR.
+				// Неблокирующий select с default: читаем пока канал не пуст.
+				for {
+					select {
+					case <-evCh:
+						// глотаем остаточные события
+					default:
+						goto drained
+					}
+				}
+			drained:
+				ui.Clear()
+				armorWidgets, _ := DrawArmorMenuGrid(state.currentRow, hintText)
+				ui.Render(armorWidgets...)
 				return false
 			}
 		}
@@ -1042,13 +1124,11 @@ func handlePanelTick(state *PanelState) {
 	// но мы отложили выполнение до следующего тика, чтобы заглушка была видна ≥500 мс.
 	if state.scanInProgress {
 		if time.Since(state.scanStartedAt) < scanLoadingMinVisible {
-			// Держим заглушку, защита от resize артефактов
 			ui.Clear()
 			renderScanLoadingBox()
 			return
 		}
 
-		// Выдержка соблюдена — выполняем скан через сервисный слой
 		if err := service.RunPerimeterInventoryScan(context.Background()); err != nil {
 			sys.LogAction("ARMOR_ROUTER", "SCAN_FAIL", "ERROR", err.Error())
 		} else {
@@ -1057,7 +1137,7 @@ func handlePanelTick(state *PanelState) {
 
 		state.scanInProgress = false
 		state.scanStartedAt = time.Time{}
-		renderScreen(state) // currentScreen == "ARMOR" по контракту блокировки событий
+		renderScreen(state)
 		return
 	}
 

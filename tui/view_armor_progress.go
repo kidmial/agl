@@ -61,15 +61,16 @@ func ShowArmorProgressWindow(actionName string, progressChan chan string) {
 	// Очищаем историю, чтобы начать с пустого виджета
 	operationHistory = nil
 
-	// Готовим строки финального отчёта (без префикса времени)
+	// v9.0.0: финальный отчёт без ручного подтверждения — окно закрывается
+	// автоматически по закрытию канала progressChan. Блок из трёх строк
+	// (статус/разделитель/успех) обрамлён одной пустой строкой сверху и снизу.
 	finalLines := []string{
+		"",
 		"",
 		"  [[" + i18n.T.ViewArmorProgressLabelSystemStatus + "]](fg:yellow,mod:bold): " + i18n.T.ViewArmorProgressNetfilterRebuilt,
 		"  --------------------------------------------------------------------------",
 		"  [[" + i18n.T.ViewArmorProgressLabelSuccess + "]](fg:green,mod:bold) " + i18n.T.ViewArmorProgressArmorTransferred,
 		"",
-		"",
-		"  " + i18n.T.ViewArmorProgressHintExit + " [[ ESC ]](fg:green,mod:bold) " + i18n.T.ViewArmorProgressHintOr + " [[ Q ]](fg:green,mod:bold) " + i18n.T.ViewArmorProgressHintReturn,
 	}
 
 	// Меняем цвет рамки на зелёный сразу
@@ -83,12 +84,10 @@ func ShowArmorProgressWindow(actionName string, progressChan chan string) {
 		ui.Render(progressBox)
 		time.Sleep(150 * time.Millisecond) // скорость появления текста
 	}
-
-	// Ожидание нажатия клавиш
-	for confirmEvent := range ui.PollEvents() {
-		if confirmEvent.ID == "<Escape>" || confirmEvent.ID == "q" {
-			time.Sleep(50 * time.Millisecond)
-			break
-		}
-	}
+	// v9.0.0: убран цикл ожидания клавиш — окно завершается автоматически
+	// при закрытии канала progressChan. Sink в handleEnterClick уже глотает
+	// все события во время операции; после перерисовки ARMOR управление
+	// возвращается в главный цикл без остаточных событий в буфере.
+	// Небольшая пауза для визуального завершения анимации финальных строк.
+	time.Sleep(300 * time.Millisecond)
 }

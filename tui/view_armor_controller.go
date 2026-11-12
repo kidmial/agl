@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
+
+	ui "github.com/gizak/termui/v3"
 )
 
 // Константы рантайм-состояний экранов для глобального роутера панели
@@ -18,6 +21,15 @@ const (
 
 // ActiveScreen управляет тем, какой экран сейчас рендерится в главном цикле ui.Event
 var ActiveScreen = ScreenArmor
+
+// tarpitOwnsPort возвращает true, если порт занят ЗАПУЩЕННОЙ ловушкой.
+// Маркер на диске — факт трёхфакторного статуса; дисплей (TARPIT в
+// view_armor.go) читает тот же маркер, поэтому исполнение не разъезжается
+// с картинкой. Инвентарь сознательно не трогаем: декларация без маркера — не факт.
+func tarpitOwnsPort(port int) bool {
+	_, err := os.Stat(config.TarpitMarkerPath(port))
+	return err == nil
+}
 
 // HandleArmorMenuClick инкапсулирует всю тяжелую логику кликов экрана ANTIDDOS v6.3.8
 func HandleArmorMenuClick(currentRow int, selectedRowStr string) string {
@@ -31,49 +43,59 @@ func HandleArmorMenuClick(currentRow int, selectedRowStr string) string {
 		return ""
 
 	case strings.Contains(selectedRowStr, "ARMOR_ON"):
+		// v9.0.0: проверка вердикта ДО открытия транзакции
+		_, _, verdict := service.PlanArmorOperation("ON")
+		if verdict == "ALREADY_ON" {
+			// Явное уведомление: бокс на 1000 мс, потом возврат в ARMOR
+			ui.Clear()
+			renderArmorMessage(i18n.T.ViewArmorCtlHintAlreadyOn)
+			time.Sleep(armorHintHold)
+			hintText = i18n.T.ViewArmorCtlHintAlreadyOn
+			return hintText
+		}
+		if verdict == "INVENTORY_UNREADABLE" {
+			ui.Clear()
+			renderArmorMessage(i18n.T.ViewArmorCtlHintInventoryError)
+			time.Sleep(armorHintHold)
+			hintText = i18n.T.ViewArmorCtlHintInventoryError
+			return hintText
+		}
 		// Инициализируем RAM-канал трансляции шагов
 		progChan := make(chan string, 10)
 		// Запускаем тяжелый 15-секундный взвод Брони в фоновом асинхронном потоке
 		go func() {
+			// v9.0.0: предохранитель строит план операции до открытия транзакции
+			filteredPorts, filteredApps, verdict := service.PlanArmorOperation("ON")
+			if verdict != "OK" {
+				progChan <- i18n.T.ViewArmorCtlProgSysctlTune
+				service.ResetUfwCacheSnapshot()
+				_ = service.ToggleSysctlProtocol("ON")
+				close(progChan)
+				return
+			}
+
 			progChan <- i18n.T.ViewArmorCtlProgSysctlTune
 			service.ResetUfwCacheSnapshot()
 			_ = service.ToggleSysctlProtocol("ON")
 
-			_, isSshMoved := os.Stat(config.MarkerSshMoved) // РЕБРЕНДИНГ
-			// v8.2.3 (R-3b): прямой вызов config.LoadInventory() заменяем на сервисный слой.
-			// TUI больше не знает о деталях чтения JSON-инвентаря с диска.
-			ports, _ := service.LoadInventory()
-			for _, p := range ports {
-				tarpitMarker := config.TarpitMarkerPath(p.Port) // БЛОК 4.4: генератор путей из config/paths.go
-				if _, errT := os.Stat(tarpitMarker); errT == nil {
-					continue
-				}
-				if p.Port == 22 && isSshMoved == nil {
-					continue
-				}
-
+			// Итерируем готовые цели из плана — все guard-ы уже применены
+			processed := make(map[int]bool)
+			for _, p := range filteredPorts {
+				processed[p.Port] = true
 				progChan <- fmt.Sprintf(i18n.T.ViewArmorCtlProgArmPort, p.Port)
 				dynamicID := fmt.Sprintf("port_auto_%d", p.Port)
 				_ = service.ToggleArmorRoute(dynamicID, "ON")
 			}
 
-			// v8.2.3 (R-3b): прямой вызов config.LoadDetectedApps() заменяем на сервисный слой.
-			apps, _ := service.LoadDetectedApps()
-			for _, app := range apps {
-				if app.Port > 0 {
-					tarpitMarker := config.TarpitMarkerPath(app.Port) // БЛОК 4.4: генератор путей из config/paths.go
-					if _, errT := os.Stat(tarpitMarker); errT == nil {
-						continue
-					}
-					if app.Port == 22 && isSshMoved == nil {
-						continue
-					}
-
-					// ЛОГ: Имя службы выводится в прогресс-бар
-					progChan <- fmt.Sprintf(i18n.T.ViewArmorCtlProgArmService, app.Name, app.Port)
-					dynamicID := fmt.Sprintf("port_auto_%d", app.Port)
-					_ = service.ToggleArmorRoute(dynamicID, "ON")
+			for _, app := range filteredApps {
+				// Дедуп: IPv4+IPv6 слушатель того же порта
+				if processed[app.Port] {
+					continue
 				}
+				processed[app.Port] = true
+				progChan <- fmt.Sprintf(i18n.T.ViewArmorCtlProgArmService, app.Name, app.Port)
+				dynamicID := fmt.Sprintf("port_auto_%d", app.Port)
+				_ = service.ToggleArmorRoute(dynamicID, "ON")
 			}
 			progChan <- i18n.T.ViewArmorCtlProgNetfilterReload
 			_ = service.ReloadFirewall()
@@ -85,37 +107,57 @@ func HandleArmorMenuClick(currentRow int, selectedRowStr string) string {
 		hintText = i18n.T.ViewArmorCtlHintArmorOnDone
 
 	case strings.Contains(selectedRowStr, "ARMOR_OFF"):
+		// v9.0.0: проверка вердикта ДО открытия транзакции
+		_, _, verdict := service.PlanArmorOperation("OFF")
+		if verdict == "ALREADY_OFF" {
+			// Явное уведомление: бокс на 1000 мс, потом возврат в ARMOR
+			ui.Clear()
+			renderArmorMessage(i18n.T.ViewArmorCtlHintAlreadyOff)
+			time.Sleep(armorHintHold)
+			hintText = i18n.T.ViewArmorCtlHintAlreadyOff
+			return hintText
+		}
+		if verdict == "INVENTORY_UNREADABLE" {
+			ui.Clear()
+			renderArmorMessage(i18n.T.ViewArmorCtlHintInventoryError)
+			time.Sleep(armorHintHold)
+			hintText = i18n.T.ViewArmorCtlHintInventoryError
+			return hintText
+		}
 		progChan := make(chan string, 10)
 		go func() {
+			// v9.0.0: предохранитель строит план операции до открытия транзакции
+			filteredPorts, filteredApps, verdict := service.PlanArmorOperation("OFF")
+			if verdict != "OK" {
+				progChan <- i18n.T.ViewArmorCtlProgSysctlReset
+				service.ResetUfwCacheSnapshot()
+				_ = service.ToggleSysctlProtocol("OFF")
+				close(progChan)
+				return
+			}
+
 			progChan <- i18n.T.ViewArmorCtlProgSysctlReset
 			service.ResetUfwCacheSnapshot()
 			_ = service.ToggleSysctlProtocol("OFF")
 
-			_, isSshMoved := os.Stat(config.MarkerSshMoved) // РЕБРЕНДИНГ
-			// v8.2.3 (R-3b): прямой вызов config.LoadInventory() заменяем на сервисный слой.
-			ports, _ := service.LoadInventory()
-			for _, p := range ports {
-				if p.Port == 22 && isSshMoved == nil {
-					continue
-				}
-				// ЛОГ: Вывод портов ручного инвентаря
+			// Итерируем готовые цели из плана — все guard-ы уже применены
+			processed := make(map[int]bool)
+			for _, p := range filteredPorts {
+				processed[p.Port] = true
 				progChan <- fmt.Sprintf(i18n.T.ViewArmorCtlProgDisarmPort, p.SysTag, p.Port)
 				dynamicID := fmt.Sprintf("port_auto_%d", p.Port)
 				_ = service.ToggleArmorRoute(dynamicID, "OFF")
 			}
 
-			// v8.2.3 (R-3b): прямой вызов config.LoadDetectedApps() заменяем на сервисный слой.
-			apps, _ := service.LoadDetectedApps()
-			for _, app := range apps {
-				if app.Port > 0 {
-					if app.Port == 22 && isSshMoved == nil {
-						continue
-					}
-					// ЛОГ: Вывод авто-служб
-					progChan <- fmt.Sprintf(i18n.T.ViewArmorCtlProgDeactivateService, app.Name, app.Port)
-					dynamicID := fmt.Sprintf("port_auto_%d", app.Port)
-					_ = service.ToggleArmorRoute(dynamicID, "OFF")
+			for _, app := range filteredApps {
+				// Дедуп: IPv4+IPv6 слушатель того же порта
+				if processed[app.Port] {
+					continue
 				}
+				processed[app.Port] = true
+				progChan <- fmt.Sprintf(i18n.T.ViewArmorCtlProgDeactivateService, app.Name, app.Port)
+				dynamicID := fmt.Sprintf("port_auto_%d", app.Port)
+				_ = service.ToggleArmorRoute(dynamicID, "OFF")
 			}
 			progChan <- i18n.T.ViewArmorCtlProgNetfilterCleanup
 			_ = service.ReloadFirewall()
