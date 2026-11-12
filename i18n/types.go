@@ -509,6 +509,24 @@ type UITranslation struct {
 	ViewMultiTarpitLabelMarker            string
 	ViewMultiTarpitPassportFooter         string
 
+	// --- tui/view_multi_tarpit.go --- BATCH (v9.0.0) ---
+	ViewMultiTarpitRowStartAll             string
+	ViewMultiTarpitRowStopAll              string
+	ViewMultiTarpitBatchHintInventoryError string
+	ViewMultiTarpitBatchHintAllRunning     string
+	ViewMultiTarpitBatchHintNoneRunning    string
+	ViewMultiTarpitBatchHintCoreSeparate   string
+	ViewMultiTarpitBatchProgCoreSkip       string
+	ViewMultiTarpitBatchProgStart          string
+	ViewMultiTarpitBatchProgBlocked        string
+	ViewMultiTarpitBatchProgStop           string
+	ViewMultiTarpitBatchTitleStart         string
+	ViewMultiTarpitBatchTitleStop          string
+	ViewMultiTarpitBatchInit               string
+	ViewMultiTarpitBatchLabelPool          string
+	ViewMultiTarpitBatchReportDone         string
+	ViewMultiTarpitBatchReportDeclarations string
+
 	// --- tui/view_port_map.go ---
 	ViewPortMapHeaderTitle     string
 	ViewPortMapHeaderDesc      string
@@ -699,6 +717,14 @@ type UITranslation struct {
 	ViewTrapCardHintDeleteWaiting      string
 	ViewTrapCardHintDeleteInfo         string
 	ViewTrapCardHintBack               string
+
+	// --- tui/view_trap_card.go --- MENU ---
+	ViewTrapCardTagStart       string
+	ViewTrapCardTagStop        string
+	ViewTrapCardTagEdit        string
+	ViewTrapCardTagDelete      string
+	ViewTrapCardTagBack        string
+	ViewTrapCardHintInfoPrefix string
 
 	// --- tui/view_trap_creator.go ---
 	ViewTrapCreatorHeaderTitle            string

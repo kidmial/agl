@@ -81,15 +81,21 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 			markerStr = "[●](fg:green,mod:bold)"
 		}
 
+		// (v9.0.0) Грамматика паспорта: green = идентификаторы/текст, yellow bold = лимиты,
+		// magenta bold = ядро.
+		coreVal := "[false](fg:white)"
+		if trap.IsCore {
+			coreVal = "[true](fg:magenta,mod:bold)"
+		}
 		headerText = fmt.Sprintf(
-			"  %s: %s\n"+
-				"  %s   : %s\n"+
-				"  %s    : %d %s ± %d %s │ %s: %d\n"+
-				"  %s  %s    : DAEMON: %s │ MARKER: %s | %s: %v",
+			"  %s: [%s](fg:green)\n"+
+				"  %s: [%s](fg:green)\n"+
+				"  %s: [%d](fg:yellow,mod:bold) %s ± [%d](fg:yellow,mod:bold) %s │ %s: [%d](fg:yellow,mod:bold)\n"+
+				"  %s: [DECLARED](fg:cyan) %s │ [DAEMON](fg:yellow): %s │ [MARKER](fg:green): %s │ %s: %s",
 			i18n.T.ViewTrapCardLabelIdentifier, trap.TarpitID,
 			i18n.T.ViewTrapCardLabelSshBanner, trap.ConfigConfig.SSHVersion,
 			i18n.T.ViewTrapCardLabelRetention, trap.ConfigConfig.DelayStep, i18n.T.ViewTrapCardLabelSec, trap.ConfigConfig.DelayVariance, i18n.T.ViewTrapCardLabelSec, i18n.T.ViewTrapCardLabelSessionLimit, trap.ConfigConfig.MaxConn,
-			i18n.T.ViewTrapCardLabelStatus, markerStr, declaredStr, daemonStr, i18n.T.ViewTrapCardLabelCore, trap.IsCore)
+			i18n.T.ViewTrapCardLabelStatus, declaredStr, daemonStr, markerStr, i18n.T.ViewTrapCardLabelCore, coreVal)
 	}
 	header.Text = headerText
 	header.SetRect(2, 1, 102, 8)
@@ -102,37 +108,42 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 	// СПИСОК ДЕЙСТВИЙ
 	// -------------------------------------------------------------
 	var menuRows []string
+	// Стандарт меток меню v9.0.0 (зеркало view_tarpit.go): метка из i18n,
+	// фикс-ширина ячейки и разделитель "│", описание свободное.
+	cardRow := func(word, desc string) string {
+		return fmt.Sprintf("  %-16s │ %s", word, desc)
+	}
 	if !trapExists {
-		menuRows = append(menuRows, fmt.Sprintf("  [ BACK ]   │ %s", i18n.T.ViewTrapCardRowBackToList))
+		menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagBack, i18n.T.ViewTrapCardRowBackToList))
 	} else {
 		// START
 		if !isRunning {
-			menuRows = append(menuRows, fmt.Sprintf("  [ START ]  │ %s", i18n.T.ViewTrapCardRowStartActivate))
+			menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagStart, i18n.T.ViewTrapCardRowStartActivate))
 		} else {
-			menuRows = append(menuRows, fmt.Sprintf("  [ START ]  │ %s", i18n.T.ViewTrapCardRowStartAlreadyActive))
+			menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagStart, i18n.T.ViewTrapCardRowStartAlreadyActive))
 		}
 		// STOP
 		if isRunning {
-			menuRows = append(menuRows, fmt.Sprintf("  [ STOP ]   │ %s", i18n.T.ViewTrapCardRowStopDeactivate))
+			menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagStop, i18n.T.ViewTrapCardRowStopDeactivate))
 		} else {
-			menuRows = append(menuRows, fmt.Sprintf("  [ STOP ]   │ %s", i18n.T.ViewTrapCardRowStopAlreadyStopped))
+			menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagStop, i18n.T.ViewTrapCardRowStopAlreadyStopped))
 		}
 		// EDIT
 		if !isRunning {
-			menuRows = append(menuRows, fmt.Sprintf("  [ EDIT ]   │ %s", i18n.T.ViewTrapCardRowEditParams))
+			menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagEdit, i18n.T.ViewTrapCardRowEditParams))
 		} else {
-			menuRows = append(menuRows, fmt.Sprintf("  [ EDIT ]   │ %s", i18n.T.ViewTrapCardRowEditRequiresStop))
+			menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagEdit, i18n.T.ViewTrapCardRowEditRequiresStop))
 		}
 		// DELETE
 		if !isRunning && !markerExists {
-			menuRows = append(menuRows, fmt.Sprintf("  [ DELETE ] │ %s", i18n.T.ViewTrapCardRowDeleteFull))
+			menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagDelete, i18n.T.ViewTrapCardRowDeleteFull))
 		} else if !isRunning && markerExists {
-			menuRows = append(menuRows, fmt.Sprintf("  [ DELETE ] │ %s", i18n.T.ViewTrapCardRowDeleteWaiting))
+			menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagDelete, i18n.T.ViewTrapCardRowDeleteWaiting))
 		} else {
-			menuRows = append(menuRows, fmt.Sprintf("  [ DELETE ] │ %s", i18n.T.ViewTrapCardRowDeleteRequiresStop))
+			menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagDelete, i18n.T.ViewTrapCardRowDeleteRequiresStop))
 		}
 		// BACK
-		menuRows = append(menuRows, fmt.Sprintf("  [ BACK ]   │ %s", i18n.T.ViewTrapCardRowBackToPool))
+		menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagBack, i18n.T.ViewTrapCardRowBackToPool))
 	}
 
 	actionList := widgets.NewList()
@@ -151,9 +162,6 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 	}
 	actionList.Rows = paddedRows
 
-	actionList.BorderStyle.Fg = ui.ColorCyan
-	actionList.SelectedRow = selectedRow
-	actionList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
 	actionList.BorderStyle.Fg = ui.ColorCyan
 	actionList.SelectedRow = selectedRow
 	actionList.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
@@ -196,14 +204,14 @@ func getTrapCardHint(row int, trapExists, isRunning, markerExists bool) string {
 	case TrapCardEdit:
 		if isRunning {
 			// Причина блокировки действий
-			return " [[ИНФО]](fg:yellow,mod:bold) " + i18n.T.ViewTrapCardHintEditBlocked
+			return " [[" + i18n.T.ViewTrapCardHintInfoPrefix + "]](fg:yellow,mod:bold) " + i18n.T.ViewTrapCardHintEditBlocked
 		}
 		// Список изменяемых параметров
 		return i18n.T.ViewTrapCardHintEditInfo
 
 	case TrapCardDelete:
 		if isRunning {
-			return " [[ИНФО]](fg:yellow,mod:bold) " + i18n.T.ViewTrapCardHintDeleteBlocked
+			return " [[" + i18n.T.ViewTrapCardHintInfoPrefix + "]](fg:yellow,mod:bold) " + i18n.T.ViewTrapCardHintDeleteBlocked
 		}
 		if markerExists {
 			return i18n.T.ViewTrapCardHintDeleteWaiting

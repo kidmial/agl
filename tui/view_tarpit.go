@@ -248,7 +248,7 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	// -------------------------------------------------------------
 	tarpitList := widgets.NewList()
 	tarpitList.Title = i18n.T.ViewTarpitListTitle
-	// v9.0.0: метки меню из i18n, паддинг до 10 символов (длина TARPIT_OFF).
+	// v9.0.0: метки меню из i18n, паддинг до 18 символов.
 	// SETTINGS берём из общего ключа ViewMainLabelSettings (уже "SETTINGS").
 	tarpitList.Rows = []string{
 		fmt.Sprintf("  %-18s  │ %s", i18n.T.ViewTarpitLabelLiveBox, i18n.T.ViewTarpitRowLiveBoxDesc),

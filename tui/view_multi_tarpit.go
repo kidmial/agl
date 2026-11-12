@@ -176,6 +176,12 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 	menuRows = append(menuRows,
 		fmt.Sprintf(" [ ADD NEW TRAP ] %s", i18n.T.ViewMultiTarpitRowAddNewTrap))
 
+	// Пакетные тумблеры: порядок по UX-решению — создание, затем операции над пулом.
+	menuRows = append(menuRows,
+		fmt.Sprintf(" [ START_ALL ]    %s", i18n.T.ViewMultiTarpitRowStartAll))
+	menuRows = append(menuRows,
+		fmt.Sprintf(" [ STOP_ALL ]     %s", i18n.T.ViewMultiTarpitRowStopAll))
+
 	// Кнопка возврата в главное меню
 	menuRows = append(menuRows,
 		fmt.Sprintf(" [ BACK ]         %s", i18n.T.ViewMultiTarpitRowBack))
@@ -211,12 +217,14 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 	infoBox := widgets.NewParagraph()
 	infoBox.Title = i18n.T.ViewMultiTarpitInfoBoxTitle
 	// Базовая справка по пулу
+	// Та же грамматика: счётчик white bold, путь green, факторы — цвета шапки,
+	// инструктивные строки yellow.
 	helpText := fmt.Sprintf(
-		" %s: %d\n"+
-			" %s: %s\n"+
-			" %s: DECLARED (state) │ DAEMON (status) │ MARKER (%s)\n"+
-			" %s\n"+
-			" %s",
+		" %s: [%d](fg:white,mod:bold)\n"+
+			" %s: [%s](fg:green)\n"+
+			" %s: [DECLARED](fg:cyan) (state) │ [DAEMON](fg:yellow) (status) │ [MARKER](fg:green) (%s)\n"+
+			" [%s](fg:yellow)\n"+
+			" [%s](fg:yellow)",
 		i18n.T.ViewMultiTarpitLabelTotalIntegrated, totalTrapsCount,
 		i18n.T.ViewMultiTarpitLabelDeclInventory, sys.TarpitInventoryPath,
 		i18n.T.ViewMultiTarpitLabelThreeFactor, i18n.T.ViewMultiTarpitLabelFileOnDisk,
@@ -232,20 +240,28 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 		if selectedRow < len(trapIDs) {
 			selectedTrap := inv.Traps[trapIDs[selectedRow]]
 			// Рантайм-метаданные демона (перенесены сюда из строки списка)
-			runtimeLine := fmt.Sprintf(" %s: %s", i18n.T.ViewMultiTarpitLabelWorker, i18n.T.ViewMultiTarpitWorkerIdleText)
+			// Грамматика паспорта: white bold = текущие числа, green = текстовые данные.
+			runtimeLine := fmt.Sprintf(" %s: [%s](fg:white)", i18n.T.ViewMultiTarpitLabelWorker, i18n.T.ViewMultiTarpitWorkerIdleText)
 			if selectedTrap.ActivatedAt != "" {
-				runtimeLine = fmt.Sprintf(" %s: PID %d │ %s: %s",
+				runtimeLine = fmt.Sprintf(" %s: [PID %d](fg:white,mod:bold) │ %s: [%s](fg:green)",
 					i18n.T.ViewMultiTarpitLabelWorker, selectedTrap.WorkerPID, i18n.T.ViewMultiTarpitLabelStarted, selectedTrap.ActivatedAt)
 			}
+			// Грамматика паспорта — зеркало карточки CORE_SETTINGS: green = идентификаторы
+			// и текст, white bold = текущие числа, yellow bold = лимиты и границы,
+			// magenta bold = принадлежность ядру (как префикс [CORE] в списке).
+			coreVal := "[false](fg:white)"
+			if selectedTrap.IsCore {
+				coreVal = "[true](fg:magenta,mod:bold)"
+			}
 			helpText = fmt.Sprintf(
-				" %s: %s │ %s: %d │ %s: %v\n"+
-					" %s: %s\n"+
-					" %s: %d %s ± %d %s\n"+
-					" %s: %d\n"+
+				" %s: [%s](fg:green) │ %s: [%d](fg:white,mod:bold) │ %s: %s\n"+
+					" %s: [%s](fg:green)\n"+
+					" %s: [%d](fg:yellow,mod:bold) %s ± [%d](fg:yellow,mod:bold) %s\n"+
+					" %s: [%d](fg:yellow,mod:bold)\n"+
 					"%s\n"+
-					" %s: %s\n\n"+
-					" %s",
-				i18n.T.ViewMultiTarpitLabelTrap, selectedTrap.TarpitID, i18n.T.ViewMultiTarpitColPort, selectedTrap.Port, i18n.T.ViewMultiTarpitLabelCore, selectedTrap.IsCore,
+					" %s: [%s](fg:green)\n\n"+
+					" [%s](fg:yellow)",
+				i18n.T.ViewMultiTarpitLabelTrap, selectedTrap.TarpitID, i18n.T.ViewMultiTarpitColPort, selectedTrap.Port, i18n.T.ViewMultiTarpitLabelCore, coreVal,
 				i18n.T.ViewMultiTarpitLabelSshBanner, selectedTrap.ConfigConfig.SSHVersion,
 				i18n.T.ViewMultiTarpitLabelRetention, selectedTrap.ConfigConfig.DelayStep, i18n.T.ViewMultiTarpitLabelSec, selectedTrap.ConfigConfig.DelayVariance, i18n.T.ViewMultiTarpitLabelSec,
 				i18n.T.ViewMultiTarpitLabelSessionLimit, selectedTrap.ConfigConfig.MaxConn,

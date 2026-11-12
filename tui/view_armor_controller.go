@@ -103,7 +103,7 @@ func HandleArmorMenuClick(currentRow int, selectedRowStr string) string {
 		}()
 
 		// Запускаем графическое окно прогресса, оно заблокирует UI-поток до завершения канала
-		ShowArmorProgressWindow(i18n.T.ViewArmorCtlProgressTitleOn, progChan)
+		ShowTransactionWindow(i18n.T.ViewArmorCtlProgressTitleOn, i18n.T.ViewArmorProgressInitKernel, progChan, buildArmorFinalReport())
 		hintText = i18n.T.ViewArmorCtlHintArmorOnDone
 
 	case strings.Contains(selectedRowStr, "ARMOR_OFF"):
@@ -164,7 +164,7 @@ func HandleArmorMenuClick(currentRow int, selectedRowStr string) string {
 			close(progChan)
 		}()
 
-		ShowArmorProgressWindow(i18n.T.ViewArmorCtlProgressTitleOff, progChan)
+		ShowTransactionWindow(i18n.T.ViewArmorCtlProgressTitleOff, i18n.T.ViewArmorProgressInitKernel, progChan, buildArmorFinalReport())
 		hintText = i18n.T.ViewArmorCtlHintArmorOffDone
 
 	case strings.Contains(selectedRowStr, "SYSCTL"):

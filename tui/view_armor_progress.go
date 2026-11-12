@@ -1,70 +1,11 @@
-// tui/view_armor_progress.go
 package tui
 
-import (
-	"agl/i18n"
-	"fmt"
-	"strings"
-	"time"
-	"unicode/utf8"
+import "agl/i18n"
 
-	ui "github.com/gizak/termui/v3"
-	"github.com/gizak/termui/v3/widgets"
-)
-
-// ShowArmorProgressWindow выводит расширенную историю выполнения операций Брони v6.2.7
-func ShowArmorProgressWindow(actionName string, progressChan chan string) {
-	ui.Clear()
-
-	var operationHistory []string
-	maxVisibleHistoryLines := 7 // Увеличили до 7 строк для лучшей информативности хроники
-
-	// 1. БРОНЕБОЙНАЯ ГЕОМЕТРИЯ v6.2.7 (Ширина 80 символов, Высота 11 строк)
-	// Идеально центрировано на холсте 102х30, дает огромный внутренний запас для длинных имен служб
-	progressBox := widgets.NewParagraph()
-	progressBox.Title = fmt.Sprintf(" [ %s: %s ] ", i18n.T.ViewArmorProgressTransactionLabel, strings.ToUpper(actionName))
-	progressBox.SetRect(12, 9, 92, 20)
-	progressBox.BorderStyle.Fg = ui.ColorRed
-	progressBox.TextStyle.Fg = ui.ColorWhite
-	progressBox.WrapText = false // Отключает автоперенос
-
-	progressBox.Text = "\n  " + i18n.T.ViewArmorProgressInitKernel
-	ui.Render(progressBox)
-
-	// 2. ЧИТАЕМ ЖИВОЙ ПОТОК ОПЕРАЦИЙ
-	for stepLog := range progressChan {
-		// Максимальное количество символов (рун) для лога
-		const maxLogRunes = 64
-		if utf8.RuneCountInString(stepLog) > maxLogRunes {
-			runes := []rune(stepLog)
-			if len(runes) > maxLogRunes {
-				stepLog = string(runes[:maxLogRunes-3]) + "..."
-			}
-		}
-
-		timeTag := time.Now().Format("15:04:05")
-		formattedLine := fmt.Sprintf(" [%s] %s", timeTag, stepLog)
-		operationHistory = append(operationHistory, formattedLine)
-
-		if len(operationHistory) > maxVisibleHistoryLines {
-			operationHistory = operationHistory[len(operationHistory)-maxVisibleHistoryLines:]
-		}
-
-		progressBox.Text = "\n" + strings.Join(operationHistory, "\n")
-		ui.Render(progressBox)
-	}
-
-	// =================================================================
-	// ФАЗА ЗАВЕРШЕНИЯ С АНИМАЦИЕЙ ПОЯВЛЕНИЯ СТРОК
-	// =================================================================
-	// Формируем финальный рапорт строго в виде независимых элементов массива
-	// Очищаем историю, чтобы начать с пустого виджета
-	operationHistory = nil
-
-	// v9.0.0: финальный отчёт без ручного подтверждения — окно закрывается
-	// автоматически по закрытию канала progressChan. Блок из трёх строк
-	// (статус/разделитель/успех) обрамлён одной пустой строкой сверху и снизу.
-	finalLines := []string{
+// buildArmorFinalReport — финальные строки броневой транзакции.
+// Механика окна переехала в helpers.go (ShowTransactionWindow).
+func buildArmorFinalReport() []string {
+	return []string{
 		"",
 		"",
 		"  [[" + i18n.T.ViewArmorProgressLabelSystemStatus + "]](fg:yellow,mod:bold): " + i18n.T.ViewArmorProgressNetfilterRebuilt,
@@ -72,22 +13,4 @@ func ShowArmorProgressWindow(actionName string, progressChan chan string) {
 		"  [[" + i18n.T.ViewArmorProgressLabelSuccess + "]](fg:green,mod:bold) " + i18n.T.ViewArmorProgressArmorTransferred,
 		"",
 	}
-
-	// Меняем цвет рамки на зелёный сразу
-	progressBox.BorderStyle.Fg = ui.ColorGreen
-	progressBox.WrapText = false // Отключает автоперенос
-
-	// Анимируем появление строк
-	for _, line := range finalLines {
-		operationHistory = append(operationHistory, line)
-		progressBox.Text = "\n" + strings.Join(operationHistory, "\n")
-		ui.Render(progressBox)
-		time.Sleep(150 * time.Millisecond) // скорость появления текста
-	}
-	// v9.0.0: убран цикл ожидания клавиш — окно завершается автоматически
-	// при закрытии канала progressChan. Sink в handleEnterClick уже глотает
-	// все события во время операции; после перерисовки ARMOR управление
-	// возвращается в главный цикл без остаточных событий в буфере.
-	// Небольшая пауза для визуального завершения анимации финальных строк.
-	time.Sleep(300 * time.Millisecond)
 }

@@ -214,6 +214,8 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	formBox.BorderStyle.Fg = ui.ColorCyan
 	formBox.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
 
+	// Ширина блока известна до сборки строк: разделители групп добиваются до неё.
+	innerWidth := formBox.GetRect().Dx() - 2
 	var visibleRows []string
 	tuiToRegistryMap := make(map[int]int)
 	visibleLineCounter := 0
@@ -222,16 +224,16 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 			headerText := settingsGroupHeader(item.Group)
 			// КОСМЕТИКА v8.4.1: пустая строка перед заголовком убрана —
 			// меню целиком помещается в кадр (17 строк из 18 доступных).
-			// Группировка держится цветом, а не воздухом.
-			// Разметка живёт в коде, а не в словаре (доктрина 6.7).
-			visibleRows = append(visibleRows, " ["+strings.TrimSpace(headerText)+"](fg:cyan)")
+			// v9.0.0: геометрия разделителя строится в коде по ширине блока,
+			// словарь отдаёт только титул (доктрина 6.7).
+			visibleRows = append(visibleRows, groupSeparatorRow(headerText, innerWidth))
 			visibleLineCounter++
 			continue
 		}
 		label := item.Label()
-		cursor := "     "
+		cursor := "  "
 		if regIdx == ActiveRowIndex {
-			cursor = " --> "
+			cursor = " ->"
 		}
 		var finalRowStr string
 		if item.Key == "BACK" {
@@ -243,9 +245,9 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 				item.Key == "web_server_enabled" ||
 				item.Key == "ssh_allow_in_from_ip" || item.Key == "ssh_ip_web_knock" || item.Key == "web_https_panel_active" ||
 				item.Key == "analytics_auto_rebuild" {
-				finalRowStr = fmt.Sprintf("%-5s%-65s:  [[ %s ]](fg:yellow,mod:bold)", cursor, label, currentVal)
+				finalRowStr = fmt.Sprintf("%-4s%-65s:  [[ %s ]](fg:yellow,mod:bold)", cursor, label, currentVal)
 			} else {
-				finalRowStr = fmt.Sprintf("%-5s%-65s:  %s", cursor, label, currentVal)
+				finalRowStr = fmt.Sprintf("%-4s%-65s:  %s", cursor, label, currentVal)
 			}
 		}
 		visibleRows = append(visibleRows, finalRowStr)
@@ -254,7 +256,6 @@ func DrawSettingsGrid(alertMessage string) []ui.Drawable {
 	}
 
 	// v9.0.0: КОСМЕТИКА — полоса выделения до правого края блока.
-	innerWidth := formBox.GetRect().Dx() - 2
 	paddedRows := make([]string, len(visibleRows))
 	for i, row := range visibleRows {
 		if n := visibleRunes(row); n < innerWidth {

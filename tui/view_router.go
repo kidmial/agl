@@ -780,9 +780,11 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 		// =================================================================
 		// 1. Получаем реальное количество строк динамического меню пула
 		_, totalRows := DrawMultiTarpitGrid(0)
-		// 2. Вычисляем фактические индексы интерактивных кнопок в хвосте списка
-		addTrapRowIndex := totalRows - 2 // Кнопка [ ADD NEW TRAP ]
-		backRowIndex := totalRows - 1    // Кнопка BACK
+		// 2. Индексы хвоста v9.0.0: ADD, START_ALL, STOP_ALL, BACK
+		addTrapRowIndex := totalRows - 4 // Кнопка [ ADD NEW TRAP ]
+		startAllRowIndex := totalRows - 3
+		stopAllRowIndex := totalRows - 2
+		backRowIndex := totalRows - 1 // Кнопка BACK
 
 		// Действие А: Нажатие ENTER на терминальной кнопке BACK
 		if state.currentRow == backRowIndex {
@@ -802,6 +804,33 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 			ui.Clear()
 			widgets, _ := DrawTrapCreatorGrid(state.currentRow)
 			ui.Render(widgets...)
+			return false
+		}
+		// Действие Б2: пакетные тумблеры пула (v9.0.0) — внутри event-sink:
+		// клавиши во время пакета глотаются, устаревший Enter не дёрнет операцию дважды.
+		if state.currentRow == startAllRowIndex || state.currentRow == stopAllRowIndex {
+			direction := "START"
+			if state.currentRow == stopAllRowIndex {
+				direction = "STOP"
+			}
+			done := make(chan struct{}, 1)
+			go func() {
+				HandleMultiTarpitBatch(direction)
+				done <- struct{}{}
+			}()
+			evCh := ui.PollEvents()
+		batchSink:
+			for {
+				select {
+				case <-done:
+					break batchSink
+				case <-evCh:
+					// проглатываем: модалка без органов управления
+				}
+			}
+			ui.Clear()
+			bw, _ := DrawMultiTarpitGrid(state.currentRow)
+			ui.Render(bw...)
 			return false
 		}
 		// Действие В: Клик по реальной ловушке в списке (Переключение статуса)

@@ -2,10 +2,14 @@
 package tui
 
 import (
+	"agl/i18n"
+	"fmt"
 	"regexp"
 	"strings"
+	"time"
 	"unicode/utf8"
 
+	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
 )
 
@@ -62,4 +66,89 @@ func padListRowsToWidth(l *widgets.List) {
 		padded[i] = padVisible(row, innerWidth)
 	}
 	l.Rows = padded
+}
+
+// ShowTransactionWindow — единая механика окна транзакции для всех пакетных
+// операций (броня, пул ловушек). Контент (init-строка и финальный отчёт)
+// передаётся вызывающим доменом; механика живёт только здесь.
+// CONTRACT: окно закрывается само по закрытию progressChan, без клавиш.
+func ShowTransactionWindow(actionName, initLine string, progressChan chan string, finalReport []string) {
+	ui.Clear()
+	var operationHistory []string
+	const maxVisibleHistoryLines = 7
+	progressBox := widgets.NewParagraph()
+	progressBox.Title = fmt.Sprintf(" [ %s: %s ] ", i18n.T.ViewArmorProgressTransactionLabel, strings.ToUpper(actionName))
+	progressBox.SetRect(12, 9, 92, 20)
+	progressBox.BorderStyle.Fg = ui.ColorRed
+	progressBox.TextStyle.Fg = ui.ColorWhite
+	progressBox.WrapText = false
+	progressBox.Text = "\n  " + initLine
+	ui.Render(progressBox)
+
+	for stepLog := range progressChan {
+		const maxLogRunes = 64
+		if utf8.RuneCountInString(stepLog) > maxLogRunes {
+			runes := []rune(stepLog)
+			if len(runes) > maxLogRunes {
+				stepLog = string(runes[:maxLogRunes-3]) + "..."
+			}
+		}
+		timeTag := time.Now().Format("15:04:05")
+		operationHistory = append(operationHistory, fmt.Sprintf(" [%s] %s", timeTag, stepLog))
+		if len(operationHistory) > maxVisibleHistoryLines {
+			operationHistory = operationHistory[len(operationHistory)-maxVisibleHistoryLines:]
+		}
+		progressBox.Text = "\n" + strings.Join(operationHistory, "\n")
+		ui.Render(progressBox)
+	}
+
+	// Финальный отчёт: анимация появления строк, затем автозакрытие
+	operationHistory = nil
+	progressBox.BorderStyle.Fg = ui.ColorGreen
+	for _, line := range finalReport {
+		operationHistory = append(operationHistory, line)
+		progressBox.Text = "\n" + strings.Join(operationHistory, "\n")
+		ui.Render(progressBox)
+		time.Sleep(150 * time.Millisecond)
+	}
+	time.Sleep(1000 * time.Millisecond)
+}
+
+// padTagCell собирает тег "[слово]" и приводит его к фиксированной видимой
+// ширине width рун: короче — добивка пробелами справа, длиннее — многоточие.
+// PURPOSE: колонка описаний меню стоит на фикс-позиции при любой длине тега
+// и любом языке; скобки — геометрия в коде, слово — из словаря i18n.
+// CONTRACT: width подбирается под самый длинный тег словарей экрана.
+func padTagCell(word string, width int) string {
+	tag := "[" + word + "]"
+	runes := []rune(tag)
+	switch {
+	case len(runes) < width:
+		tag += strings.Repeat(" ", width-len(runes))
+	case len(runes) > width:
+		tag = string(runes[:width-1]) + "…"
+	}
+	return tag
+}
+
+// SETTNGS
+// groupSeparatorRow собирает строку-заголовок группы меню: горизонтальная
+// линия с врезанным титулом и добивкой до ширины блока.
+// CONTRACT: словарь отдаёт только переводимый титул; вся геометрия (линии,
+// врезы, добивка, цвет) живёт здесь (доктрина 6.7). Ширина передаётся
+// вызывающим: геометрия блока известна только в момент отрисовки.
+func groupSeparatorRow(title string, width int) string {
+	const left = "───┤ "
+	const right = " ├"
+	const minTail = 3 // минимум линий справа: титул не упирается в край
+	maxTitle := width - visibleRunes(left) - visibleRunes(right) - minTail
+	if maxTitle < 1 {
+		maxTitle = 1
+	}
+	// Титул режем по рунам с многоточием, если язык дал слишком длинную фразу
+	line := left + trunc(strings.TrimSpace(title), maxTitle) + right
+	if pad := width - visibleRunes(line); pad > 0 {
+		line += strings.Repeat("─", pad)
+	}
+	return "[" + line + "](fg:cyan)"
 }
