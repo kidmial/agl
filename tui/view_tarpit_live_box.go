@@ -19,7 +19,7 @@ var LiveTable *widgets.List
 // Нативно инициализирует List-компонент termui и осуществляет жесткий сброс курсора на нулевую строку.
 func DrawTarpitLiveBoxGrid() []ui.Drawable {
 	// v9.0.0: единая шапка; титул экрана переиспользует ключ титула таблицы.
-	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.ViewTarpitLiveBoxListTitle), 2, 1, 102, 4)
+	header := newScreenHeader(fmt.Sprintf("%s", i18n.T.ViewTarpitLiveBoxListTitle), 2, 1, 102, 4)
 	header.Text = " " + i18n.T.ViewTarpitLiveBoxHeaderText
 	header.TextStyle.Fg = ui.ColorCyan
 

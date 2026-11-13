@@ -643,8 +643,8 @@ func init() {
 		// --- tui/view_tarpit.go --- MENU ---
 		ViewTarpitLabelLiveBox:   "СОБЫТИЯ",
 		ViewTarpitLabelMovePort:  "ПЕРЕЕЗД SSH",
-		ViewTarpitLabelTarpitOn:  "ВКЛЮЧЕНИЕ ЛОВУШКИ",
-		ViewTarpitLabelTarpitOff: "ВЫКЛЮЧЕНИЕ ЛОВУШКИ",
+		ViewTarpitLabelTarpitOn:  "ЗАПУСК ЛОВУШКИ",
+		ViewTarpitLabelTarpitOff: "ОСТАНОВКА ЛОВУШКИ",
 		ViewTarpitLabelHelp:      "СПРАВКА",
 		ViewTarpitLabelBack:      "НАЗАД",
 

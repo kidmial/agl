@@ -643,7 +643,7 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	// ─────────────────────────────────────────────────────────────
 	// v9.0.0: ШАПКА + СИСТЕМНЫЙ ПАСПОРТ объединены (макет строки 01-05).
 	// v9.0.0: единый построитель шапки (helpers.go) — эталон всех экранов.
-	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrand, buildinfo.Version), 2, 1, 102, 5)
+	header := newMainHeader(buildinfo.Version, 2, 1, 102, 5)
 
 	// v9.0.0: ПРАВЫЙ КРАЙ ШАПКИ — опция A и статус паролей (макет строки 02-03).
 	// PURPOSE: две охранно-критичные декларации видны без входа в SETTINGS:

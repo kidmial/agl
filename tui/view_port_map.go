@@ -21,7 +21,7 @@ import (
 func DrawPortMapGrid(selectedRow int) ([]ui.Drawable, int, []config.AppInventoryItem) {
 	// 1. Верхний текстовый блок заголовка (Высота 4 строки: y: 1 - 5)
 	// v9.0.0: единая шапка; описание экрана остаётся в теле.
-	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.ViewPortMapHeaderTitle), 2, 1, 102, 5)
+	header := newScreenHeader(fmt.Sprintf("%s", i18n.T.ViewPortMapHeaderTitle), 2, 1, 102, 5)
 	header.Text = " " + i18n.T.ViewPortMapHeaderDesc
 
 	// Загружаем сырой инвентарь напрямую из файла через стабильный бэкенд config_inventory.go.

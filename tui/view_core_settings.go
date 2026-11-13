@@ -95,7 +95,7 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 
 	// v9.0.0: единая шапка; предупреждение — единственная строка тела.
 	// Дата/время живут на линии титула.
-	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.CoreTitleText), 2, 1, 102, 4)
+	header := newScreenHeader(fmt.Sprintf("%s", i18n.T.CoreTitleText), 2, 1, 102, 4)
 	header.Text = " " + i18n.T.CoreHeaderWarning
 
 	// 2. Верхний блок: Слайдер-список параметров (Высота 7 строк)

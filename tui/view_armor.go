@@ -267,8 +267,7 @@ func DrawArmorMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	GlobalArmorMenuRows = rows
 
 	// v9.0.0: единая шапка: AGL + титул + дата/время на линии титула.
-	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.ViewArmorHeaderTitle), 2, 1, 102, 4)
-	// Дата/время ушли на титул: тело несёт только описание, без жёлтого.
+	header := newScreenHeader(fmt.Sprintf("%s", i18n.T.ViewArmorHeaderTitle), 2, 1, 102, 4)
 	header.Text = " " + i18n.T.ViewArmorHeaderDesc
 
 	// -------------------------------------------------------------

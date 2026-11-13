@@ -205,7 +205,7 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 	// 1. ФИКСИРОВАННАЯ ШАПКА МАСТЕРА
 	// -------------------------------------------------------------
 	// v9.0.0: единая шапка; дата/время на титуле, тело несёт только описания.
-	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.ViewTrapCreatorHeaderTitle), 2, 1, 102, 5)
+	header := newScreenHeader(fmt.Sprintf("%s", i18n.T.ViewTrapCreatorHeaderTitle), 2, 1, 102, 5)
 	header.Text = "  " + i18n.T.ViewTrapCreatorHeaderDesc1 + "\n  " + i18n.T.ViewTrapCreatorHeaderDesc2
 
 	// -------------------------------------------------------------

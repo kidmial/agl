@@ -78,7 +78,7 @@ func DrawMultiTarpitGrid(selectedRow int) ([]ui.Drawable, int) {
 	// 1. ШАПКА
 	// -------------------------------------------------------------
 	// v9.0.0: единая шапка; легенда факторов остаётся в теле.
-	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.ViewMultiTarpitHeaderTitle), 2, 1, 102, 6)
+	header := newScreenHeader(fmt.Sprintf("%s", i18n.T.ViewMultiTarpitHeaderTitle), 2, 1, 102, 6)
 	header.Text = fmt.Sprintf(" %s\n "+
 		" %s: [DECLARED](fg:cyan) = %s\n "+
 		" [MARKER](fg:green) = %s │ [DAEMON](fg:yellow) = %s ",

@@ -4,6 +4,7 @@ package tui
 import (
 	"agl/i18n"
 	"fmt"
+	"image"
 	"regexp"
 	"strings"
 	"time"
@@ -50,20 +51,168 @@ func screenTitleLine(titleLeft string) string {
 	return left + strings.Repeat("─", pad) + right
 }
 
-// newScreenHeader собирает шапку экрана в едином виде v9.0.0:
-// титул = левый текст + добивка линиями + дата/время справа; cyan, без жёлтого.
-// CONTRACT: дата/время живут только на линии титула; тело шапки их не дублирует.
-// Ключи даты/времени переиспользованы с главного экрана (один источник).
-func newScreenHeader(titleLeft string, x0, y0, x1, y1 int) *widgets.Paragraph {
-	h := widgets.NewParagraph()
-	h.Title = screenTitleLine(titleLeft)
-	h.SetRect(x0, y0, x1, y1)
-	h.BorderStyle.Fg = ui.ColorCyan
-	h.TitleStyle.Fg = ui.ColorCyan
-	h.TitleStyle.Modifier = ui.ModifierBold
-	h.WrapText = false
-	return h
+// TitleSegment описывает фрагмент заголовка со своим стилем.
+type TitleSegment struct {
+	Text  string
+	Style ui.Style
 }
+
+// ScreenHeader — шапка v9.0.0 с поддержкой разноцветных сегментов и 4 углов.
+type ScreenHeader struct {
+	*widgets.Paragraph
+	TopLeft     []TitleSegment
+	TopRight    []TitleSegment
+	BottomLeft  []TitleSegment
+	BottomRight []TitleSegment
+}
+
+// Draw отрисовывает стандартный блок и впечатывает цветные заголовки поверх рамки.
+func (h *ScreenHeader) Draw(buf *ui.Buffer) {
+	h.Paragraph.Draw(buf)
+	if !h.Border {
+		return
+	}
+	stampTitleSegments(buf, h.GetRect(), h.TopLeft, h.TopRight, h.BottomLeft, h.BottomRight)
+}
+
+// newScreenHeader собирает шапку экрана с разноцветным титулом и поддержкой нижних углов.
+// Сохраняет совместимость по сигнатуре вызова и использует твой i18n и trunc.
+var (
+	hdrYellow = ui.NewStyle(ui.ColorYellow, ui.ColorClear, ui.ModifierBold)
+	hdrWhite  = ui.NewStyle(ui.ColorWhite, ui.ColorClear, ui.ModifierBold)
+	hdrCyan   = ui.NewStyle(ui.ColorCyan, ui.ColorClear, ui.ModifierBold)
+)
+
+// stampTitleSegments впечатывает цветные сегменты поверх рамки блока.
+// Единая механика для ScreenHeader (Paragraph) и ScreenList (List).
+// Поклеточная запись с guard: за рамку не пишем никогда (fail-safe).
+func stampTitleSegments(buf *ui.Buffer, r image.Rectangle, topLeft, topRight, bottomLeft, bottomRight []TitleSegment) {
+	drawSegs := func(startX, y int, segs []TitleSegment) {
+		x := startX
+		for _, s := range segs {
+			for _, rn := range s.Text {
+				if x >= r.Max.X-1 || x < r.Min.X+1 {
+					break
+				}
+				buf.SetCell(ui.Cell{Rune: rn, Style: s.Style}, image.Pt(x, y))
+				x++
+			}
+		}
+	}
+	calcWidth := func(segs []TitleSegment) int {
+		w := 0
+		for _, s := range segs {
+			w += utf8.RuneCountInString(s.Text)
+		}
+		return w
+	}
+	if len(topLeft) > 0 {
+		drawSegs(r.Min.X+2, r.Min.Y, topLeft)
+	}
+	if len(topRight) > 0 {
+		drawSegs(r.Max.X-2-calcWidth(topRight), r.Min.Y, topRight)
+	}
+	if len(bottomLeft) > 0 {
+		drawSegs(r.Min.X+2, r.Max.Y-1, bottomLeft)
+	}
+	if len(bottomRight) > 0 {
+		drawSegs(r.Max.X-2-calcWidth(bottomRight), r.Max.Y-1, bottomRight)
+	}
+}
+
+// buildTitleSegs собирает сегменты титула с бюджетом и датой/время справа.
+// Данные (титул, дата, время) — white; бренд — янтарный + white.
+func buildTitleSegs(leftSegs []TitleSegment) ([]TitleSegment, []TitleSegment) {
+	now := time.Now()
+	// rightStr := fmt.Sprintf(" %s: %s | %s: %s ",
+	// i18n.T.ViewMainLabelDate, now.Format("2006-01-02"),
+	// i18n.T.ViewMainLabelTime, now.Format("15:04:05"))
+	rightStr := fmt.Sprintf(" %s | %s ",
+		now.Format("2006-01-02"),
+		now.Format("15:04:05"))
+	allowed := headerTitleBudget - utf8.RuneCountInString(rightStr) - 1
+	var segs []TitleSegment
+	used := 0
+	for _, s := range leftSegs {
+		if allowed-used <= 0 {
+			break
+		}
+		t := s.Text
+		if n := utf8.RuneCountInString(t); used+n > allowed {
+			t = trunc(t, allowed-used)
+		}
+		segs = append(segs, TitleSegment{Text: t, Style: s.Style})
+		used += utf8.RuneCountInString(t)
+	}
+	return segs, []TitleSegment{{Text: rightStr, Style: hdrWhite}}
+}
+
+// brandSegs — бренд суб-экранов из HeaderBrandShort: первый символ янтарный, хвост white.
+func brandSegs(screenTitle string) []TitleSegment {
+	b := []rune(HeaderBrandShort)
+	return []TitleSegment{
+		{Text: " ", Style: hdrWhite},
+		{Text: string(b[:1]), Style: hdrYellow},
+		{Text: string(b[1:]), Style: hdrWhite},
+		{Text: " - " + screenTitle + " ", Style: hdrCyan},
+	}
+}
+
+func newScreenHeader(screenTitle string, x0, y0, x1, y1 int) *ScreenHeader {
+	left, right := buildTitleSegs(brandSegs(screenTitle))
+	p := widgets.NewParagraph()
+	p.Title = ""
+	p.SetRect(x0, y0, x1, y1)
+	p.BorderStyle.Fg = ui.ColorCyan
+	p.WrapText = false
+	return &ScreenHeader{Paragraph: p, TopLeft: left, TopRight: right}
+}
+
+// newMainHeader — бренд главного экрана из HeaderBrand: первое слово янтарное, хвост white.
+func newMainHeader(version string, x0, y0, x1, y1 int) *ScreenHeader {
+	idx := strings.Index(HeaderBrand, " ")
+	left, right := buildTitleSegs([]TitleSegment{
+		{Text: " ", Style: hdrWhite},
+		{Text: HeaderBrand[:idx], Style: hdrYellow},
+		{Text: HeaderBrand[idx:], Style: hdrWhite},
+		{Text: " - " + version + " ", Style: hdrWhite},
+	})
+	p := widgets.NewParagraph()
+	p.Title = ""
+	p.SetRect(x0, y0, x1, y1)
+	p.BorderStyle.Fg = ui.ColorCyan
+	p.WrapText = false
+	return &ScreenHeader{Paragraph: p, TopLeft: left, TopRight: right}
+}
+
+// ScreenList — List-блок с сегментным титулом (одиночный блок SETTINGS).
+type ScreenList struct {
+	*widgets.List
+	TopLeft     []TitleSegment
+	TopRight    []TitleSegment
+	BottomLeft  []TitleSegment
+	BottomRight []TitleSegment
+}
+
+func (l *ScreenList) Draw(buf *ui.Buffer) {
+	l.List.Draw(buf)
+	if !l.Border {
+		return
+	}
+	stampTitleSegments(buf, l.GetRect(), l.TopLeft, l.TopRight, l.BottomLeft, l.BottomRight)
+}
+
+func newScreenListHeader(screenTitle string, x0, y0, x1, y1 int) *ScreenList {
+	left, right := buildTitleSegs(brandSegs(screenTitle))
+	l := widgets.NewList()
+	l.Title = ""
+	l.SetRect(x0, y0, x1, y1)
+	l.BorderStyle.Fg = ui.ColorCyan
+	l.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
+	return &ScreenList{List: l, TopLeft: left, TopRight: right}
+}
+
+// Окончание сборщика шапки
 
 // visibleRunes возвращает длину строки ТАК, как её видит терминал:
 // markup-модификаторы termui не отображаются и не занимают ячеек экрана.

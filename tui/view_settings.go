@@ -202,13 +202,8 @@ func DrawSettingsGrid(alertMessage string, alertIsError bool) []ui.Drawable {
 
 	// v9.0.0: единственный основной блок экрана (макет): титул несёт
 	// бренд+титул+дату/время, тело стартует сразу с групповых разделителей.
-	formBox := widgets.NewList()
-	formBox.Title = screenTitleLine(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.SettingsUiFormTitle))
-	formBox.SetRect(2, 1, 102, 24)
-	formBox.BorderStyle.Fg = ui.ColorCyan
-	formBox.TitleStyle.Fg = ui.ColorCyan
-	formBox.TitleStyle.Modifier = ui.ModifierBold
-	formBox.SelectedRowStyle = ui.NewStyle(ui.ColorBlack, ui.ColorGreen, ui.ModifierBold)
+	// v9.0.0: одиночный блок с сегментным титулом — единообразие шапок без второго блока.
+	formBox := newScreenListHeader(i18n.T.SettingsUiFormTitle, 2, 1, 102, 24)
 
 	// Ширина блока известна до сборки строк: разделители групп добиваются до неё.
 	innerWidth := formBox.GetRect().Dx() - 2

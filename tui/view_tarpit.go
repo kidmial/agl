@@ -215,7 +215,7 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	// ШАПКА ПАНЕЛИ
 	// -------------------------------------------------------------
 	// v9.0.0: единая шапка; дата/время на линии титула, дубль убран.
-	header := newScreenHeader(fmt.Sprintf("%s - %s", HeaderBrandShort, i18n.T.ViewTarpitHeaderTitle), 2, 1, 102, 6)
+	header := newScreenHeader(fmt.Sprintf("%s", i18n.T.ViewTarpitHeaderTitle), 2, 1, 102, 6)
 
 	// ВЫРАВНИВАНИЕ КОЛОНОК ПО СЕТКЕ С УЧЁТОМ СЧЁТЧИКА AGL_CRON_WATCHER
 	// ОБНОВЛЕНО В v8.0.1: Без изменений формата.
@@ -240,13 +240,13 @@ func DrawTarpitMenuGrid(selectedRow int, hintText string) ([]ui.Drawable, int) {
 	// v9.0.0: метки меню из i18n, паддинг до 18 символов.
 	// SETTINGS берём из общего ключа ViewMainLabelSettings (уже "SETTINGS").
 	tarpitList.Rows = []string{
-		fmt.Sprintf("  %-18s  │ %s", i18n.T.ViewTarpitLabelLiveBox, i18n.T.ViewTarpitRowLiveBoxDesc),
-		fmt.Sprintf("  %-18s  │ %s", i18n.T.ViewMainLabelSettings, i18n.T.ViewTarpitRowSettingsDesc),
-		fmt.Sprintf("  %-18s  │ "+i18n.T.ViewTarpitRowMovePortDesc, i18n.T.ViewTarpitLabelMovePort, config.C.RealSshPort),
-		fmt.Sprintf("  %-18s  │ %s", i18n.T.ViewTarpitLabelTarpitOn, i18n.T.ViewTarpitRowOnDesc),
-		fmt.Sprintf("  %-18s  │ %s", i18n.T.ViewTarpitLabelTarpitOff, i18n.T.ViewTarpitRowOffDesc),
-		fmt.Sprintf("  %-18s  │ %s", i18n.T.ViewTarpitLabelHelp, i18n.T.ViewTarpitRowHelpDesc),
-		fmt.Sprintf("  %-18s  │ %s", i18n.T.ViewTarpitLabelBack, i18n.T.ViewTarpitRowBackDesc),
+		fmt.Sprintf("  %-17s  │ %s", i18n.T.ViewTarpitLabelLiveBox, i18n.T.ViewTarpitRowLiveBoxDesc),
+		fmt.Sprintf("  %-17s  │ %s", i18n.T.ViewMainLabelSettings, i18n.T.ViewTarpitRowSettingsDesc),
+		fmt.Sprintf("  %-17s  │ "+i18n.T.ViewTarpitRowMovePortDesc, i18n.T.ViewTarpitLabelMovePort, config.C.RealSshPort),
+		fmt.Sprintf("  %-17s  │ %s", i18n.T.ViewTarpitLabelTarpitOn, i18n.T.ViewTarpitRowOnDesc),
+		fmt.Sprintf("  %-17s  │ %s", i18n.T.ViewTarpitLabelTarpitOff, i18n.T.ViewTarpitRowOffDesc),
+		fmt.Sprintf("  %-17s  │ %s", i18n.T.ViewTarpitLabelHelp, i18n.T.ViewTarpitRowHelpDesc),
+		fmt.Sprintf("  %-17s  │ %s", i18n.T.ViewTarpitLabelBack, i18n.T.ViewTarpitRowBackDesc),
 	}
 	tarpitList.SetRect(2, 6, 102, 14)
 

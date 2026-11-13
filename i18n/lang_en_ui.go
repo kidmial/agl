@@ -641,10 +641,10 @@ func init() {
 		ViewTarpitLiveBoxHintExit:   " [ Press ESC or Q to close LIVE_BOX and return ] ",
 
 		// --- tui/view_tarpit.go --- MENU ---
-		ViewTarpitLabelLiveBox:   "LIVE_BOX",
-		ViewTarpitLabelMovePort:  "MOVE_PORT",
-		ViewTarpitLabelTarpitOn:  "TARPIT_ON",
-		ViewTarpitLabelTarpitOff: "TARPIT_OFF",
+		ViewTarpitLabelLiveBox:   "LIVE BOX",
+		ViewTarpitLabelMovePort:  "MOVE PORT",
+		ViewTarpitLabelTarpitOn:  "TARPIT ON",
+		ViewTarpitLabelTarpitOff: "TARPIT OFF",
 		ViewTarpitLabelHelp:      "HELP",
 		ViewTarpitLabelBack:      "BACK",
 
