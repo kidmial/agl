@@ -41,7 +41,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	"agl/config"
 	"agl/i18n"
@@ -148,29 +147,35 @@ var (
 //	2 — Вариативность разброса DelayVariance (числовой ввод)
 //	3 — Профиль имитации SSH-баннера (переключатель пресетов)
 //	4 — Лимит сессий MaxConn (числовой ввод)
-//	5 — Кнопка [ GENERATE AND ACTIVATE ]
+//	5 — Кнопка [ ACTIVATE ]
 //	6 — Кнопка [ ABORT ]
 //
 // ОБНОВЛЕНО В v8.0.1: Переименование `Jitter` → `DelayVariance`.
 func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 	var menuRows []string
 
-	// Строим динамические строки списка на основе текущего стейта черновика.
-	// ОБНОВЛЕНО В v8.0.1: `DelayVariance` вместо `Jitter`.
-	menuRows = append(menuRows, fmt.Sprintf(
-		"%s│ [ %d ] │ %s",
-		i18n.T.ViewTrapCreatorRowPortLabel, CurrentTrapDraft.Port, i18n.T.ViewTrapCreatorRowPortDesc))
+	// Геометрия колонок мастера (v9.0.0): паддинг в коде.
+	// Ширина подгоняется вручную по экрану; эталон значения — "[ Legacy Enterprise ]".
+	const (
+		trapCreatorLabelW = 23
+		trapCreatorValueW = 22
+		trapCreatorTagW   = 23 // Операционные кнопки
+	)
 
-	menuRows = append(menuRows, fmt.Sprintf(
-		"%s│ [ %d %s ] │ %s",
-		i18n.T.ViewTrapCreatorRowDelayStepLabel, CurrentTrapDraft.DelayStep, i18n.T.ViewTrapCreatorLabelSec, i18n.T.ViewTrapCreatorRowDelayStepDesc))
-
-	// ОБНОВЛЕНО В v8.0.1: Метка изменена с «Jitter» на «DelayVariance»
-	menuRows = append(menuRows, fmt.Sprintf(
-		"%s│ [ %d %s ] │ %s",
-		i18n.T.ViewTrapCreatorRowVarianceLabel, CurrentTrapDraft.DelayVariance, i18n.T.ViewTrapCreatorLabelSec, i18n.T.ViewTrapCreatorRowVarianceDesc))
-
-	// Для баннера выводим короткое имя пресета, чтобы строка не улетала за границы холста
+	// v9.0.0: стандарт меток/описаний: метка | значение | описание, паддинг в коде.
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
+		padVisible(i18n.T.ViewTrapCreatorRowPortLabel, trapCreatorLabelW),
+		padVisible(fmt.Sprintf("[ %d ]", CurrentTrapDraft.Port), trapCreatorValueW),
+		i18n.T.ViewTrapCreatorRowPortDesc))
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
+		padVisible(i18n.T.ViewTrapCreatorRowDelayStepLabel, trapCreatorLabelW),
+		padVisible(fmt.Sprintf("[ %d %s ]", CurrentTrapDraft.DelayStep, i18n.T.ViewTrapCreatorLabelSec), trapCreatorValueW),
+		i18n.T.ViewTrapCreatorRowDelayStepDesc))
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
+		padVisible(i18n.T.ViewTrapCreatorRowVarianceLabel, trapCreatorLabelW),
+		padVisible(fmt.Sprintf("[ %d %s ]", CurrentTrapDraft.DelayVariance, i18n.T.ViewTrapCreatorLabelSec), trapCreatorValueW),
+		i18n.T.ViewTrapCreatorRowVarianceDesc))
+	// Короткое имя пресета для колонки значения: полный баннер не влезает в колонку.
 	presetName := "Ubuntu Standard"
 	switch CurrentTrapDraft.BannerIndex {
 	case 1:
@@ -180,18 +185,23 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 	case 3:
 		presetName = "Stealth Void"
 	}
-	menuRows = append(menuRows, fmt.Sprintf(
-		"%s│ [ %s ] │ %s",
-		i18n.T.ViewTrapCreatorRowBannerLabel, presetName, i18n.T.ViewTrapCreatorRowBannerDesc))
-
-	menuRows = append(menuRows, fmt.Sprintf(
-		"%s│ [ %d ] │ %s",
-		i18n.T.ViewTrapCreatorRowMaxConnLabel, CurrentTrapDraft.MaxConn, i18n.T.ViewTrapCreatorRowMaxConnDesc))
-
-	menuRows = append(menuRows,
-		fmt.Sprintf(" [ GENERATE AND ACTIVATE ]            │ %s", i18n.T.ViewTrapCreatorRowGenerate))
-	menuRows = append(menuRows,
-		fmt.Sprintf(" [ CANCEL ]                           │ %s", i18n.T.ViewTrapCreatorRowCancel))
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
+		padVisible(i18n.T.ViewTrapCreatorRowBannerLabel, trapCreatorLabelW),
+		padVisible(fmt.Sprintf("[ %s ]", presetName), trapCreatorValueW),
+		i18n.T.ViewTrapCreatorRowBannerDesc))
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
+		padVisible(i18n.T.ViewTrapCreatorRowMaxConnLabel, trapCreatorLabelW),
+		padVisible(fmt.Sprintf("[ %d ]", CurrentTrapDraft.MaxConn), trapCreatorValueW),
+		i18n.T.ViewTrapCreatorRowMaxConnDesc))
+	// Кнопки: тег растянут на сумму первых двух колонок — колонка описаний монолитна.
+	// v9.0.0: кнопки — секция из двух ячеек (тег | описание): параметра у кнопок нет,
+	// пустая средняя колонка параметрной сетки здесь не нужна.
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s",
+		padTagCell(i18n.T.ViewTrapCreatorButtonActivate, trapCreatorTagW),
+		i18n.T.ViewTrapCreatorRowGenerate))
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s",
+		padTagCell(i18n.T.ViewButtonCancel, trapCreatorTagW),
+		i18n.T.ViewTrapCreatorRowCancel))
 
 	// -------------------------------------------------------------
 	// 1. ФИКСИРОВАННАЯ ШАПКА МАСТЕРА
@@ -208,16 +218,8 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 	paramList.Rows = menuRows
 	paramList.SetRect(2, 5, 102, 14)
 
-	// v9.0.0: КОСМЕТИКА — полоса выделения до правого края блока.
-	innerWidth := paramList.GetRect().Dx() - 2
-	paddedRows := make([]string, len(menuRows))
-	for i, row := range menuRows {
-		if n := utf8.RuneCountInString(row); n < innerWidth {
-			row += strings.Repeat(" ", innerWidth-n)
-		}
-		paddedRows[i] = row
-	}
-	paramList.Rows = paddedRows
+	// v9.0.0: полоса выделения — единая точка геометрии (helpers.go).
+	padListRowsToWidth(paramList)
 
 	paramList.BorderStyle.Fg = ui.ColorCyan
 	paramList.SelectedRow = selectedRow

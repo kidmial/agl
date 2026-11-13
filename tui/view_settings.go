@@ -233,7 +233,7 @@ func DrawSettingsGrid(alertMessage string, alertIsError bool) []ui.Drawable {
 		}
 		var finalRowStr string
 		if item.Key == "BACK" {
-			finalRowStr = fmt.Sprintf("%-5s%s", cursor, label)
+			finalRowStr = fmt.Sprintf("%-4s[ %s ]", cursor, label)
 		} else {
 			currentVal := item.ValueGetter()
 			// M5 (v8.4.0) + v8.4.7: бинарные тумблеры подсвечиваются жёлтыми скобками, как язык

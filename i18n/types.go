@@ -816,6 +816,11 @@ type UITranslation struct {
 	ViewTrapEditorErrDelayRange          string
 	ViewTrapEditorErrVarianceRangeTpl    string
 	ViewTrapEditorErrMaxConnRange        string
+
+	// -- Navigation Buttons --
+	ViewTrapCreatorButtonActivate string
+	ViewTrapEditorButtonSave      string
+	ViewButtonCancel              string
 }
 
 // LogTranslation описывает человекочитаемые описания событий для журнала.

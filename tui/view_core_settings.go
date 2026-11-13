@@ -102,7 +102,7 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	coreList := widgets.NewList()
 	coreList.Title = i18n.T.CoreListTitle
 	coreList.Rows = menuRows
-	coreList.SetRect(2, 4, 102, 15) // v9.0.0: все 9 строк меню без скролла
+	coreList.SetRect(2, 4, 102, 13) // v9.0.0: все 9 строк меню без скролла
 	coreList.BorderStyle.Fg = ui.ColorCyan
 
 	// КОСМЕТИКА: полоса выделения до правого края. После SetRect.
@@ -129,7 +129,7 @@ func DrawCoreSettingsGrid(selectedRow int) ([]ui.Drawable, int) {
 	infoBox := widgets.NewParagraph()
 	infoBox.Title = i18n.T.CoreInfoBoxTitle
 	infoBox.Text = helpText
-	infoBox.SetRect(2, 15, 102, 25)
+	infoBox.SetRect(2, 13, 102, 25)
 	infoBox.BorderStyle.Fg = ui.ColorYellow
 	infoBox.TextStyle.Fg = ui.ColorCyan
 	infoBox.WrapText = false // Отключает автоперенос

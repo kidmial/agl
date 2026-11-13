@@ -24,8 +24,8 @@
 //	2 — DelayVariance
 //	3 — SSHVersion (переключатель пресетов)
 //	4 — MaxConn
-//	5 — SAVE_AND_APPLY_CHANGES
-//	6 — CANCEL_AND_DISCARD
+//	5 — SAVE
+//	6 — CANCEL
 //
 // ============================================================================
 package tui
@@ -34,7 +34,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	"agl/i18n"
 	"agl/internal/service"
@@ -77,23 +76,32 @@ func LoadTrapIntoEditor(port int) error {
 	return nil
 }
 
+// Геометрия колонок редактора (v9.0.0): паддинг в коде, словари чистые.
+const (
+	trapEditorLabelW = 23
+	trapEditorValueW = 22
+	trapEditorTagW   = 23 // Операционные кнопки
+)
+
 // DrawTrapEditorGrid отрисовывает экран редактирования ловушки.
 // Возвращает срез виджетов и общее количество строк.
 func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 	var menuRows []string
 
-	// Порт — только чтение
-	menuRows = append(menuRows, fmt.Sprintf(
-		"%s│ [ %d ] │ %s",
-		i18n.T.ViewTrapEditorRowPortLabel, TrapEditDraft.Port, i18n.T.ViewTrapEditorRowPortReadOnlyDesc))
-	menuRows = append(menuRows, fmt.Sprintf(
-		"%s│ [ %d %s ] │ %s",
-		i18n.T.ViewTrapEditorRowDelayStepLabel, TrapEditDraft.DelayStep, i18n.T.ViewTrapEditorLabelSec, i18n.T.ViewTrapEditorRowDelayStepDesc))
-	menuRows = append(menuRows, fmt.Sprintf(
-		"%s│ [ %d %s ] │ %s",
-		i18n.T.ViewTrapEditorRowVarianceLabel, TrapEditDraft.DelayVariance, i18n.T.ViewTrapEditorLabelSec, i18n.T.ViewTrapEditorRowVarianceDesc))
-
-	// Короткое имя пресета баннера
+	// v9.0.0: стандарт меток/описаний: метка | значение | описание, паддинг в коде.
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
+		padVisible(i18n.T.ViewTrapEditorRowPortLabel, trapEditorLabelW),
+		padVisible(fmt.Sprintf("[ %d ]", TrapEditDraft.Port), trapEditorValueW),
+		i18n.T.ViewTrapEditorRowPortReadOnlyDesc))
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
+		padVisible(i18n.T.ViewTrapEditorRowDelayStepLabel, trapEditorLabelW),
+		padVisible(fmt.Sprintf("[ %d %s ]", TrapEditDraft.DelayStep, i18n.T.ViewTrapEditorLabelSec), trapEditorValueW),
+		i18n.T.ViewTrapEditorRowDelayStepDesc))
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
+		padVisible(i18n.T.ViewTrapEditorRowVarianceLabel, trapEditorLabelW),
+		padVisible(fmt.Sprintf("[ %d %s ]", TrapEditDraft.DelayVariance, i18n.T.ViewTrapEditorLabelSec), trapEditorValueW),
+		i18n.T.ViewTrapEditorRowVarianceDesc))
+	// Короткое имя пресета для колонки значения: полный баннер не влезает в колонку.
 	presetName := "Ubuntu Standard"
 	switch TrapEditDraft.BannerIndex {
 	case 1:
@@ -103,16 +111,22 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 	case 3:
 		presetName = "Stealth Void"
 	}
-	menuRows = append(menuRows, fmt.Sprintf(
-		"%s│ [ %s ] │ %s",
-		i18n.T.ViewTrapEditorRowBannerLabel, presetName, i18n.T.ViewTrapEditorRowBannerDesc))
-	menuRows = append(menuRows, fmt.Sprintf(
-		"%s│ [ %d ] │ %s",
-		i18n.T.ViewTrapEditorRowMaxConnLabel, TrapEditDraft.MaxConn, i18n.T.ViewTrapEditorRowMaxConnDesc))
-	menuRows = append(menuRows,
-		fmt.Sprintf(" [ GENERATE AND ACTIVATE ]            │ %s", i18n.T.ViewTrapEditorRowSave))
-	menuRows = append(menuRows,
-		fmt.Sprintf(" [ CANCEL ]                           │ %s", i18n.T.ViewTrapEditorRowCancel))
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
+		padVisible(i18n.T.ViewTrapEditorRowBannerLabel, trapEditorLabelW),
+		padVisible(fmt.Sprintf("[ %s ]", presetName), trapEditorValueW),
+		i18n.T.ViewTrapEditorRowBannerDesc))
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
+		padVisible(i18n.T.ViewTrapEditorRowMaxConnLabel, trapEditorLabelW),
+		padVisible(fmt.Sprintf("[ %d ]", TrapEditDraft.MaxConn), trapEditorValueW),
+		i18n.T.ViewTrapEditorRowMaxConnDesc))
+	// Кнопки: тег растянут на сумму первых двух колонок — колонка описаний монолитна.
+	// v9.0.0: кнопки — секция из двух ячеек (тег | описание): параметра у кнопок нет.
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s",
+		padTagCell(i18n.T.ViewTrapEditorButtonSave, trapEditorTagW),
+		i18n.T.ViewTrapEditorRowSave))
+	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s",
+		padTagCell(i18n.T.ViewButtonCancel, trapEditorTagW),
+		i18n.T.ViewTrapEditorRowCancel))
 
 	// -------------------------------------------------------------
 	// ШАПКА
@@ -129,16 +143,8 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 	paramList.Rows = menuRows
 	paramList.SetRect(2, 5, 102, 14)
 
-	// v9.0.0: КОСМЕТИКА — полоса выделения до правого края блока.
-	innerWidth := paramList.GetRect().Dx() - 2
-	paddedRows := make([]string, len(menuRows))
-	for i, row := range menuRows {
-		if n := utf8.RuneCountInString(row); n < innerWidth {
-			row += strings.Repeat(" ", innerWidth-n)
-		}
-		paddedRows[i] = row
-	}
-	paramList.Rows = paddedRows
+	// v9.0.0: полоса выделения — единая точка геометрии (helpers.go).
+	padListRowsToWidth(paramList)
 
 	paramList.BorderStyle.Fg = ui.ColorCyan
 	paramList.SelectedRow = selectedRow
