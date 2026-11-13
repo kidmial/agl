@@ -792,6 +792,7 @@ type UITranslation struct {
 	ViewTrapEditorButtonSave      string
 	ViewButtonCancel              string
 	ViewButtonEnter               string
+	ViewAlertSuccess              string
 }
 
 // LogTranslation описывает человекочитаемые описания событий для журнала.

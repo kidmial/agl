@@ -207,14 +207,14 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 		sysConsole.WrapText = false
 	} else {
 		sysConsole.Title = " " + i18n.T.ViewTrapCreatorNavTitle + " "
-		if TrapAlertMessage != "" {
-			if strings.HasPrefix(TrapAlertMessage, "[УСПЕХ]") {
-				sysConsole.Text = "\n " + TrapAlertMessage
+		if alert := effectiveTrapAlertMessage(); alert != "" {
+			if strings.HasPrefix(alert, "[УСПЕХ]") {
+				sysConsole.Text = "\n " + alert
 				sysConsole.BorderStyle.Fg = ui.ColorGreen
 				sysConsole.TextStyle.Fg = ui.ColorWhite
 				sysConsole.WrapText = false
 			} else {
-				sysConsole.Text = "\n  ⚠️ [" + i18n.T.ViewTrapCreatorValidationRejectPrefix + "](fg:red,mod:bold): " + TrapAlertMessage
+				sysConsole.Text = "\n  ⚠️ [" + i18n.T.ViewTrapCreatorValidationRejectPrefix + "](fg:red,mod:bold): " + alert
 				sysConsole.BorderStyle.Fg = ui.ColorRed
 				sysConsole.TextStyle.Fg = ui.ColorYellow
 				sysConsole.WrapText = false

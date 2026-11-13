@@ -784,5 +784,6 @@ func init() {
 		ViewTrapEditorButtonSave:      "СОХРАНИТЬ",
 		ViewButtonCancel:              "ОТМЕНА",
 		ViewButtonEnter:               "ENTER",
+		ViewAlertSuccess:              "УСПЕХ",
 	}
 }

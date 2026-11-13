@@ -763,7 +763,7 @@ func init() {
 		ViewTrapCreatorRowDelayStepLabel:      "Base Hold Time",
 		ViewTrapCreatorRowVarianceLabel:       "Jitter Variation",
 		ViewTrapCreatorRowBannerLabel:         "Emulation Profile",
-		ViewTrapCreatorRowMaxConnLabel:        "RAM Session Limit",
+		ViewTrapCreatorRowMaxConnLabel:        "Trap volume",
 		ViewTrapCreatorRowDelayStepDesc:       "Delay duration of one cycle step",
 		ViewTrapCreatorRowVarianceDesc:        "Random sleep spread (Delay ± Variance)",
 		ViewTrapCreatorRowBannerDesc:          "Change service profile",
@@ -784,5 +784,6 @@ func init() {
 		ViewTrapEditorButtonSave:      "SAVE",
 		ViewButtonCancel:              "CANCEL",
 		ViewButtonEnter:               "ENTER",
+		ViewAlertSuccess:              "SUCCESS",
 	}
 }

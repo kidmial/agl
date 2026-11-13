@@ -351,7 +351,7 @@ func handlePanelEvent(e ui.Event, state *PanelState) (shouldQuit bool) {
 				// В режиме ввода: отменить ввод, очистить буфер, вернуться к навигации
 				IsTrapEditMode = false
 				CurrentTrapInputBuf = ""
-				TrapAlertMessage = ""
+				dismissTrapAlert()
 			} else {
 				// В режиме навигации: возврат в MULTI_TARPIT
 				state.currentScreen = "MULTI_TARPIT"
@@ -364,7 +364,7 @@ func handlePanelEvent(e ui.Event, state *PanelState) (shouldQuit bool) {
 				// В режиме ввода: отменить ввод, очистить буфер, вернуться к навигации
 				IsTrapEditMode = false
 				CurrentTrapInputBuf = ""
-				TrapAlertMessage = ""
+				dismissTrapAlert()
 			} else {
 				// В режиме навигации: возврат в MULTI_TARPIT
 				state.currentScreen = "MULTI_TARPIT"
@@ -377,7 +377,7 @@ func handlePanelEvent(e ui.Event, state *PanelState) (shouldQuit bool) {
 				// В режиме ввода: отменить ввод, очистить буфер, вернуться к навигации
 				IsTrapEditMode = false
 				CurrentTrapInputBuf = ""
-				TrapAlertMessage = ""
+				dismissTrapAlert()
 			} else {
 				// В режиме навигации: возврат в карточку ловушки
 				state.currentScreen = "TRAP_CARD"
@@ -592,11 +592,11 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 				// Активируем режим ввода текста в консоли для числовых параметров
 				IsTrapEditMode = true
 				CurrentTrapInputBuf = ""
-				TrapAlertMessage = ""
+				dismissTrapAlert()
 			case 3:
 				// Циклический переключатель пресетов SSH-баннеров (от 0 до 3)
 				CurrentTrapDraft.BannerIndex = (CurrentTrapDraft.BannerIndex + 1) % len(SSHVersionPresets)
-				TrapAlertMessage = ""
+				dismissTrapAlert()
 			case 5:
 				// =================================================================
 				// КНОПКА: GENERATE_AND_ACTIVATE (v8.0.1 Final)
@@ -979,11 +979,11 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 				// Числовой ввод
 				IsTrapEditMode = true
 				CurrentTrapInputBuf = ""
-				TrapAlertMessage = ""
+				dismissTrapAlert()
 			case 3:
 				// Переключение баннера
 				TrapEditDraft.BannerIndex = (TrapEditDraft.BannerIndex + 1) % len(SSHVersionPresets)
-				TrapAlertMessage = ""
+				dismissTrapAlert()
 			case 5:
 				// SAVE_AND_APPLY_CHANGES
 				if err := SaveTrapEditToInventory(); err != nil {

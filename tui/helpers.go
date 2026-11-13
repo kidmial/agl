@@ -195,3 +195,37 @@ func groupSeparatorRow(title string, width int) string {
 	}
 	return "[" + line + "](fg:cyan)"
 }
+
+// Alert for tui/view_trap_creator.go tui/view_trap_editor.go
+// TrapAlertMessage — inbox ожидающего алерта карточек ловушек (пишет роутер).
+var TrapAlertMessage string
+
+// trapAlertMemory — TTL-память алерта (3 сек), зеркало SETTINGS.
+var (
+	trapAlertTime time.Time
+	lastTrapAlert string
+)
+
+// effectiveTrapAlertMessage защёлкивает inbox в память, гасит inbox и возвращает
+// алерт, пока жив его TTL; иначе пусто. Единая точка для creator/editor.
+func effectiveTrapAlertMessage() string {
+	if TrapAlertMessage != "" {
+		lastTrapAlert = TrapAlertMessage
+		trapAlertTime = time.Now()
+		TrapAlertMessage = ""
+	}
+	if !trapAlertTime.IsZero() && time.Since(trapAlertTime) < 3*time.Second {
+		return lastTrapAlert
+	}
+	trapAlertTime = time.Time{}
+	lastTrapAlert = ""
+	return ""
+}
+
+// dismissTrapAlert гасит алерт немедленно: inbox + память + таймер одним вызовом.
+// Используется при отмене ввода (Escape) и старте нового ввода.
+func dismissTrapAlert() {
+	TrapAlertMessage = ""
+	lastTrapAlert = ""
+	trapAlertTime = time.Time{}
+}
