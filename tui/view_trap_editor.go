@@ -90,17 +90,17 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 
 	// v9.0.0: стандарт меток/описаний: метка | значение | описание, паддинг в коде.
 	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
-		padVisible(i18n.T.ViewTrapEditorRowPortLabel, trapEditorLabelW),
+		padVisible(i18n.T.ViewTrapCreatorRowPortLabel, trapEditorLabelW),
 		padVisible(fmt.Sprintf("[ %d ]", TrapEditDraft.Port), trapEditorValueW),
 		i18n.T.ViewTrapEditorRowPortReadOnlyDesc))
 	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
-		padVisible(i18n.T.ViewTrapEditorRowDelayStepLabel, trapEditorLabelW),
-		padVisible(fmt.Sprintf("[ %d %s ]", TrapEditDraft.DelayStep, i18n.T.ViewTrapEditorLabelSec), trapEditorValueW),
-		i18n.T.ViewTrapEditorRowDelayStepDesc))
+		padVisible(i18n.T.ViewTrapCreatorRowDelayStepLabel, trapEditorLabelW),
+		padVisible(fmt.Sprintf("[ %d %s ]", TrapEditDraft.DelayStep, i18n.T.ViewTrapCreatorLabelSec), trapEditorValueW),
+		i18n.T.ViewTrapCreatorRowDelayStepDesc))
 	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
-		padVisible(i18n.T.ViewTrapEditorRowVarianceLabel, trapEditorLabelW),
-		padVisible(fmt.Sprintf("[ %d %s ]", TrapEditDraft.DelayVariance, i18n.T.ViewTrapEditorLabelSec), trapEditorValueW),
-		i18n.T.ViewTrapEditorRowVarianceDesc))
+		padVisible(i18n.T.ViewTrapCreatorRowVarianceLabel, trapEditorLabelW),
+		padVisible(fmt.Sprintf("[ %d %s ]", TrapEditDraft.DelayVariance, i18n.T.ViewTrapCreatorLabelSec), trapEditorValueW),
+		i18n.T.ViewTrapCreatorRowVarianceDesc))
 	// Короткое имя пресета для колонки значения: полный баннер не влезает в колонку.
 	presetName := "Ubuntu Standard"
 	switch TrapEditDraft.BannerIndex {
@@ -111,14 +111,16 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 	case 3:
 		presetName = "Stealth Void"
 	}
+	// v9.0.0: клавиша ENTER — явный markup-токен (жёлтый bold), описание из словаря.
+	enterHint := "[" + i18n.T.ViewButtonEnter + "](fg:yellow,mod:bold) - " + i18n.T.ViewTrapCreatorRowBannerDesc
 	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
-		padVisible(i18n.T.ViewTrapEditorRowBannerLabel, trapEditorLabelW),
+		padVisible(i18n.T.ViewTrapCreatorRowBannerLabel, trapEditorLabelW),
 		padVisible(fmt.Sprintf("[ %s ]", presetName), trapEditorValueW),
-		i18n.T.ViewTrapEditorRowBannerDesc))
+		enterHint))
 	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
-		padVisible(i18n.T.ViewTrapEditorRowMaxConnLabel, trapEditorLabelW),
+		padVisible(i18n.T.ViewTrapCreatorRowMaxConnLabel, trapEditorLabelW),
 		padVisible(fmt.Sprintf("[ %d ]", TrapEditDraft.MaxConn), trapEditorValueW),
-		i18n.T.ViewTrapEditorRowMaxConnDesc))
+		i18n.T.ViewTrapCreatorRowMaxConnDesc))
 	// Кнопки: тег растянут на сумму первых двух колонок — колонка описаний монолитна.
 	// v9.0.0: кнопки — секция из двух ячеек (тег | описание): параметра у кнопок нет.
 	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s",
@@ -139,7 +141,7 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 	// СПИСОК ПАРАМЕТРОВ
 	// -------------------------------------------------------------
 	paramList := widgets.NewList()
-	paramList.Title = i18n.T.ViewTrapEditorListTitle
+	paramList.Title = " " + i18n.T.ViewTrapEditorListTitle + " "
 	paramList.Rows = menuRows
 	paramList.SetRect(2, 5, 102, 14)
 
@@ -156,24 +158,24 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 	var helpText string
 	switch selectedRow {
 	case 0:
-		helpText = i18n.T.ViewTrapEditorHelpPort
+		helpText = " " + i18n.T.ViewTrapEditorHelpPort
 	case 1:
-		helpText = i18n.T.ViewTrapEditorHelpDelayStep
+		helpText = " " + i18n.T.ViewTrapCreatorHelpDelayStep
 	case 2:
-		helpText = i18n.T.ViewTrapEditorHelpVariance
+		helpText = " " + i18n.T.ViewTrapCreatorHelpVariance
 	case 3:
 		helpText = fmt.Sprintf(
-			i18n.T.ViewTrapEditorHelpBanner+"[ %s ](fg:yellow,mod:bold)",
+			" "+i18n.T.ViewTrapCreatorHelpBanner+"[ %s ](fg:yellow,mod:bold)",
 			SSHVersionPresets[TrapEditDraft.BannerIndex])
 	case 4:
-		helpText = i18n.T.ViewTrapEditorHelpMaxConn
+		helpText = " " + i18n.T.ViewTrapCreatorHelpMaxConn
 	case 5:
-		helpText = i18n.T.ViewTrapEditorHelpSave
+		helpText = " " + i18n.T.ViewTrapEditorHelpSave
 	case 6:
-		helpText = i18n.T.ViewTrapEditorHelpCancel
+		helpText = " " + i18n.T.ViewTrapEditorHelpCancel
 	}
 	infoBox := widgets.NewParagraph()
-	infoBox.Title = i18n.T.ViewTrapEditorInfoBoxTitle
+	infoBox.Title = " " + i18n.T.ViewTrapCreatorInfoBoxTitle + " "
 	infoBox.Text = helpText
 	infoBox.SetRect(2, 14, 102, 24)
 	infoBox.BorderStyle.Fg = ui.ColorYellow
@@ -186,25 +188,25 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 	sysConsole := widgets.NewParagraph()
 	sysConsole.SetRect(2, 24, 102, 30)
 	if IsTrapEditMode {
-		sysConsole.Title = i18n.T.ViewTrapEditorEditTitle
+		sysConsole.Title = " " + i18n.T.ViewTrapCreatorEditTitle + " "
 		var pName string
 		switch selectedRow {
 		case 1:
-			pName = i18n.T.ViewTrapEditorParamDelayStep
+			pName = i18n.T.ViewTrapCreatorRowDelayStepLabel
 		case 2:
-			pName = i18n.T.ViewTrapEditorParamVariance
+			pName = i18n.T.ViewTrapCreatorRowVarianceLabel
 		case 4:
-			pName = i18n.T.ViewTrapEditorParamMaxConn
+			pName = i18n.T.ViewTrapCreatorRowMaxConnLabel
 		}
 		sysConsole.Text = fmt.Sprintf(
 			"  %s: %s\n  %s: [ %s_ ](fg:white,mod:bold)",
-			i18n.T.ViewTrapEditorLabelEditNode, pName,
-			i18n.T.ViewTrapEditorLabelEnterNewValue, CurrentTrapInputBuf)
+			i18n.T.ViewTrapCreatorLabelEditNode, pName,
+			i18n.T.ViewTrapCreatorLabelEnterNewValue, CurrentTrapInputBuf)
 		sysConsole.BorderStyle.Fg = ui.ColorGreen
 		sysConsole.TextStyle.Fg = ui.ColorWhite
 		sysConsole.WrapText = false
 	} else {
-		sysConsole.Title = i18n.T.ViewTrapEditorNavTitle
+		sysConsole.Title = " " + i18n.T.ViewTrapCreatorNavTitle + " "
 		if TrapAlertMessage != "" {
 			if strings.HasPrefix(TrapAlertMessage, "[УСПЕХ]") {
 				sysConsole.Text = "\n " + TrapAlertMessage
@@ -212,15 +214,15 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 				sysConsole.TextStyle.Fg = ui.ColorWhite
 				sysConsole.WrapText = false
 			} else {
-				sysConsole.Text = "\n  ⚠️ [" + i18n.T.ViewTrapEditorValidationRejectPrefix + "](fg:red,mod:bold): " + TrapAlertMessage
+				sysConsole.Text = "\n  ⚠️ [" + i18n.T.ViewTrapCreatorValidationRejectPrefix + "](fg:red,mod:bold): " + TrapAlertMessage
 				sysConsole.BorderStyle.Fg = ui.ColorRed
 				sysConsole.TextStyle.Fg = ui.ColorYellow
 				sysConsole.WrapText = false
 			}
 		} else {
 			sysConsole.Text = fmt.Sprintf("  [%s]: %s [Up/Down] │ [Enter] — %s.\n  [%s]: %s",
-				i18n.T.ViewTrapEditorLabelNav, i18n.T.ViewTrapEditorLabelNavArrows,
-				i18n.T.ViewTrapEditorLabelEnterHint, i18n.T.ViewTrapEditorLabelAction, i18n.T.ViewTrapEditorLabelActionHint)
+				i18n.T.ViewTrapLabelNav, i18n.T.ViewTrapLabelNavArrows,
+				i18n.T.ViewTrapLabelEnterHint, i18n.T.ViewTrapLabelAction, i18n.T.ViewTrapEditorLabelActionHint)
 			sysConsole.BorderStyle.Fg = ui.ColorGreen
 			sysConsole.TextStyle.Fg = ui.ColorCyan
 			sysConsole.WrapText = false
@@ -236,16 +238,16 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 func ValidateAndStoreEditParam(index int, value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return i18n.T.ViewTrapEditorErrEmpty
+		return i18n.T.ViewTrapCreatorErrEmpty
 	}
 	if !trapDigitOnlyRegex.MatchString(value) {
-		return i18n.T.ViewTrapEditorErrNotDigit
+		return i18n.T.ViewTrapCreatorErrNotDigit
 	}
 	valInt, _ := strconv.Atoi(value)
 	switch index {
 	case 1:
 		if valInt < 1 || valInt > 300 {
-			return i18n.T.ViewTrapEditorErrDelayRange
+			return i18n.T.ViewTrapCreatorErrDelayRange
 		}
 		TrapEditDraft.DelayStep = valInt
 		if TrapEditDraft.DelayVariance > valInt {
@@ -254,13 +256,13 @@ func ValidateAndStoreEditParam(index int, value string) string {
 	case 2:
 		if valInt < 0 || valInt > TrapEditDraft.DelayStep {
 			return fmt.Sprintf(
-				i18n.T.ViewTrapEditorErrVarianceRangeTpl,
+				i18n.T.ViewTrapCreatorErrVarianceRangeTpl,
 				TrapEditDraft.DelayStep)
 		}
 		TrapEditDraft.DelayVariance = valInt
 	case 4:
 		if valInt < 1 || valInt > 1000 {
-			return i18n.T.ViewTrapEditorErrMaxConnRange
+			return i18n.T.ViewTrapCreatorErrMaxConnRange
 		}
 		TrapEditDraft.MaxConn = valInt
 	}

@@ -185,10 +185,12 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 	case 3:
 		presetName = "Stealth Void"
 	}
+	// v9.0.0: клавиша ENTER — явный markup-токен (жёлтый bold), описание из словаря.
+	enterHint := "[" + i18n.T.ViewButtonEnter + "](fg:yellow,mod:bold) - " + i18n.T.ViewTrapCreatorRowBannerDesc
 	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
 		padVisible(i18n.T.ViewTrapCreatorRowBannerLabel, trapCreatorLabelW),
 		padVisible(fmt.Sprintf("[ %s ]", presetName), trapCreatorValueW),
-		i18n.T.ViewTrapCreatorRowBannerDesc))
+		enterHint))
 	menuRows = append(menuRows, fmt.Sprintf(" %s │ %s │ %s",
 		padVisible(i18n.T.ViewTrapCreatorRowMaxConnLabel, trapCreatorLabelW),
 		padVisible(fmt.Sprintf("[ %d ]", CurrentTrapDraft.MaxConn), trapCreatorValueW),
@@ -214,7 +216,7 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 	// 2. БЛОК СПИСКА ПАРАМЕТРОВ (Высота 9 строк)
 	// -------------------------------------------------------------
 	paramList := widgets.NewList()
-	paramList.Title = i18n.T.ViewTrapCreatorListTitle
+	paramList.Title = " " + i18n.T.ViewTrapCreatorListTitle + " "
 	paramList.Rows = menuRows
 	paramList.SetRect(2, 5, 102, 14)
 
@@ -233,26 +235,26 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 	var helpText string
 	switch selectedRow {
 	case 0:
-		helpText = i18n.T.ViewTrapCreatorHelpPort
+		helpText = " " + i18n.T.ViewTrapCreatorHelpPort
 	case 1:
-		helpText = i18n.T.ViewTrapCreatorHelpDelayStep
+		helpText = " " + i18n.T.ViewTrapCreatorHelpDelayStep
 	case 2:
 		// ОБНОВЛЕНО В v8.0.1: Терминология изменена на `DelayVariance`
-		helpText = i18n.T.ViewTrapCreatorHelpVariance
+		helpText = " " + i18n.T.ViewTrapCreatorHelpVariance
 	case 3:
 		helpText = fmt.Sprintf(
-			i18n.T.ViewTrapCreatorHelpBanner+"[ %s ](fg:yellow,mod:bold)",
+			" "+i18n.T.ViewTrapCreatorHelpBanner+"[ %s ](fg:yellow,mod:bold)",
 			SSHVersionPresets[CurrentTrapDraft.BannerIndex])
 	case 4:
-		helpText = i18n.T.ViewTrapCreatorHelpMaxConn
+		helpText = " " + i18n.T.ViewTrapCreatorHelpMaxConn
 	case 5:
-		helpText = i18n.T.ViewTrapCreatorHelpGenerate
+		helpText = " " + i18n.T.ViewTrapCreatorHelpGenerate
 	default:
-		helpText = i18n.T.ViewTrapCreatorHelpAbort
+		helpText = " " + i18n.T.ViewTrapCreatorHelpAbort
 	}
 
 	infoBox := widgets.NewParagraph()
-	infoBox.Title = i18n.T.ViewTrapCreatorInfoBoxTitle
+	infoBox.Title = " " + i18n.T.ViewTrapCreatorInfoBoxTitle + " "
 	infoBox.Text = helpText
 	infoBox.SetRect(2, 14, 102, 24)
 	infoBox.BorderStyle.Fg = ui.ColorYellow
@@ -267,17 +269,17 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 
 	if IsTrapEditMode {
 		// Режим числового ввода: отображаем буфер и имя редактируемого параметра
-		sysConsole.Title = i18n.T.ViewTrapCreatorEditTitle
+		sysConsole.Title = " " + i18n.T.ViewTrapCreatorEditTitle + " "
 		var pName string
 		switch selectedRow {
 		case 0:
-			pName = i18n.T.ViewTrapCreatorParamPort
+			pName = i18n.T.ViewTrapCreatorRowPortLabel
 		case 1:
-			pName = i18n.T.ViewTrapCreatorParamDelayStep
+			pName = i18n.T.ViewTrapCreatorRowDelayStepLabel
 		case 2:
-			pName = i18n.T.ViewTrapCreatorParamVariance // ОБНОВЛЕНО В v8.0.1
+			pName = i18n.T.ViewTrapCreatorRowVarianceLabel
 		case 4:
-			pName = i18n.T.ViewTrapCreatorParamMaxConn
+			pName = i18n.T.ViewTrapCreatorRowMaxConnLabel
 		}
 		sysConsole.Text = fmt.Sprintf(
 			"  %s: %s\n  %s: [ %s_ ](fg:white,mod:bold)",
@@ -288,7 +290,7 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 		sysConsole.WrapText = false
 	} else {
 		// Режим навигации: отображаем подсказки и алармы
-		sysConsole.Title = i18n.T.ViewTrapCreatorNavTitle
+		sysConsole.Title = " " + i18n.T.ViewTrapCreatorNavTitle + " "
 		if TrapAlertMessage != "" {
 			if strings.HasPrefix(TrapAlertMessage, "[УСПЕХ]") {
 				sysConsole.Text = "\n " + TrapAlertMessage
@@ -302,7 +304,9 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 				sysConsole.WrapText = false
 			}
 		} else {
-			sysConsole.Text = i18n.T.ViewTrapCreatorNavBody
+			sysConsole.Text = fmt.Sprintf("  [%s]: %s [Up/Down] │ [Enter] — %s.\n  [%s]: %s",
+				i18n.T.ViewTrapLabelNav, i18n.T.ViewTrapLabelNavArrows,
+				i18n.T.ViewTrapLabelEnterHint, i18n.T.ViewTrapLabelAction, i18n.T.ViewTrapCreatorLabelActionHint)
 			sysConsole.BorderStyle.Fg = ui.ColorGreen
 			sysConsole.TextStyle.Fg = ui.ColorCyan
 			sysConsole.WrapText = false

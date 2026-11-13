@@ -724,103 +724,74 @@ type UITranslation struct {
 	ViewTrapCardHintInfoPrefix string
 
 	// --- tui/view_trap_creator.go ---
-	ViewTrapCreatorHeaderTitle            string
-	ViewTrapCreatorHeaderDesc1            string
-	ViewTrapCreatorHeaderDesc2            string
-	ViewTrapCreatorListTitle              string
-	ViewTrapCreatorInfoBoxTitle           string
+	ViewTrapCreatorHeaderTitle         string
+	ViewTrapCreatorHeaderDesc1         string
+	ViewTrapCreatorHeaderDesc2         string
+	ViewTrapCreatorListTitle           string
+	ViewTrapCreatorInfoBoxTitle        string
+	ViewTrapCreatorNavTitle            string
+	ViewTrapCreatorRowPortDesc         string
+	ViewTrapCreatorRowGenerate         string
+	ViewTrapCreatorRowCancel           string
+	ViewTrapCreatorHelpPort            string
+	ViewTrapCreatorHelpDelayStep       string
+	ViewTrapCreatorHelpVariance        string
+	ViewTrapCreatorHelpMaxConn         string
+	ViewTrapCreatorHelpGenerate        string
+	ViewTrapCreatorHelpAbort           string
+	ViewTrapCreatorErrPortRange        string
+	ViewTrapCreatorErrPort22Reserved   string
+	ViewTrapCreatorErrRescuePortTpl    string
+	ViewTrapCreatorErrHiddenSshPortTpl string
+
+	// --- tui/view_trap_editor.go ---
+	ViewTrapEditorErrLoadInventory    string
+	ViewTrapEditorErrNotFound         string
+	ViewTrapEditorRowPortReadOnlyDesc string
+	ViewTrapEditorRowSave             string
+	ViewTrapEditorRowCancel           string
+	ViewTrapEditorHeaderTitle         string
+	ViewTrapEditorLabelPort           string
+	ViewTrapEditorHeaderDesc1         string
+	ViewTrapEditorHeaderDesc2         string
+	ViewTrapEditorListTitle           string
+	ViewTrapEditorHelpPort            string
+	ViewTrapEditorHelpSave            string
+	ViewTrapEditorHelpCancel          string
+
+	// --- tui/view_trap_creator.go + tui/view_trap_editor.go: общие ключи параметров и консоли ---
+	ViewTrapLabelNav                      string
+	ViewTrapLabelNavArrows                string
+	ViewTrapLabelEnterHint                string
+	ViewTrapLabelAction                   string
+	ViewTrapCreatorLabelActionHint        string
+	ViewTrapEditorLabelActionHint         string // вернул
 	ViewTrapCreatorEditTitle              string
-	ViewTrapCreatorNavTitle               string
 	ViewTrapCreatorRowPortLabel           string
 	ViewTrapCreatorRowDelayStepLabel      string
 	ViewTrapCreatorRowVarianceLabel       string
 	ViewTrapCreatorRowBannerLabel         string
 	ViewTrapCreatorRowMaxConnLabel        string
-	ViewTrapCreatorRowPortDesc            string
 	ViewTrapCreatorRowDelayStepDesc       string
 	ViewTrapCreatorRowVarianceDesc        string
 	ViewTrapCreatorRowBannerDesc          string
 	ViewTrapCreatorRowMaxConnDesc         string
-	ViewTrapCreatorRowGenerate            string
-	ViewTrapCreatorRowCancel              string
-	ViewTrapCreatorHelpPort               string
-	ViewTrapCreatorHelpDelayStep          string
-	ViewTrapCreatorHelpVariance           string
 	ViewTrapCreatorHelpBanner             string
-	ViewTrapCreatorHelpMaxConn            string
-	ViewTrapCreatorHelpGenerate           string
-	ViewTrapCreatorHelpAbort              string
-	ViewTrapCreatorParamPort              string
-	ViewTrapCreatorParamDelayStep         string
-	ViewTrapCreatorParamVariance          string
-	ViewTrapCreatorParamMaxConn           string
 	ViewTrapCreatorLabelEditNode          string
 	ViewTrapCreatorLabelEnterNewValue     string
 	ViewTrapCreatorValidationRejectPrefix string
-	ViewTrapCreatorNavBody                string
 	ViewTrapCreatorLabelSec               string
 	ViewTrapCreatorErrEmpty               string
 	ViewTrapCreatorErrNotDigit            string
-	ViewTrapCreatorErrPortRange           string
-	ViewTrapCreatorErrPort22Reserved      string
-	ViewTrapCreatorErrRescuePortTpl       string
-	ViewTrapCreatorErrHiddenSshPortTpl    string
 	ViewTrapCreatorErrDelayRange          string
 	ViewTrapCreatorErrVarianceRangeTpl    string
 	ViewTrapCreatorErrMaxConnRange        string
-
-	// --- tui/view_trap_editor.go ---
-	ViewTrapEditorErrLoadInventory       string
-	ViewTrapEditorErrNotFound            string
-	ViewTrapEditorRowPortLabel           string
-	ViewTrapEditorRowPortReadOnlyDesc    string
-	ViewTrapEditorRowDelayStepLabel      string
-	ViewTrapEditorLabelSec               string
-	ViewTrapEditorRowDelayStepDesc       string
-	ViewTrapEditorRowVarianceLabel       string
-	ViewTrapEditorRowVarianceDesc        string
-	ViewTrapEditorRowBannerLabel         string
-	ViewTrapEditorRowBannerDesc          string
-	ViewTrapEditorRowMaxConnLabel        string
-	ViewTrapEditorRowMaxConnDesc         string
-	ViewTrapEditorRowSave                string
-	ViewTrapEditorRowCancel              string
-	ViewTrapEditorHeaderTitle            string
-	ViewTrapEditorLabelPort              string
-	ViewTrapEditorHeaderDesc1            string
-	ViewTrapEditorHeaderDesc2            string
-	ViewTrapEditorListTitle              string
-	ViewTrapEditorHelpPort               string
-	ViewTrapEditorHelpDelayStep          string
-	ViewTrapEditorHelpVariance           string
-	ViewTrapEditorHelpBanner             string
-	ViewTrapEditorHelpMaxConn            string
-	ViewTrapEditorHelpSave               string
-	ViewTrapEditorHelpCancel             string
-	ViewTrapEditorInfoBoxTitle           string
-	ViewTrapEditorEditTitle              string
-	ViewTrapEditorParamDelayStep         string
-	ViewTrapEditorParamVariance          string
-	ViewTrapEditorParamMaxConn           string
-	ViewTrapEditorLabelEditNode          string
-	ViewTrapEditorLabelEnterNewValue     string
-	ViewTrapEditorNavTitle               string
-	ViewTrapEditorValidationRejectPrefix string
-	ViewTrapEditorLabelNav               string
-	ViewTrapEditorLabelNavArrows         string
-	ViewTrapEditorLabelEnterHint         string
-	ViewTrapEditorLabelAction            string
-	ViewTrapEditorLabelActionHint        string
-	ViewTrapEditorErrEmpty               string
-	ViewTrapEditorErrNotDigit            string
-	ViewTrapEditorErrDelayRange          string
-	ViewTrapEditorErrVarianceRangeTpl    string
-	ViewTrapEditorErrMaxConnRange        string
 
 	// -- Navigation Buttons --
 	ViewTrapCreatorButtonActivate string
 	ViewTrapEditorButtonSave      string
 	ViewButtonCancel              string
+	ViewButtonEnter               string
 }
 
 // LogTranslation описывает человекочитаемые описания событий для журнала.
