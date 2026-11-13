@@ -550,7 +550,7 @@ func init() {
 		ViewRouterAnalyticsStatus:            "[СТАТУС]: Раздел ANALYTICS находится на плановой модернизации ядра Amber Guard Laboratory.",
 		ViewRouterTrapPortAlreadyInInventory: "Порт %d уже в инвентаре. Используйте карточку ловушки → EDIT.",
 		ViewRouterErrActivatePrefix:          "ОШИБКА АКТИВАЦИИ: ",
-		ViewRouterTrapActivatedSuccess:       "[УСПЕХ] Ловушка активирована.",
+		ViewRouterTrapActivatedSuccess:       "Ловушка активирована.",
 		ViewRouterTrapPortReadOnly:           "Порт ловушки доступен только для чтения.",
 		ViewRouterErrSavePrefix:              "ОШИБКА СОХРАНЕНИЯ: ",
 		ViewRouterScanLoadingText:            "СКАНИРОВАНИЕ ПЕРИМЕТРА",
@@ -693,7 +693,7 @@ func init() {
 		ViewTrapCardRowDeleteWaiting:       "Ожидание завершения демона...",
 		ViewTrapCardRowDeleteRequiresStop:  "Требуется STOP для удаления",
 		ViewTrapCardRowBackToPool:          "Вернуться к списку",
-		ViewTrapCardListTitle:              " Действия с ловушкой: ",
+		ViewTrapCardListTitle:              " Действия с ловушкой ",
 		ViewTrapCardHintTitle:              " Контекстная справка ",
 		ViewTrapCardHintNotFound:           " Ловушка не найдена в инвентаре. Нажмите BACK для возврата.",
 		ViewTrapCardHintStartAlreadyActive: " Ловушка уже активна.\n Подробнее: Проверьте статус в списке.",
@@ -780,10 +780,11 @@ func init() {
 		ViewTrapCreatorErrMaxConnRange:        "Лимит сессий должен быть в диапазоне 1–1000.",
 
 		// -- Navigation Buttons --
-		ViewTrapCreatorButtonActivate: "АКТИВИРОВАТЬ",
-		ViewTrapEditorButtonSave:      "СОХРАНИТЬ",
-		ViewButtonCancel:              "ОТМЕНА",
-		ViewButtonEnter:               "ENTER",
-		ViewAlertSuccess:              "УСПЕХ",
+		ViewTrapCreatorButtonActivate:  "АКТИВИРОВАТЬ",
+		ViewTrapEditorButtonSave:       "СОХРАНИТЬ",
+		ViewButtonCancel:               "ОТМЕНА",
+		ViewButtonEnter:                "ENTER",
+		ViewAlertSuccess:               "УСПЕХ",
+		ViewRouterTrapEditSavedSuccess: "Изменения сохранены.",
 	}
 }

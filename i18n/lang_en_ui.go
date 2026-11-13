@@ -550,7 +550,7 @@ func init() {
 		ViewRouterAnalyticsStatus:            "[STATUS]: ANALYTICS section is undergoing planned core modernization by Amber Guard Laboratory.",
 		ViewRouterTrapPortAlreadyInInventory: "Port %d is already in inventory. Use the trap card → EDIT.",
 		ViewRouterErrActivatePrefix:          "ACTIVATION ERROR: ",
-		ViewRouterTrapActivatedSuccess:       "[SUCCESS] Trap activated.",
+		ViewRouterTrapActivatedSuccess:       "Trap activated.",
 		ViewRouterTrapPortReadOnly:           "Trap port is read-only.",
 		ViewRouterErrSavePrefix:              "SAVE ERROR: ",
 		ViewRouterScanLoadingText:            "PERIMETER SCANNING",
@@ -693,7 +693,7 @@ func init() {
 		ViewTrapCardRowDeleteWaiting:       "Waiting for daemon to finish...",
 		ViewTrapCardRowDeleteRequiresStop:  "STOP required for deletion",
 		ViewTrapCardRowBackToPool:          "Return to pool list",
-		ViewTrapCardListTitle:              " Trap actions: ",
+		ViewTrapCardListTitle:              " Trap actions ",
 		ViewTrapCardHintTitle:              " Contextual help ",
 		ViewTrapCardHintNotFound:           " Trap not found in inventory. Press BACK to return.",
 		ViewTrapCardHintStartAlreadyActive: " Trap already active.\n Details: Check status in the list.",
@@ -780,10 +780,11 @@ func init() {
 		ViewTrapCreatorErrMaxConnRange:        "Session limit out of range (1–1000 sessions).",
 
 		// -- Navigation Buttons --
-		ViewTrapCreatorButtonActivate: "ACTIVATE",
-		ViewTrapEditorButtonSave:      "SAVE",
-		ViewButtonCancel:              "CANCEL",
-		ViewButtonEnter:               "ENTER",
-		ViewAlertSuccess:              "SUCCESS",
+		ViewTrapCreatorButtonActivate:  "ACTIVATE",
+		ViewTrapEditorButtonSave:       "SAVE",
+		ViewButtonCancel:               "CANCEL",
+		ViewButtonEnter:                "ENTER",
+		ViewAlertSuccess:               "SUCCESS",
+		ViewRouterTrapEditSavedSuccess: "Changes saved.",
 	}
 }

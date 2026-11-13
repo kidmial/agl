@@ -583,7 +583,8 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 		if IsTrapEditMode {
 			// Фиксация ввода: выключаем режим инпута и прогоняем через ИБ-валидатор
 			IsTrapEditMode = false
-			TrapAlertMessage = ValidateAndStoreDraftParam(state.currentRow, CurrentTrapInputBuf)
+			msg, isErr := ValidateAndStoreDraftParam(state.currentRow, CurrentTrapInputBuf)
+			setTrapAlert(msg, isErr)
 			CurrentTrapInputBuf = ""
 		} else {
 			// Режим обычной навигации по строкам мастера
@@ -623,7 +624,7 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 				// v8.0.3 (Аудит №7): предохранитель дублирования порта в инвентаре
 				if invDup, errDup := sys.LoadTarpitInventory(sys.TarpitInventoryPath); errDup == nil {
 					if _, dup := sys.FindTrapByPort(invDup, CurrentTrapDraft.Port); dup {
-						TrapAlertMessage = fmt.Sprintf(i18n.T.ViewRouterTrapPortAlreadyInInventory, CurrentTrapDraft.Port)
+						setTrapAlert(fmt.Sprintf(i18n.T.ViewRouterTrapPortAlreadyInInventory, CurrentTrapDraft.Port), true)
 						ui.Clear()
 						widgets, _ := DrawTrapCreatorGrid(state.currentRow)
 						ui.Render(widgets...)
@@ -632,7 +633,7 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 				}
 				// 2. Активируем через контроллер (запись в JSON + запуск демона)
 				if err := service.ActivateTrap(context.Background(), CurrentTrapDraft.Port, newTrapConfig); err != nil {
-					TrapAlertMessage = i18n.T.ViewRouterErrActivatePrefix + err.Error()
+					setTrapAlert(i18n.T.ViewRouterErrActivatePrefix+err.Error(), true)
 					ui.Clear()
 					widgets, _ := DrawTrapCreatorGrid(state.currentRow)
 					ui.Render(widgets...)
@@ -641,7 +642,7 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 				// 3. НОВОЕ В v8.0.1: Открываем шлюз UFW для мульти-ловушки
 				_ = service.ToggleMultiTarpitProtocol(CurrentTrapDraft.Port, "ON")
 				// 4. Успех: переходим в меню управления ловушками
-				TrapAlertMessage = i18n.T.ViewRouterTrapActivatedSuccess
+				setTrapAlert(i18n.T.ViewRouterTrapActivatedSuccess, false)
 				state.currentScreen = "MULTI_TARPIT"
 				state.currentRow = 2
 				ui.Clear()
@@ -968,13 +969,14 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 		// =================================================================
 		if IsTrapEditMode {
 			IsTrapEditMode = false
-			TrapAlertMessage = ValidateAndStoreEditParam(state.currentRow, CurrentTrapInputBuf)
+			msg, isErr := ValidateAndStoreEditParam(state.currentRow, CurrentTrapInputBuf)
+			setTrapAlert(msg, isErr)
 			CurrentTrapInputBuf = ""
 		} else {
 			switch state.currentRow {
 			case 0:
 				// Порт — только чтение
-				TrapAlertMessage = i18n.T.ViewRouterTrapPortReadOnly
+				setTrapAlert(i18n.T.ViewRouterTrapPortReadOnly, true)
 			case 1, 2, 4:
 				// Числовой ввод
 				IsTrapEditMode = true
@@ -987,9 +989,15 @@ func handleEnterClick(state *PanelState) (shouldQuit bool) {
 			case 5:
 				// SAVE_AND_APPLY_CHANGES
 				if err := SaveTrapEditToInventory(); err != nil {
-					TrapAlertMessage = i18n.T.ViewRouterErrSavePrefix + err.Error()
+					setTrapAlert(i18n.T.ViewRouterErrSavePrefix+err.Error(), true)
 				} else {
 					sys.LogAction("TUI_ROUTER", "TRAP_EDIT_SAVE", "SUCCESS", i18n.TrEventf("tui_router.trap_edit_save", TrapEditDraft.Port))
+					// v9.0.0: явное подтверждение успеха (доктрина «нет тихих операций»):
+					// модалка на выдержку, затем возврат в карточку. Карточка память
+					// алертов не рисует — подтверждение живёт здесь, а не в inbox.
+					ui.Clear()
+					renderArmorMessage(i18n.T.ViewAlertSuccess + ": " + i18n.T.ViewRouterTrapEditSavedSuccess)
+					time.Sleep(armorHintHold)
 					state.currentScreen = "TRAP_CARD"
 					state.currentRow = 0
 					ui.Clear()

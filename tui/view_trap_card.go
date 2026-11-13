@@ -133,7 +133,7 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 		if !isRunning && !markerExists {
 			menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagDelete, i18n.T.ViewTrapCardRowDeleteFull))
 		} else if !isRunning && markerExists {
-			menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagDelete, i18n.T.ViewTrapCardRowDeleteWaiting))
+			menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagDelete, "["+i18n.T.ViewTrapCardRowDeleteWaiting+"](fg:yellow,mod:bold)"))
 		} else {
 			menuRows = append(menuRows, cardRow(i18n.T.ViewTrapCardTagDelete, i18n.T.ViewTrapCardRowDeleteRequiresStop))
 		}
@@ -167,7 +167,7 @@ func DrawTrapCardGrid(selectedRow int) ([]ui.Drawable, int) {
 	hintBox := widgets.NewParagraph()
 	hintBox.Title = i18n.T.ViewTrapCardHintTitle
 	hintBox.Text = getTrapCardHint(selectedRow, trapExists, isRunning, markerExists)
-	hintBox.SetRect(2, 15, 102, 29)
+	hintBox.SetRect(2, 15, 102, 30)
 	hintBox.BorderStyle.Fg = ui.ColorYellow
 	hintBox.TextStyle.Fg = ui.ColorCyan
 	hintBox.WrapText = false

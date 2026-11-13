@@ -81,7 +81,7 @@ func DrawPortMapGrid(selectedRow int) ([]ui.Drawable, int, []config.AppInventory
 	portList := widgets.NewList()
 	portList.Title = i18n.T.ViewPortMapListTitle
 	portList.Rows = menuRows
-	portList.SetRect(2, 5, 102, 18) // Высота 13 строк зафиксирована жестко по ТЗ
+	portList.SetRect(2, 5, 102, 19) // Высота 13 строк зафиксирована жестко по ТЗ
 
 	// v9.0.0: КОСМЕТИКА — полоса выделения до правого края блока.
 	innerWidth := portList.GetRect().Dx() - 2
@@ -102,7 +102,7 @@ func DrawPortMapGrid(selectedRow int) ([]ui.Drawable, int, []config.AppInventory
 	infoBox := widgets.NewParagraph()
 	infoBox.Title = i18n.T.ViewPortMapInfoBoxTitle
 	infoBox.Text = i18n.T.ViewPortMapInfoBoxText
-	infoBox.SetRect(2, 18, 102, 23)
+	infoBox.SetRect(2, 19, 102, 24)
 	infoBox.BorderStyle.Fg = ui.ColorYellow
 	infoBox.TextStyle.Fg = ui.ColorCyan
 	infoBox.WrapText = false
@@ -113,7 +113,7 @@ func DrawPortMapGrid(selectedRow int) ([]ui.Drawable, int, []config.AppInventory
 	sysConsole.Text = fmt.Sprintf(" [%s]: %s │ [%s]: %s\n [%s]: %s\n [%s]: %s",
 		i18n.T.ViewPortMapLabelNav, i18n.T.ViewPortMapLabelNavArrows, i18n.T.ViewPortMapLabelExit, i18n.T.ViewPortMapLabelExitHint,
 		i18n.T.ViewPortMapLabelInfo, i18n.T.ViewPortMapLabelScrollInfo, i18n.T.ViewPortMapLabelStatus, i18n.T.ViewPortMapLabelStatusSync)
-	sysConsole.SetRect(2, 23, 102, 29)
+	sysConsole.SetRect(2, 24, 102, 30)
 	sysConsole.BorderStyle.Fg = ui.ColorGreen
 	sysConsole.TextStyle.Fg = ui.ColorCyan
 	sysConsole.WrapText = false

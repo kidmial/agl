@@ -207,9 +207,9 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 		sysConsole.WrapText = false
 	} else {
 		sysConsole.Title = " " + i18n.T.ViewTrapCreatorNavTitle + " "
-		if alert := effectiveTrapAlertMessage(); alert != "" {
-			if strings.HasPrefix(alert, "[УСПЕХ]") {
-				sysConsole.Text = "\n " + alert
+		if alert, alertIsErr := effectiveTrapAlertMessage(); alert != "" {
+			if !alertIsErr {
+				sysConsole.Text = "\n  [" + i18n.T.ViewAlertSuccess + "](fg:green,mod:bold) " + alert
 				sysConsole.BorderStyle.Fg = ui.ColorGreen
 				sysConsole.TextStyle.Fg = ui.ColorWhite
 				sysConsole.WrapText = false
@@ -235,19 +235,19 @@ func DrawTrapEditorGrid(selectedRow int) ([]ui.Drawable, int) {
 // ValidateAndStoreEditParam проверяет и сохраняет параметр в черновик редактора.
 // Порт (индекс 0) не редактируется. Возвращает пустую строку при успехе.
 // Переиспользует пакетный валидатор `trapDigitOnlyRegex` из view_trap_creator.go.
-func ValidateAndStoreEditParam(index int, value string) string {
+func ValidateAndStoreEditParam(index int, value string) (string, bool) {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return i18n.T.ViewTrapCreatorErrEmpty
+		return i18n.T.ViewTrapCreatorErrEmpty, true
 	}
 	if !trapDigitOnlyRegex.MatchString(value) {
-		return i18n.T.ViewTrapCreatorErrNotDigit
+		return i18n.T.ViewTrapCreatorErrNotDigit, true
 	}
 	valInt, _ := strconv.Atoi(value)
 	switch index {
 	case 1:
 		if valInt < 1 || valInt > 300 {
-			return i18n.T.ViewTrapCreatorErrDelayRange
+			return i18n.T.ViewTrapCreatorErrDelayRange, true
 		}
 		TrapEditDraft.DelayStep = valInt
 		if TrapEditDraft.DelayVariance > valInt {
@@ -257,16 +257,16 @@ func ValidateAndStoreEditParam(index int, value string) string {
 		if valInt < 0 || valInt > TrapEditDraft.DelayStep {
 			return fmt.Sprintf(
 				i18n.T.ViewTrapCreatorErrVarianceRangeTpl,
-				TrapEditDraft.DelayStep)
+				TrapEditDraft.DelayStep), true
 		}
 		TrapEditDraft.DelayVariance = valInt
 	case 4:
 		if valInt < 1 || valInt > 1000 {
-			return i18n.T.ViewTrapCreatorErrMaxConnRange
+			return i18n.T.ViewTrapCreatorErrMaxConnRange, true
 		}
 		TrapEditDraft.MaxConn = valInt
 	}
-	return ""
+	return "", false
 }
 
 // SaveTrapEditToInventory записывает отредактированные параметры обратно в инвентарь.

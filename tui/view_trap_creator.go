@@ -287,9 +287,9 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 	} else {
 		// Режим навигации: отображаем подсказки и алармы
 		sysConsole.Title = " " + i18n.T.ViewTrapCreatorNavTitle + " "
-		if alert := effectiveTrapAlertMessage(); alert != "" {
-			if strings.HasPrefix(alert, "[УСПЕХ]") {
-				sysConsole.Text = "\n " + alert
+		if alert, alertIsErr := effectiveTrapAlertMessage(); alert != "" {
+			if !alertIsErr {
+				sysConsole.Text = "\n  [" + i18n.T.ViewAlertSuccess + "](fg:green,mod:bold) " + alert
 				sysConsole.BorderStyle.Fg = ui.ColorGreen
 				sysConsole.TextStyle.Fg = ui.ColorWhite
 				sysConsole.WrapText = false
@@ -329,17 +329,18 @@ func DrawTrapCreatorGrid(selectedRow int) ([]ui.Drawable, int) {
 //   - Сообщение об ошибке при провале валидации
 //
 // ОБНОВЛЕНО В v8.0.1: Переименование `Jitter` → `DelayVariance`.
-func ValidateAndStoreDraftParam(index int, value string) string {
+// ValidateAndStoreDraftParam: (msg, isError). Пустое сообщение = успех валидации.
+func ValidateAndStoreDraftParam(index int, value string) (string, bool) {
 	value = strings.TrimSpace(value)
 
 	// Проверка на пустой ввод
 	if value == "" {
-		return i18n.T.ViewTrapCreatorErrEmpty
+		return i18n.T.ViewTrapCreatorErrEmpty, true
 	}
 
 	// Проверка на числовой формат
 	if !trapDigitOnlyRegex.MatchString(value) {
-		return i18n.T.ViewTrapCreatorErrNotDigit
+		return i18n.T.ViewTrapCreatorErrNotDigit, true
 	}
 
 	valInt, _ := strconv.Atoi(value)
@@ -353,20 +354,20 @@ func ValidateAndStoreDraftParam(index int, value string) string {
 		// в `service.ActivateTrap()` через инвентарь периметра.
 		// -------------------------------------------------------------
 		if valInt < 1 || valInt > 65535 {
-			return i18n.T.ViewTrapCreatorErrPortRange
+			return i18n.T.ViewTrapCreatorErrPortRange, true
 		}
 		// ИБ-ПРЕДОХРАНИТЕЛЬ: Запрещаем создавать мульти-ловушку на порту 22.
 		// Порт 22 — это базовая ловушка (is_core = true), управляемая отдельно.
 		// ОБНОВЛЕНО В v8.0.1.
 		if valInt == config.C.StandardSshPort {
-			return i18n.T.ViewTrapCreatorErrPort22Reserved
+			return i18n.T.ViewTrapCreatorErrPort22Reserved, true
 		}
 		// C8 (v8.1.3): канал спасения и скрытый SSH не могут быть капканами.
 		if valInt == config.C.WebRescuePort {
-			return fmt.Sprintf(i18n.T.ViewTrapCreatorErrRescuePortTpl, valInt)
+			return fmt.Sprintf(i18n.T.ViewTrapCreatorErrRescuePortTpl, valInt), true
 		}
 		if _, errM := os.Stat(config.MarkerSshMoved); errM == nil && valInt == config.C.RealSshPort {
-			return fmt.Sprintf(i18n.T.ViewTrapCreatorErrHiddenSshPortTpl, valInt)
+			return fmt.Sprintf(i18n.T.ViewTrapCreatorErrHiddenSshPortTpl, valInt), true
 		}
 		CurrentTrapDraft.Port = valInt
 
@@ -376,7 +377,7 @@ func ValidateAndStoreDraftParam(index int, value string) string {
 		// Допустимый диапазон: от 1 до 300 секунд.
 		// -------------------------------------------------------------
 		if valInt < 1 || valInt > 300 {
-			return i18n.T.ViewTrapCreatorErrDelayRange
+			return i18n.T.ViewTrapCreatorErrDelayRange, true
 		}
 		CurrentTrapDraft.DelayStep = valInt
 		// Если DelayStep уменьшился ниже текущего DelayVariance,
@@ -395,7 +396,7 @@ func ValidateAndStoreDraftParam(index int, value string) string {
 		if valInt < 0 || valInt > CurrentTrapDraft.DelayStep {
 			return fmt.Sprintf(
 				i18n.T.ViewTrapCreatorErrVarianceRangeTpl,
-				CurrentTrapDraft.DelayStep)
+				CurrentTrapDraft.DelayStep), true
 		}
 		CurrentTrapDraft.DelayVariance = valInt // ОБНОВЛЕНО В v8.0.1
 
@@ -405,10 +406,10 @@ func ValidateAndStoreDraftParam(index int, value string) string {
 		// Допустимый диапазон: от 1 до 1000 горутин.
 		// -------------------------------------------------------------
 		if valInt < 1 || valInt > 1000 {
-			return i18n.T.ViewTrapCreatorErrMaxConnRange
+			return i18n.T.ViewTrapCreatorErrMaxConnRange, true
 		}
 		CurrentTrapDraft.MaxConn = valInt
 	}
 
-	return "" // Валидация пройдена успешно
+	return "", false // Валидация пройдена успешно
 }

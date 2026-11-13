@@ -29,7 +29,7 @@ const headerTitleBudget = 96
 // HeaderBrand — имя продукта для линии титула.
 // CONTRACT: версия сборки живёт только на главном экране (экран-паспорт);
 // суб-экраны несут бренд + короткий локализованный титул.
-const HeaderBrand = "Aber Guard Laboratory"
+const HeaderBrand = "Amber Guard Laboratory"
 
 // HeaderBrandShort — бренд суб-экранов.
 const HeaderBrandShort = "AGL"
@@ -199,32 +199,49 @@ func groupSeparatorRow(title string, width int) string {
 // Alert for tui/view_trap_creator.go tui/view_trap_editor.go
 // TrapAlertMessage — inbox ожидающего алерта карточек ловушек (пишет роутер).
 var TrapAlertMessage string
+var TrapAlertIsError bool // v9.0.0: явный признак ошибки алерта (не префикс строки)
 
 // trapAlertMemory — TTL-память алерта (3 сек), зеркало SETTINGS.
 var (
-	trapAlertTime time.Time
-	lastTrapAlert string
+	trapAlertTime        time.Time
+	lastTrapAlert        string
+	lastTrapAlertIsError bool
 )
+
+// setTrapAlert наполняет inbox алерта с явным признаком ошибки.
+// Пустое сообщение гасит алерт целиком (успех валидации = тишина).
+func setTrapAlert(msg string, isError bool) {
+	if msg == "" {
+		dismissTrapAlert()
+		return
+	}
+	TrapAlertMessage = msg
+	TrapAlertIsError = isError
+}
 
 // effectiveTrapAlertMessage защёлкивает inbox в память, гасит inbox и возвращает
 // алерт, пока жив его TTL; иначе пусто. Единая точка для creator/editor.
-func effectiveTrapAlertMessage() string {
+func effectiveTrapAlertMessage() (string, bool) {
 	if TrapAlertMessage != "" {
 		lastTrapAlert = TrapAlertMessage
+		lastTrapAlertIsError = TrapAlertIsError
 		trapAlertTime = time.Now()
 		TrapAlertMessage = ""
 	}
 	if !trapAlertTime.IsZero() && time.Since(trapAlertTime) < 3*time.Second {
-		return lastTrapAlert
+		return lastTrapAlert, lastTrapAlertIsError
 	}
 	trapAlertTime = time.Time{}
 	lastTrapAlert = ""
-	return ""
+	lastTrapAlertIsError = false
+	return "", false
 }
 
 // dismissTrapAlert гасит алерт немедленно: inbox + память + таймер одним вызовом.
 // Используется при отмене ввода (Escape) и старте нового ввода.
 func dismissTrapAlert() {
+	TrapAlertIsError = false
+	lastTrapAlertIsError = false
 	TrapAlertMessage = ""
 	lastTrapAlert = ""
 	trapAlertTime = time.Time{}
