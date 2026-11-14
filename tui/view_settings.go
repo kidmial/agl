@@ -55,6 +55,12 @@ func InitSettingsRegistry() {
 		// --- ГРУППА 1: РЕГЛАМЕНТ ЛОКАЛИЗАЦИИ И ИНТЕРФЕЙСА ---
 		{IsHeader: true, Group: "LANG"},
 		{Key: "lang", Label: func() string { return i18n.T.SettingsLabelLang }, Group: "LANG", ValueGetter: func() string { return strings.ToUpper(config.C.Lang) }},
+		{Key: "show_host_ip", Label: func() string { return i18n.T.SettingsLabelShowHostIp }, Group: "LANG", ValueGetter: func() string {
+			if config.C.ShowHostIP {
+				return "1"
+			}
+			return "0"
+		}},
 		// --- ГРУППА 2: ПАРАМЕТРЫ ЯДРА ДЕГТЯРНОЙ ЯМЫ SSH ---
 		{IsHeader: true, Group: "TARPIT"},
 		// v9.0.0: standard_ssh_port удалён из настроек.
@@ -235,7 +241,7 @@ func DrawSettingsGrid(alertMessage string, alertIsError bool) []ui.Drawable {
 			if item.Key == "lang" || item.Key == "auto_update_enabled" || item.Key == "auto_update_reboot" ||
 				item.Key == "web_server_enabled" ||
 				item.Key == "ssh_allow_in_from_ip" || item.Key == "ssh_ip_web_knock" || item.Key == "web_https_panel_active" ||
-				item.Key == "analytics_auto_rebuild" {
+				item.Key == "analytics_auto_rebuild" || item.Key == "show_host_ip" {
 				finalRowStr = fmt.Sprintf("%-4s%-65s:  [[ %s ]](fg:yellow,mod:bold)", cursor, label, currentVal)
 			} else {
 				finalRowStr = fmt.Sprintf("%-4s%-65s:  %s", cursor, label, currentVal)
@@ -385,7 +391,7 @@ func HandleSettingsNavigation(key string) (bool, string, bool) {
 		if currentItem.Key == "auto_update_enabled" || currentItem.Key == "auto_update_reboot" ||
 			currentItem.Key == "web_server_enabled" ||
 			currentItem.Key == "ssh_allow_in_from_ip" || currentItem.Key == "ssh_ip_web_knock" || currentItem.Key == "web_https_panel_active" ||
-			currentItem.Key == "analytics_auto_rebuild" {
+			currentItem.Key == "analytics_auto_rebuild" || currentItem.Key == "show_host_ip" {
 			newVal := "1"
 			if currentItem.ValueGetter() == "1" {
 				newVal = "0"
@@ -481,7 +487,7 @@ func SaveSettingValueToDisk(key, value string) (string, bool) {
 		// v8.5.0: web_rescue_enabled изъят (G1); три новых тумблера — бинарные.
 		isBinaryKey := key == "auto_update_enabled" || key == "auto_update_reboot" || key == "web_server_enabled" ||
 			key == "ssh_allow_in_from_ip" || key == "ssh_ip_web_knock" || key == "web_https_panel_active" ||
-			key == "analytics_auto_rebuild"
+			key == "analytics_auto_rebuild" || key == "show_host_ip"
 		if isBinaryKey {
 			if valInt != 0 && valInt != 1 {
 				return i18n.T.SettingsUiOutOfBounds, true
@@ -595,6 +601,9 @@ func SaveSettingValueToDisk(key, value string) (string, bool) {
 			case "analytics_auto_rebuild":
 				// v8.6.2: автозагрузка истории при старте сервиса.
 				c.AnalyticsAutoRebuild = (valInt == 1)
+			case "show_host_ip":
+				// v9.0.0-pre: отображение IP-адреса хоста в шапке главного экрана.
+				c.ShowHostIP = (valInt == 1)
 			}
 		})
 	} else {

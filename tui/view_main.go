@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -295,6 +296,69 @@ func refreshUnitCache() {
 		}
 	}
 	unitCacheAt = time.Now()
+}
+
+// ─────────────────────────────────────────────────────────────
+// БЛОК 7.3: IP ХОСТА (v9.0.0-pre) — ЗОНД БЕЗ ВНЕШНИХ БИНАРНИКОВ
+// ─────────────────────────────────────────────────────────────
+// PURPOSE: адрес хоста для штампа на титульной линии блока служб.
+// CONTRACT: net.Interfaces вместо exec hostname/ip — нет spawn процесса
+// на тик TUI и нет зависимости от iproute2/hostname в минимальных образах.
+// Эталон обхода = `ip -4 addr show scope global`: первый global-unicast IPv4
+// на интерфейсе с FlagUp и без FlagLoopback, в порядке индексов интерфейсов.
+func detectHostIPv4() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, ifc := range ifaces {
+		if ifc.Flags&net.FlagUp == 0 || ifc.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, errAddr := ifc.Addrs()
+		if errAddr != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			if v4 := ip.To4(); v4 != nil && ip.IsGlobalUnicast() {
+				return v4.String()
+			}
+		}
+	}
+	return ""
+}
+
+// hostIPMu/hostIPAt/hostIPVal — кэш зонда (30 сек), зеркало unitCache.
+// PURPOSE: титульная линия перерисовывается тикером 1 сек — зонд без кэша
+// бегал бы по интерфейсам каждую секунду. Адрес меняется редко (DHCP/рокировка).
+var (
+	hostIPMu  sync.Mutex
+	hostIPAt  time.Time
+	hostIPVal string
+)
+
+// hostIPCached возвращает адрес хоста из кэша, освежая зонд раз в 30 сек.
+// CONTRACT: нет адреса (все интерфейсы down / только loopback) — пустая строка,
+// вызывающий подставляет нейтральный прочерк, а не падает и не врёт.
+func hostIPCached() string {
+	hostIPMu.Lock()
+	defer hostIPMu.Unlock()
+	if time.Since(hostIPAt) < 30*time.Second {
+		return hostIPVal
+	}
+	hostIPVal = detectHostIPv4()
+	hostIPAt = time.Now()
+	return hostIPVal
 }
 
 // getLinuxCpuPercent парсит /proc/stat и вычисляет чистый процент нагрузки CPU
@@ -759,13 +823,16 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	// ужимается, если сумма остальных ячеек строки съела бюджет: termui-«…»
 	// на правом крае становится невозможным. Конфигурируемое значение в
 	// headerGrid = МАКСИМАЛЬНАЯ ширина крайней ячейки (резерв под [ OFF ] и т.п.).
+	// v9.0.0: IP-адреса хоста (ShowHostIP).
+	// При выключенном тумблере ячейка SshAdmin схлопывается, количество
+	// разделителей уменьшается с 3 до 2, бюджет headerInnerWidth не переполняется.
 	baseW1 := 1 + grid.Row1.Cpu + grid.Row1.Cores + grid.Row1.Load + 3*sepW
 	tailW1 := grid.Row1.SshAdmin
 	if baseW1+tailW1 > headerInnerWidth {
 		tailW1 = headerInnerWidth - baseW1
 	}
 
-	// СТРОКА 1: CPU | ядра | нагрузка (без скобок) | SSH админ IP (буфер)
+	// СТРОКА 1: CPU | ядра | нагрузка (без скобок) | SSH админ IP (буфер, опционально)
 	rowH1 := " " + fitText(i18n.T.ViewMainLabelCpu, trunc(cpuModelCached, grid.Row1.Cpu), grid.Row1.Cpu)
 	rowH1 += sep + fitText("", fmt.Sprintf("%dx%d", cpuCoresCached, cpuThreadsCached), grid.Row1.Cores)
 	// v9.0.0: ВЫРАВНИВАНИЕ ЗНАЧЕНИЙ — ВЛЕВО, К ДВОЕТОЧИЮ.
@@ -818,7 +885,7 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	// v9.0.0: ВИДЖЕТ БЛОКА СЛУЖБ.
 	// Виджет блока служб: объявляется ровно один раз здесь.
 	servicesBlock := widgets.NewParagraph()
-	servicesBlock.Title = i18n.T.ViewMainServicesTitle
+	servicesBlock.Title = " " + i18n.T.ViewMainServicesTitle + " "
 	servicesBlock.BorderStyle.Fg = ui.ColorCyan
 	servicesBlock.TitleStyle.Fg = ui.ColorYellow
 	// servicesBlock.TitleStyle.Modifier = ui.ModifierBold
@@ -900,6 +967,29 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	servicesBlock.Text = row1 + "\n" + row2 + "\n" + row3
 	servicesBlock.SetRect(2, 5, 102, 10)
 
+	// v9.0.0-pre: IP ХОСТА — ПРАВЫЙ УГОЛ ТИТУЛЬНОЙ ЛИНИИ ВТОРОГО БЛОКА (ТЗ).
+	// PURPOSE: адрес виден без входа в SETTINGS; тумблер show_host_ip гасит
+	// штамп целиком, блок служб возвращается к чистому титулу.
+	// CONTRACT: штамп — plain-руны + ui.Style через ScreenHeader.TopRight
+	// (stampTitleSegments из helpers.go): markup-модификаторы не участвуют,
+	// значит троеточие/съеденные теги на правой рамке исключены. Ширина штампа
+	// вычитается из позиции stampTitleSegments (r.Max.X-2-calcWidth), рамка не едет.
+	// Цветовая грамматика: метка white, значение yellow-bold (числовые значения).
+	var servicesDrawable ui.Drawable = servicesBlock
+	if config.C.ShowHostIP {
+		ipVal := hostIPCached()
+		if ipVal == "" {
+			ipVal = "—"
+		}
+		servicesDrawable = &ScreenHeader{
+			Paragraph: servicesBlock,
+			TopRight: []TitleSegment{
+				{Text: " " + i18n.T.ViewMainLabelHostIp + ": ", Style: hdrWhite},
+				{Text: ipVal + " ", Style: hdrWhite},
+			},
+		}
+	}
+
 	// ─────────────────────────────────────────────────────────────
 	// 4. БЛОК C: КРАТКАЯ СТАТИСТИКА (координаты — в SetRect ниже)
 	// ─────────────────────────────────────────────────────────────
@@ -945,7 +1035,7 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	// 5. МЕНЮ РАЗДЕЛОВ (7 пунктов; координаты — в SetRect ниже)
 	// ─────────────────────────────────────────────────────────────
 	menuList := widgets.NewList()
-	menuList.Title = i18n.T.ViewMainMenuTitle
+	menuList.Title = " " + i18n.T.ViewMainMenuTitle + " "
 	menuList.TitleStyle.Fg = ui.ColorYellow
 	// v9.0.0: паддинг до 15 символов в коде (не в словарях), геометрия живёт здесь.
 	// CONTRACT: метки берутся из i18n, формат "%-15s" добивает пробелами справа.
@@ -1005,7 +1095,7 @@ func DrawMainMenuGrid(selectedRow int) ([]ui.Drawable, int) {
 	// logBlock.TitleStyle.Modifier = ui.ModifierBold
 	logBlock.WrapText = false
 
-	return []ui.Drawable{header, servicesBlock, menuList, statsBlock, logBlock}, len(menuList.Rows)
+	return []ui.Drawable{header, servicesDrawable, menuList, statsBlock, logBlock}, len(menuList.Rows)
 }
 
 // formatLogSize возвращает человеко-читаемый размер файла.

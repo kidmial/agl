@@ -176,6 +176,13 @@ type Config struct {
 	// При true: после запуска инжеста читается весь лог и обновляются профили акторов.
 	// CONTRACT: требует, чтобы GlobalStore был инициализирован (выполняется в analytics.Start).
 	AnalyticsAutoRebuild bool `json:"analytics_auto_rebuild"`
+
+	// --- v9.0.0-pre: Отображение IP-адреса хоста в шапке главного экрана ---
+	// Тумблер видимости ячейки "SSH Админ IP" в первой строке главного экрана.
+	// Дефолт: true (сохраняет текущее поведение). Настраивается через SETTINGS.
+	// CONTRACT: влияет ТОЛЬКО на рендеринг TUI; системные сервисы, whitelist-логика
+	// и иерархия опций SSH-доступа (A/B) не затрагиваются.
+	ShowHostIP bool `json:"show_host_ip"`
 }
 
 // C — глобальный синглтон настроек, доступный из любой точки программы.
@@ -243,6 +250,7 @@ func LoadConfig(filePath string) error {
 	local.WebHttpsPanelActive = false  // v8.5.0: опция C выключена по умолчанию (панель недоступна)
 	local.WebPanelTimezone = ""        // v8.6.2: витринная зона = локальная сервера (fail-safe)
 	local.AnalyticsAutoRebuild = false // v8.6.2: fail-closed - автозагрузка выключена
+	local.ShowHostIP = true            // v9.0.0-pre: IP хоста в шапке отображается по умолчанию
 	local.GeoTool = "geoiplookup"
 	local.AglLogarchiveDir = DirLog // БЛОК 4.4: Используем константу из paths.go
 	local.BackupRootDir = "/backup"

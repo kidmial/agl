@@ -416,6 +416,7 @@ type UITranslation struct {
 	ViewMainLabelLoad          string
 	ViewMainLabelUsage         string
 	ViewMainServicesTitle      string
+	ViewMainLabelHostIp        string
 	ViewMainMenuTitle          string
 	ViewMainRowSettings        string
 	ViewMainRowAntiddos        string
@@ -574,6 +575,7 @@ type UITranslation struct {
 	ViewSettingsErrKnockRequiresPassword     string
 	ViewSettingsErrPanelRequiresPassword     string
 	SettingsLabelLang                        string
+	SettingsLabelShowHostIp                  string
 	SettingsLabelStandardSshPort             string
 	SettingsLabelRealSshPort                 string
 	SettingsLabelDelayStep                   string
@@ -583,31 +585,29 @@ type UITranslation struct {
 	SettingsLabelWebRescueEnabled            string
 	SettingsLabelWebRescuePort               string
 	SettingsLabelWebRescuePassword           string
-	// --- v8.4.7: Веб-сервер спасения (физический слушатель) ---
-	SettingsLabelWebServerEnabled string // Тумблер физического HTTP-слушателя
-	// --- v8.5.0: Уровни защиты SSH-доступа и веб-панель ---
-	SettingsLabelSshAllowInFromIp     string // Тумблер постоянного whitelist IP админа
-	SettingsLabelSshIpWebKnock        string // Тумблер временного whitelist через веб-стук
-	SettingsLabelWebHttpsPanelActive  string // Тумблер доступности веб-панели
-	SettingsLabelAnalyticsAutoRebuild string
-	SettingsLabelWebPanelPassword     string // Пароль веб-панели статистики
-	SettingsLabelBack                 string
-	SettingsUiTitleBox                string
-	SettingsUiFormTitle               string
-	SettingsUiEnterNew                string
-	SettingsUiInputPrompt             string
-	SettingsUiHintNav1                string
-	SettingsUiHintNav2                string
-	SettingsUiHintEsc                 string
-	SettingsUiStatusConsoleTitle      string
-	SettingsUiEmptyVal                string
-	SettingsUiOutOfBounds             string
-	SettingsUiLangSupport             string
-	SettingsGroupLang                 string
-	SettingsGroupTarpit               string
-	SettingsGroupLimits               string
-	SettingsGroupSystem               string
-	SettingsGroupDefault              string
+	SettingsLabelWebServerEnabled            string // Тумблер физического HTTP-слушателя
+	SettingsLabelSshAllowInFromIp            string // Тумблер постоянного whitelist IP админа
+	SettingsLabelSshIpWebKnock               string // Тумблер временного whitelist через веб-стук
+	SettingsLabelWebHttpsPanelActive         string // Тумблер доступности веб-панели
+	SettingsLabelAnalyticsAutoRebuild        string
+	SettingsLabelWebPanelPassword            string // Пароль веб-панели статистики
+	SettingsLabelBack                        string
+	SettingsUiTitleBox                       string
+	SettingsUiFormTitle                      string
+	SettingsUiEnterNew                       string
+	SettingsUiInputPrompt                    string
+	SettingsUiHintNav1                       string
+	SettingsUiHintNav2                       string
+	SettingsUiHintEsc                        string
+	SettingsUiStatusConsoleTitle             string
+	SettingsUiEmptyVal                       string
+	SettingsUiOutOfBounds                    string
+	SettingsUiLangSupport                    string
+	SettingsGroupLang                        string
+	SettingsGroupTarpit                      string
+	SettingsGroupLimits                      string
+	SettingsGroupSystem                      string
+	SettingsGroupDefault                     string
 
 	// --- M5 (v8.4.0): Автообновления сервера ---
 	SettingsLabelAutoUpdateEnabled string // Тумблер автообновлений (0=выкл / 1=вкл)
