@@ -32,10 +32,10 @@ var sysctlSpec = [8]SysctlParamSpec{
 	{"net.ipv4.tcp_fin_timeout", 15, 60, 10, 60, 15},
 	{"net.ipv4.tcp_syn_retries", 2, 6, 1, 5, 2},
 	{"net.ipv4.tcp_synack_retries", 2, 5, 1, 5, 2},
-	{"net.core.somaxconn", 2048, 128, 128, 32768, 2048},
+	{"net.core.somaxconn", 2048, 4096, 128, 32768, 2048},
 	{"net.ipv4.tcp_max_syn_backlog", 4096, 128, 128, 32768, 4096},
-	{"net.ipv4.conf.all.rp_filter", 1, 0, 0, 2, 1},
-	{"net.ipv4.conf.default.rp_filter", 1, 0, 0, 2, 1},
+	{"net.ipv4.conf.all.rp_filter", 2, 2, 0, 2, 2},
+	{"net.ipv4.conf.default.rp_filter", 2, 2, 0, 2, 2},
 }
 
 // SysctlSpec returns a copy of the kernel knob specification table.

@@ -55,13 +55,13 @@ func init() {
 		CoreHelpSelectParam:     "\n Select a kernel parameter from the list above to view documentation.",
 
 		SysctlDocs: []SysctlHelpDoc{
-			{ParamName: "net.ipv4.tcp_syncookies", Description: "Protection against SYN flood. Activates cryptographic cookies in TCP queue numbers.", OnAttack: "Keep strictly enabled (1). Allows the server not to allocate memory for dummy sessions.", Risks: "Disabling (0) will cause immediate network stack collapse under a simple SYN storm."},
-			{ParamName: "net.ipv4.tcp_fin_timeout", Description: "The time a socket is held in the FIN-WAIT-2 state after being closed by the server.", OnAttack: "Reduce to 15 seconds for the fastest possible cleanup of kernel connection tables.", Risks: "Less than 10 sec — mass drops of legitimate slow TLS/SSL handshakes will occur."},
-			{ParamName: "net.ipv4.tcp_syn_retries", Description: "Number of attempts to send primary SYN packets when initiating outbound sessions.", OnAttack: "Reduce to 2 or 1 so that hung processes do not spawn internal socket deadlocks.", Risks: "Less than 1 — the server will not be able to connect outward via unstable links."},
-			{ParamName: "net.ipv4.tcp_synack_retries", Description: "Number of attempts to reply with SYN-ACK to a client if there is no final ACK packet from it.", OnAttack: "Set to 2. This protects the network card buffers from holding botnet sessions.", Risks: "More than 5 — the server will suffocate, endlessly replying to bots with spoofed IPs."},
-			{ParamName: "net.core.somaxconn", Description: "Maximum queue size of fully established sockets waiting for an accept() call.", OnAttack: "Increase to 4096 / 8192 so legitimate clients do not receive Connection Refused.", Risks: "Less than 128 — a storm of errors for users during any normal restart of WEB services."},
-			{ParamName: "net.ipv4.tcp_max_syn_backlog", Description: "Maximum number of half-open TCP connections (client sent SYN, but did not reply with ACK).", OnAttack: "Keep value equal to somaxconn (e.g., 4096), giving headroom for SYN cookies.", Risks: "With a value less than 128, DDoS protection falls from five simultaneously operating bots."},
-			{ParamName: "net.ipv4.conf.all.rp_filter", Description: "Reverse Path Filtering to protect against IP Spoofing.", OnAttack: "Strictly mode 1. The kernel drops packets arriving from interfaces where they should not be.", Risks: "Mode 1 with asymmetric routing (2 ISPs) can block clean traffic. Set to 2."},
+			{ParamName: "net.ipv4.tcp_syncookies", Description: "SYN-flood defense: half-open state is encoded into the ISN instead of being kept in memory.", OnAttack: "Keep 1: cookies fire when the SYN queue overflows and save new clients from refusal.", Risks: "0 drops new links silently on overflow. Cookie sessions lose some TCP options."},
+			{ParamName: "net.ipv4.tcp_fin_timeout", Description: "Lifetime of an orphaned socket in FIN-WAIT-2 before reset. Does not affect TIME-WAIT.", OnAttack: "Lower to the AGL combat reference to free the kernel connection table faster.", Risks: "Too low tears half-closed sessions: the client sent FIN but still expects data."},
+			{ParamName: "net.ipv4.tcp_syn_retries", Description: "Retries of the outbound SYN. Affects only connections the server itself initiates.", OnAttack: "Moderate lowering fails hung outbound connects sooner. No inbound SYN-flood defense.", Risks: "At 1-2 a lost SYN kills outbound links: apt, ACME, webhooks. Linux default is 6."},
+			{ParamName: "net.ipv4.tcp_synack_retries", Description: "SYN-ACK retries to a client that never sends the final ACK. Sets half-open lifetime.", OnAttack: "Lowering to the AGL reference frees the SYN queue faster under a botnet storm.", Risks: "Too high keeps half-open sessions longer. Too low drops clients with a slow final ACK."},
+			{ParamName: "net.core.somaxconn", Description: "Ceiling of the accept() queue for established links. Caps the app's listen(backlog).", OnAttack: "Raise to the AGL reference or higher so peaks and service restarts do not overflow.", Risks: "Overflow is not Connection Refused: the client hangs and times out (or gets RST)."},
+			{ParamName: "net.ipv4.tcp_max_syn_backlog", Description: "Half-open queue (SYN seen, ACK missing) per listening socket.", OnAttack: "Keep at or above somaxconn: overflow turns on cookies, which lose TCP options.", Risks: "Kernel default scales with RAM, minimum 128. Too low triggers cookies too early."},
+			{ParamName: "net.ipv4.conf.all.rp_filter", Description: "Reverse Path Filtering, anti-spoofing. Effective mode = max(all, interface value).", OnAttack: "Mode 2 (loose): source reachable via any interface. Route symmetry not required.", Risks: "Mode 1 (strict) breaks asymmetry and VPN TUN (Hysteria2, WireGuard). 0 means no check."},
 		},
 
 		// --- config/config.go ---
@@ -734,7 +734,7 @@ func init() {
 		ViewTrapCreatorHelpGenerate:        "[ATTENTION]: Generation will save the declarative state to /etc/amberguard/tarpit_inventory.json.\n The daemon will pick up the declaration and activate the socket within 15 seconds.\n The daemon creates the state marker after the listener is fully up.\n The client does not create or manage state markers.",
 		ViewTrapCreatorHelpAbort:           "Aborting operation. All runtime parameter drafts will be cleared.\n Physical JSON inventory configuration remains unchanged.",
 		ViewTrapCreatorErrPortRange:        "Invalid network port. Range: 1–65535.",
-		ViewTrapCreatorErrPort22Reserved:   "Port 22 is reserved for the CORE trap. Use CORE TRAP → ACTIVATE.",
+		ViewTrapCreatorErrPort22Reserved:   "Port 22 is reserved for the CORE trap.\nUse CORE TRAP → ACTIVATE.",
 		ViewTrapCreatorErrRescuePortTpl:    "Port %d is reserved for the Rescue Channel.\n Using it for a trap is forbidden.",
 		ViewTrapCreatorErrHiddenSshPortTpl: "Port %d is the current hidden SSH port (Castling active).\n Traps are prohibited on management ports.",
 
