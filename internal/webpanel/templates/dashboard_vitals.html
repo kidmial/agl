@@ -3,15 +3,14 @@
 {{template "header" .}}
 
 <div class="page-section-header">
-    <h1>Мониторинг динамики Инцидентов</h1>
-    <p>Комплексная хроника интенсивности, динамики, эскалации, скорости и смещения фаз атак.</p>
+    <h1>{{.Translation.VitalsPageTitle}}</h1>
+    <p>{{.Translation.VitalsPageDesc}}</p>
 </div>
 
 <!-- 1. Хроника за 60 минут -->
 <div class="card">
-    <h2>Хроника за 60 минут</h2>
-    <p class="text-muted">Поминутная плотность событий в реальном времени. Всплески указывают на кучность активности.
-    </p>
+    <h2>{{.Translation.VitalsChronicle60m}}</h2>
+    <p class="text-muted">{{.Translation.VitalsChronicle60mDesc}}</p>
     <div class="chart-container">
         <canvas id="burstChart"></canvas>
     </div>
@@ -19,10 +18,10 @@
 
 <!-- 2. Динамика атаки и самодиагностика -->
 <div class="card" style="margin-top: 30px;">
-    <h2>Динамика атаки и самодиагностика</h2>
-    <p class="text-muted">Мультислойный таймлайн эскалации фаз: как волна PHASE_1 переходит в PHASE_2 и PHASE_3.</p>
+    <h2>{{.Translation.VitalsAttackDynamics}}</h2>
+    <p class="text-muted">{{.Translation.VitalsAttackDynamicsDesc}}</p>
 
-    <h3>Эскалация фаз за 24 часа</h3>
+    <h3>{{.Translation.VitalsPhaseEscalation24h}}</h3>
     <div class="chart-container">
         <canvas id="phaseChart"></canvas>
     </div>
@@ -30,9 +29,8 @@
 
 <!-- 3. Индекс скорости атаки -->
 <div class="card" style="margin-top: 30px;">
-    <h2>Индекс скорости атаки (средний IAT)</h2>
-    <p class="text-muted">Средний интервал между чтениями (мс). Отделяет автоматические скрипты (&lt;5 мс) от имитации
-        человека (&gt;100 мс).</p>
+    <h2>{{.Translation.VitalsVelocityIndex}}</h2>
+    <p class="text-muted">{{.Translation.VitalsVelocityIndexDesc}}</p>
     <div class="chart-container">
         <canvas id="velocityChart"></canvas>
     </div>
@@ -41,9 +39,8 @@
 <!-- 4. Географический пульс ботнета -->
 <div class="card" style="margin-top: 30px;">
     <div>
-        <h2>Метрика географического вовлечения</h2>
-        <p class="text-muted">Отслеживание динамики и общего количества задействованных стран (глобального охвата) в
-            заданном временном интервале.</p>
+        <h2>{{.Translation.VitalsGeoPulse}}</h2>
+        <p class="text-muted">{{.Translation.VitalsGeoPulseDesc}}</p>
     </div>
     <div class="card-header-row" style="justify-content: flex-end;">
         <select id="geoWindowSelect" class="control-btn" style="padding: 8px 16px;">
@@ -53,24 +50,24 @@
         </select>
     </div>
 
-    <h3>Количество стран за период</h3>
+    <h3>{{.Translation.VitalsCountriesPerPeriod}}</h3>
     <div class="chart-container">
         <canvas id="geoChart"></canvas>
     </div>
 
     <div class="grid" style="margin-top: 20px; margin-bottom: 0;">
         <div class="card">
-            <div class="metric-label">GDI (Плотность атаки)</div>
+            <div class="metric-label">{{.Translation.VitalsGDI}}</div>
             <div class="metric metric-value" id="geoGDI">—</div>
             <div class="text-muted" id="geoGDIInterpretation">—</div>
         </div>
         <div class="card">
-            <div class="metric-label">Geo-Churn (Ротация)</div>
+            <div class="metric-label">{{.Translation.VitalsGeoChurn}}</div>
             <div class="metric" id="geoChurn">—</div>
             <div class="text-muted" id="geoChurnInterpretation">—</div>
         </div>
         <div class="card">
-            <div class="metric-label">Geo-Dominance</div>
+            <div class="metric-label">{{.Translation.VitalsGeoDominance}}</div>
             <div class="metric" id="geoDominance">—</div>
             <div class="text-muted" id="geoDominanceInterpretation">—</div>
         </div>
@@ -79,9 +76,8 @@
 
 <!-- 5. Временные отпечатки -->
 <div class="card" style="margin-top: 30px;">
-    <h2>Временные отпечатки (тип инструмента)</h2>
-    <p class="text-muted">Распределение вердиктов по ритму IAT. TIMER_BOT = фиксированный тайминг, прямой признак
-        автоматического движка.</p>
+    <h2>{{.Translation.VitalsTemporalSignatures}}</h2>
+    <p class="text-muted">{{.Translation.VitalsTemporalSignaturesDesc}}</p>
     <div class="chart-container">
         <canvas id="toolChart"></canvas>
     </div>
@@ -89,25 +85,24 @@
 
 <!-- 6. Самодиагностика конвейера -->
 <div class="card" style="margin-top: 30px;">
-    <h2>Самодиагностика конвейера</h2>
+    <h2>{{.Translation.VitalsPipelineDiagnostics}}</h2>
     <div class="grid" style="margin-bottom: 0;">
         <div class="card">
-            <div class="metric-label">Упущенные события касания</div>
+            <div class="metric-label">{{.Translation.VitalsDroppedTouchEvents}}</div>
             <div class="metric">{{ .PipelineHealth.DroppedConnectionEvents }}</div>
             <div class="card-macrometric row">
-                <div class="text-muted">Макс. латентность: {{ .PipelineHealth.MaxConnWriteLatencyMs }} мс</div>
+                <div class="text-muted">{{.Translation.VitalsMaxLatency}} {{ .PipelineHealth.MaxConnWriteLatencyMs }} {{.Translation.SharedUnitMs}}</div>
             </div>
         </div>
         <div class="card">
-            <div class="metric-label">Упущенные отчёты</div>
+            <div class="metric-label">{{.Translation.VitalsDroppedReports}}</div>
             <div class="metric">{{ .PipelineHealth.DroppedReportEntries }}</div>
             <div class="card-macrometric row">
-                <div class="text-muted">Макс. латентность: {{ .PipelineHealth.MaxReportWriteLatencyMs }} мс</div>
+                <div class="text-muted">{{.Translation.VitalsMaxLatency}} {{ .PipelineHealth.MaxReportWriteLatencyMs }} {{.Translation.SharedUnitMs}}</div>
             </div>
         </div>
     </div>
-    <p class="text-muted" style="margin-top: 16px; margin-bottom: 0;">Данные с момента старта процесса. Ненулевые
-        значения указывают на перегрузку каналов или медленный диск.</p>
+    <p class="text-muted" style="margin-top: 16px; margin-bottom: 0;">{{.Translation.VitalsPipelineDiagnosticsDesc}}</p>
 </div>
 
 <script>
@@ -141,7 +136,7 @@
     window.burstChart = AGLCharts.createChart('burstChart', 'line', {
         labels: burstSeries.map(p => p.label),
         datasets: [{
-            label: 'Событий в минуту',
+            label: window.AGL_I18N.JSVitalsEventsPerMinute,
             data: burstSeries.map(p => p.count),
             borderColor: colors.amber,
             backgroundColor: hexToRgba(colors.amber, 0.1), // 10% прозрачности
@@ -159,10 +154,10 @@
     // ГРАФИК 2: Эскалация фаз (Phase)
     // ==========================================================================
     const phaseConfig = {
-        'PHASE_1_BLIND_RECON_L4': { label: 'ФАЗА 1: Слепой скан', color: hexToRgba(colors.red, 0.3), borderColor: colors.red },
-        'PHASE_2_BANNER_RECON_L7': { label: 'ФАЗА 2: Сбор баннеров', color: hexToRgba(colors.blue, 0.3), borderColor: colors.blue },
-        'PHASE_3_PAYLOAD_PROBE': { label: 'ФАЗА 3: Payload зонд', color: hexToRgba(colors.amber, 0.3), borderColor: colors.amber },
-        'PHASE_UNKNOWN': { label: 'Не определено', color: hexToRgba(colors.text, 0.3), borderColor: colors.text }
+        'PHASE_1_BLIND_RECON_L4': { label: window.AGL_I18N.JSVitalsPhase1BlindRecon, color: hexToRgba(colors.red, 0.3), borderColor: colors.red },
+        'PHASE_2_BANNER_RECON_L7': { label: window.AGL_I18N.JSVitalsPhase2BannerRecon, color: hexToRgba(colors.blue, 0.3), borderColor: colors.blue },
+        'PHASE_3_PAYLOAD_PROBE': { label: window.AGL_I18N.JSVitalsPhase3PayloadProbe, color: hexToRgba(colors.amber, 0.3), borderColor: colors.amber },
+        'PHASE_UNKNOWN': { label: window.AGL_I18N.JSVitalsPhaseUnknown, color: hexToRgba(colors.text, 0.3), borderColor: colors.text }
     };
 
     const phaseDatasets = Object.keys(phaseConfig).map(code => {
@@ -198,7 +193,7 @@
         labels: timeLabels,
         datasets: [
             {
-                label: 'Средний IAT (мс)',
+                label: window.AGL_I18N.JSVitalsAvgIAT,
                 data: hourStats.map(hs => hs.avg_iat_ms || 0),
                 borderColor: colors.purple,
                 backgroundColor: hexToRgba(colors.purple, 0.1),
@@ -206,7 +201,7 @@
                 tension: 0.3
             },
             {
-                label: 'Порог: Скрипт (<5 мс)',
+                label: window.AGL_I18N.JSVitalsThresholdScript,
                 data: Array(timeLabels.length).fill(5),
                 borderColor: colors.green,
                 borderDash: [5, 5],
@@ -214,7 +209,7 @@
                 pointRadius: 0
             },
             {
-                label: 'Порог: Человек (>100 мс)',
+                label: window.AGL_I18N.JSVitalsThresholdHuman,
                 data: Array(timeLabels.length).fill(100),
                 borderColor: colors.red,
                 borderDash: [5, 5],
@@ -232,9 +227,9 @@
     // ГРАФИК 5: Временные отпечатки (Tool)
     // ==========================================================================
     const toolConfig = {
-        'TIMER_BOT': { label: 'Жёсткий таймер (бот)', color: hexToRgba(colors.red, 0.7) },
-        'HUMAN_EMULATION_OR_BAD_PROXY': { label: 'Рваный ритм (человек/прокси)', color: hexToRgba(colors.amber, 0.7) },
-        'UNKNOWN': { label: 'Ритм не определён', color: hexToRgba(colors.text, 0.5) }
+        'TIMER_BOT': { label: window.AGL_I18N.JSVitalsTimerBot, color: hexToRgba(colors.red, 0.7) },
+        'HUMAN_EMULATION_OR_BAD_PROXY': { label: window.AGL_I18N.JSVitalsHumanEmulationOrBadProxy, color: hexToRgba(colors.amber, 0.7) },
+        'UNKNOWN': { label: window.AGL_I18N.JSVitalsRhythmUnknown, color: hexToRgba(colors.text, 0.5) }
     };
 
     const toolDatasets = Object.keys(toolConfig).map(code => ({
@@ -293,7 +288,7 @@
                     AGLCharts.updateData('geoChart', {
                         labels: labels,
                         datasets: [{
-                            label: 'Уникальных стран',
+                            label: window.AGL_I18N.JSVitalsUniqueCountries,
                             data: newData,
                             borderColor: colors.amber,
                             backgroundColor: hexToRgba(colors.amber, 0.7),
@@ -307,7 +302,7 @@
                     geoChart = AGLCharts.createChart('geoChart', 'bar', {
                         labels: labels,
                         datasets: [{
-                            label: 'Уникальных стран',
+                            label: window.AGL_I18N.JSVitalsUniqueCountries,
                             data: newData,
                             borderColor: colors.amber,
                             backgroundColor: hexToRgba(colors.amber, 0.7),
@@ -333,30 +328,30 @@
                 // GDI
                 document.getElementById('geoGDI').textContent = metrics.GDI.toFixed(1);
                 if (metrics.GDI > 100) {
-                    document.getElementById('geoGDIInterpretation').textContent = 'Региональный таран (дата-центр)';
+                    document.getElementById('geoGDIInterpretation').textContent = window.AGL_I18N.JSVitalsGDIRegionalRam;
                 } else if (metrics.GDI < 5 && data.current.UniqueCountries > 10) {
-                    document.getElementById('geoGDIInterpretation').textContent = 'Глобальная мимикрия (распределённый ботнет)';
+                    document.getElementById('geoGDIInterpretation').textContent = window.AGL_I18N.JSVitalsGDIGlobalMimicry;
                 } else {
-                    document.getElementById('geoGDIInterpretation').textContent = 'Умеренная плотность';
+                    document.getElementById('geoGDIInterpretation').textContent = window.AGL_I18N.JSVitalsGDIModerateDensity;
                 }
 
                 // Geo-Churn
                 document.getElementById('geoChurn').textContent = metrics.GeoChurn.toFixed(0) + '%';
                 if (metrics.GeoChurn > 70) {
-                    document.getElementById('geoChurnInterpretation').textContent = 'Высокая ротация прокси';
+                    document.getElementById('geoChurnInterpretation').textContent = window.AGL_I18N.JSVitalsGeoChurnHighRotation;
                 } else if (metrics.GeoChurn < 10) {
-                    document.getElementById('geoChurnInterpretation').textContent = 'Статичный ботнет';
+                    document.getElementById('geoChurnInterpretation').textContent = window.AGL_I18N.JSVitalsGeoChurnStaticBotnet;
                 } else {
-                    document.getElementById('geoChurnInterpretation').textContent = 'Умеренная ротация';
+                    document.getElementById('geoChurnInterpretation').textContent = window.AGL_I18N.JSVitalsGeoChurnModerateRotation;
                 }
 
                 // Geo-Dominance
                 if (metrics.GeoDominance) {
                     document.getElementById('geoDominance').innerHTML = '<agl-private>' + metrics.GeoDominance + '</agl-private>';
-                    document.getElementById('geoDominanceInterpretation').textContent = 'Доминирует (' + metrics.DominancePct.toFixed(0) + '%)';
+                    document.getElementById('geoDominanceInterpretation').textContent = window.AGL_I18N.JSVitalsGeoDominates + metrics.DominancePct.toFixed(0) + '%)';
                 } else {
                     document.getElementById('geoDominance').textContent = '—';
-                    document.getElementById('geoDominanceInterpretation').textContent = 'Нет доминирующей страны';
+                    document.getElementById('geoDominanceInterpretation').textContent = window.AGL_I18N.JSVitalsGeoNoDominantCountry;
                 }
             });
     }

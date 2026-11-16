@@ -1,7 +1,7 @@
 {{/* internal/webpanel/templates/base.html */}}
 {{define "header"}}
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{.Translation.HTMLLang}}">
 
 <head>
     <meta charset="UTF-8">
@@ -17,26 +17,26 @@
 <body>
 
     <!-- Скрытый чекбокс для ввтообновления данных -->
-    <input type="checkbox" id="autorefresh-switch" class="theme-switch" aria-label="Автообновление телеметрии">
+    <input type="checkbox" id="autorefresh-switch" class="theme-switch" aria-label="{{.Translation.AriaAutorefresh}}">
     <!-- Скрытый чекбокс для управления режимом приватности данных -->
-    <input type="checkbox" id="privacy-switch" class="theme-switch" aria-label="Режим приватности">
+    <input type="checkbox" id="privacy-switch" class="theme-switch" aria-label="{{.Translation.AriaPrivacy}}">
     <!-- Скрытый чекбокс для управления темой -->
-    <input type="checkbox" id="theme-switch" class="theme-switch" aria-label="Переключить тему">
+    <input type="checkbox" id="theme-switch" class="theme-switch" aria-label="{{.Translation.AriaTheme}}">
 
     <div class="header">
         <div class="header-brand">
             <span class="logo"><span class="amber">Amber</span>&nbsp;<span class="glab">Guard Laboratory</span></span>
         </div>
         <nav class="nav">
-            <a href="{{.Prefix}}dashboard/overview" class="nav-link {{if or (eq .CurrentPagePath "dashboard/overview") (eq .CurrentPagePath "dashboard/profile")}}active{{end}}">Обзор</a>
-            <a href="{{.Prefix}}dashboard/vitals" class="nav-link {{if eq .CurrentPagePath "dashboard/vitals"}}active{{end}}">Динамика</a>
-            <a href="{{.Prefix}}dashboard/fingerprints" class="nav-link {{if eq .CurrentPagePath "dashboard/fingerprints"}}active{{end}}">Отпечатки</a>
-            <a href="{{.Prefix}}dashboard/tarpit" class="nav-link {{if eq .CurrentPagePath "dashboard/tarpit"}}active{{end}}">Алгоритмы</a>
-            <a href="{{.Prefix}}dashboard/siem" class="nav-link {{if eq .CurrentPagePath "dashboard/siem"}}active{{end}}">SIEM</a>
-            <a href="{{.Prefix}}dashboard/reports" class="nav-link accent {{if eq .CurrentPagePath "dashboard/reports"}}active{{end}}">Отчёты</a>
+            <a href="{{.Prefix}}dashboard/overview" class="nav-link {{if or (eq .CurrentPagePath "dashboard/overview") (eq .CurrentPagePath "dashboard/profile")}}active{{end}}">{{.Translation.NavOverview}}</a>
+            <a href="{{.Prefix}}dashboard/vitals" class="nav-link {{if eq .CurrentPagePath "dashboard/vitals"}}active{{end}}">{{.Translation.NavVitals}}</a>
+            <a href="{{.Prefix}}dashboard/fingerprints" class="nav-link {{if eq .CurrentPagePath "dashboard/fingerprints"}}active{{end}}">{{.Translation.NavFingerprints}}</a>
+            <a href="{{.Prefix}}dashboard/tarpit" class="nav-link {{if eq .CurrentPagePath "dashboard/tarpit"}}active{{end}}">{{.Translation.NavAlgorithms}}</a>
+            <a href="{{.Prefix}}dashboard/siem" class="nav-link {{if eq .CurrentPagePath "dashboard/siem"}}active{{end}}">{{.Translation.NavSIEM}}</a>
+            <a href="{{.Prefix}}dashboard/reports" class="nav-link accent {{if eq .CurrentPagePath "dashboard/reports"}}active{{end}}">{{.Translation.NavReports}}</a>
 
             <label for="autorefresh-switch" class="nav-link autorefresh-toggle"
-                title="Автообновление телеметрии каждые 10 секунд">
+                title="{{.Translation.TitleAutorefresh}}">
                 <span class="autorefresh-icon-active" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -58,7 +58,7 @@
                 </span>
             </label>
             <label for="privacy-switch" class="nav-link privacy-toggle"
-                title="Режим приватности: скрыть чувствительные данные для скриншотов">
+                title="{{.Translation.TitlePrivacy}}">
                 <span class="privacy-icon-show" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -76,7 +76,7 @@
                     </svg>
                 </span>
             </label>
-            <label for="theme-switch" class="nav-link theme-toggle" title="Переключить тему">
+            <label for="theme-switch" class="nav-link theme-toggle" title="{{.Translation.TitleTheme}}">
                 <!-- Активна тёмная тема -> показываем солнце (чтобы переключить на светлую) -->
                 <span class="theme-icon-dark" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -95,7 +95,7 @@
                 </span>
             </label>
 
-            <a href="{{.Prefix}}logout" class="nav-link danger">Выход</a>
+            <a href="{{.Prefix}}logout" class="nav-link danger">{{.Translation.NavLogout}}</a>
         </nav>
     </div>
     <div class="wrap">
@@ -218,6 +218,11 @@
                 }
             };
 
+            // ==========================================================================
+            // I18N DICTIONARY INJECTION (i18n)
+            // ==========================================================================
+            window.AGL_I18N = {{.TranslationJSON}};
+
             document.addEventListener('DOMContentLoaded', () => {
                 window.AGLCharts.init();
             });
@@ -301,7 +306,7 @@
 
                     const statusEl = document.getElementById('autorefresh-status');
                     if (statusEl) {
-                        statusEl.textContent = cb.checked ? 'активно (10 сек)' : 'пауза';
+                        statusEl.textContent = cb.checked ? window.AGL_I18N.JSStatusActive10s : window.AGL_I18N.JSStatusPaused;
                         statusEl.className = cb.checked ? 'text-green' : 'text-amber';
                     }
                 }
@@ -405,8 +410,8 @@
                 if (!btn || !status) return;
 
                 btn.disabled = true;
-                btn.textContent = 'Загрузка...';
-                status.textContent = 'Чтение файла лога...';
+                btn.textContent = window.AGL_I18N.JSLoading;
+                status.textContent = window.AGL_I18N.JSReadingLog;
                 status.className = 'control-status';
 
                 const pathParts = window.location.pathname.split('/');
@@ -416,21 +421,21 @@
                     .then(res => res.json())
                     .then(data => {
                         if (data.success) {
-                            btn.textContent = 'История загружена';
-                            status.textContent = `${data.valid} событий загружено (${data.broken} битых строк пропущено). Перезапустите сервис.`;
+                            btn.textContent = window.AGL_I18N.JSHistoryLoaded;
+                            status.textContent = `${data.valid} событий загружено (${data.broken} битых строк пропущено). ${window.AGL_I18N.JSRestartService}`;
                             status.className = 'control-status success';
                             setTimeout(() => window.location.reload(), 2000);
                         } else {
                             btn.disabled = false;
-                            btn.textContent = 'Загрузить историю из лога';
-                            status.textContent = data.reason || data.error || 'Ошибка загрузки';
+                            btn.textContent = window.AGL_I18N.JSLoadHistory;
+                            status.textContent = data.reason || data.error || window.AGL_I18N.JSLoadError;
                             status.className = 'control-status error';
                         }
                     })
                     .catch(err => {
                         btn.disabled = false;
-                        btn.textContent = 'Загрузить историю из лога';
-                        status.textContent = 'Ошибка сети: ' + err.message;
+                        btn.textContent = window.AGL_I18N.JSLoadHistory;
+                        status.textContent = window.AGL_I18N.JSNetworkError + err.message;
                         status.className = 'control-status error';
                     });
             }

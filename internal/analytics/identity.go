@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"sort"
 	"time"
+
+	"agl/config"
+	"agl/i18n"
 )
 
 // DefaultIdentityWindow задаёт окно поиска похожих сессий по умолчанию.
@@ -453,6 +456,9 @@ func rttDeltaMs(a uint32, b uint32) uint32 {
 //   - функция не создаёт кластеры;
 //   - она только возвращает результат сравнения.
 func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
+	// Получаем словарь аналитики для текущего языка.
+	analyticsTranslation := i18n.GetAnalyticsTranslation(config.C.Lang)
+
 	// Создаём базовый результат.
 	//
 	// Сразу заполняем идентификационные поля,
@@ -475,7 +481,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 	if !current.IPValid || !archive.IPValid {
 		result.Reasons = append(
 			result.Reasons,
-			"одно или оба события не имеют валидного IP",
+			analyticsTranslation.IdentityReasonInvalidIP,
 		)
 		return result
 	}
@@ -487,7 +493,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 	if current.IP == archive.IP {
 		result.Reasons = append(
 			result.Reasons,
-			"события имеют одинаковый IP; сравнение разных акторов не требуется",
+			analyticsTranslation.IdentityReasonSameIP,
 		)
 		return result
 	}
@@ -499,7 +505,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 	if !current.StartTimeValid || !archive.StartTimeValid {
 		result.Reasons = append(
 			result.Reasons,
-			"одно или оба события не имеют валидного времени",
+			analyticsTranslation.IdentityReasonInvalidTime,
 		)
 		return result
 	}
@@ -512,7 +518,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 	if !okCurrent {
 		result.Reasons = append(
 			result.Reasons,
-			"текущее событие не содержит полного сетевого отпечатка",
+			analyticsTranslation.IdentityReasonIncompleteCurrent,
 		)
 		return result
 	}
@@ -525,7 +531,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 	if !okArchive {
 		result.Reasons = append(
 			result.Reasons,
-			"архивное событие не содержит полного сетевого отпечатка",
+			analyticsTranslation.IdentityReasonIncompleteArchive,
 		)
 		return result
 	}
@@ -544,7 +550,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 	if !result.StackMatched {
 		result.Reasons = append(
 			result.Reasons,
-			"сетевой отпечаток стека не совпал",
+			analyticsTranslation.IdentityReasonStackMismatch,
 		)
 		return result
 	}
@@ -556,7 +562,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 	result.Evidence = append(
 		result.Evidence,
 		fmt.Sprintf(
-			"полное совпадение стека: MSS=%d RcvSpace=%d SndWscale=%d RcvWscale=%d",
+			analyticsTranslation.IdentityEvidenceStackMatchFormat,
 			currentStack.MSS,
 			currentStack.RcvSpace,
 			currentStack.SndWscale,
@@ -590,7 +596,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 		// Администратор должен видеть, что именно снизило уверенность.
 		result.Reasons = append(
 			result.Reasons,
-			"стек совпал, но один или оба RTT недоступны",
+			analyticsTranslation.IdentityReasonStackMatchNoRTT,
 		)
 
 		// Проверяем распространённость стека.
@@ -612,7 +618,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 			// Важно, чтобы это было видно в интерфейсе.
 			result.Evidence = append(
 				result.Evidence,
-				"обнаружен распространённый сетевой профиль",
+				analyticsTranslation.IdentityEvidenceCommonProfile,
 			)
 		}
 
@@ -641,7 +647,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 	// Даже если дельта большая, сам факт сравнения должен быть виден.
 	result.Evidence = append(
 		result.Evidence,
-		fmt.Sprintf("дельта RTT: %d мс", delta),
+		fmt.Sprintf(analyticsTranslation.IdentityEvidenceRTTDeltaFormat, delta),
 	)
 
 	// Оцениваем уровень совпадения по дельте RTT.
@@ -673,7 +679,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 		// Администратор должен понимать, почему уровень критический.
 		result.Reasons = append(
 			result.Reasons,
-			"стек совпал, дельта RTT очень мала",
+			analyticsTranslation.IdentityReasonCriticalRTT,
 		)
 
 	case delta <= 15:
@@ -694,7 +700,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 		// Администратор должен понимать, почему уровень высокий.
 		result.Reasons = append(
 			result.Reasons,
-			"стек совпал, дельта RTT находится в допустимом высоком окне",
+			analyticsTranslation.IdentityReasonHighRTT,
 		)
 
 	default:
@@ -716,7 +722,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 		// Администратор должен понимать, почему уровень только средний.
 		result.Reasons = append(
 			result.Reasons,
-			"стек совпал, но дельта RTT велика",
+			analyticsTranslation.IdentityReasonMediumRTT,
 		)
 	}
 
@@ -746,7 +752,7 @@ func MatchEvents(current EventRecord, archive EventRecord) MatchResult {
 		// Это должно быть видно в веб-панели.
 		result.Evidence = append(
 			result.Evidence,
-			"обнаружен распространённый сетевой профиль",
+			analyticsTranslation.IdentityEvidenceCommonProfile,
 		)
 	}
 

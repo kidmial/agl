@@ -5,22 +5,22 @@
 {{ if .Found }}
 <div class="card">
     <div class="card-header-row">
-        <h2 class="mb-0 wbrk">Досье актора: <code class="text-green">{{ .Profile.ID }}</code> <span class="text-muted">/</span> <code><agl-private><span id="profilePrimaryIP">{{ .Profile.PrimaryIP }}</span></agl-private></code>{{ if gt .Profile.UniqueIPCount 1 }} <span class="text-muted">(+{{ .Profile.UniqueIPCount }} всего)</span>{{ end }}</h2>
-        <span id="reportUpdateTime">Отчёт обновлён: {{ .ServerTime }}</span>
-        <a href="{{.Prefix}}dashboard/overview" class="nav-link">&larr; Назад к обзору</a>
+        <h2 class="mb-0 wbrk">{{.Translation.ProfileDetailDossier}} <code class="text-green">{{ .Profile.ID }}</code> <span class="text-muted">/</span> <code><agl-private><span id="profilePrimaryIP">{{ .Profile.PrimaryIP }}</span></agl-private></code>{{ if gt .Profile.UniqueIPCount 1 }} <span class="text-muted">(+{{ .Profile.UniqueIPCount }} {{.Translation.ProfileDetailTotal}})</span>{{ end }}</h2>
+        <span id="reportUpdateTime">{{.Translation.ProfileDetailReportUpdated}} {{ .ServerTime }}</span>
+        <a href="{{.Prefix}}dashboard/overview" class="nav-link">&larr; {{.Translation.ProfileDetailBackToOverview}}</a>
     </div>
 
     <!-- Основная информация -->
     <div class="grid">
         <div class="card">
-            <div class="metric-label">Временной охват (время = лог)</div>
+            <div class="metric-label">{{.Translation.ProfileDetailTimeCoverage}}</div>
             <div class="metric metric-sm" id="profileTimeframe">{{ .Profile.FirstEventShort }} — {{ .Profile.LastEventShort }}</div>
-            <div class="text-muted card-macrometric row">Последняя активность:<div class="text-primary"><span id="profileLastSeen">{{ .Profile.LastSeenShort }}</span></div></div>
-            <div class="text-muted card-macrometric row">Длительность удержания:<div class="text-primary"><span id="campaignDuration">{{ .Profile.CampaignDurationFormatted }}</span></div></div>
-            <div class="text-muted card-macrometric row">Ритм сессий:<div class="text-primary"><agl-private><span id="avgSessionInterval">{{ if gt .Profile.AvgSessionIntervalSec 0.0 }}{{ printf "%.0f" .Profile.AvgSessionIntervalSec }} сек{{ else }}—{{ end }}</span></agl-private></div></div>
+            <div class="text-muted card-macrometric row">{{.Translation.ProfileDetailLastActivity}}<div class="text-primary"><span id="profileLastSeen">{{ .Profile.LastSeenShort }}</span></div></div>
+            <div class="text-muted card-macrometric row">{{.Translation.ProfileDetailHoldDuration}}<div class="text-primary"><span id="campaignDuration">{{ .Profile.CampaignDurationFormatted }}</span></div></div>
+            <div class="text-muted card-macrometric row">{{.Translation.ProfileDetailSessionRhythm}}<div class="text-primary"><agl-private><span id="avgSessionInterval">{{ if gt .Profile.AvgSessionIntervalSec 0.0 }}{{ printf "%.0f" .Profile.AvgSessionIntervalSec }} {{$.Translation.SharedUnitSec}}{{ else }}—{{ end }}</span></agl-private></div></div>
         </div>
         <div class="card">
-            <div class="metric-label">Состояние и уверенность</div>
+            <div class="metric-label">{{.Translation.ProfileDetailStateConfidence}}</div>
             <div class="state-confidence-row">
                 <div class="metric metric-md" id="profileState">
                     {{ if eq .Profile.State "ACTIVE" }}<span class="text-green">{{ .Profile.State }}</span>
@@ -35,21 +35,21 @@
                 </div>
             </div>
             <div class="text-muted card-macrometric card-macrometric--bare row">
-                Всего:<div class="text-primary"><span id="profileEventCount">{{ .Profile.EventCount }}</span></div> |
-                Валидных:<div class="text-primary"><span id="profileValidCount">{{ .Profile.ValidEventCount }}</span></div> |
-                Битых:<div class="text-primary"><span id="profileInvalidCount">{{ .Profile.InvalidEventCount }}</span></div>
+                {{.Translation.ProfileDetailTotal}}<div class="text-primary"><span id="profileEventCount">{{ .Profile.EventCount }}</span></div> |
+                {{.Translation.OverviewValid}}<div class="text-primary"><span id="profileValidCount">{{ .Profile.ValidEventCount }}</span></div> |
+                {{.Translation.OverviewBroken}}<div class="text-primary"><span id="profileInvalidCount">{{ .Profile.InvalidEventCount }}</span></div>
             </div>
             <div class="text-muted card-macrometric row">
-                Риск склейки:<div class="text-primary"><span id="profileFPRisk">{{ .Profile.FalsePositiveRisk }}</span></div>
+                {{.Translation.ProfileDetailMergeRisk}}<div class="text-primary"><span id="profileFPRisk">{{ .Profile.FalsePositiveRisk }}</span></div>
             </div>
         </div>
         <div class="card">
-            <h3>Поведение и обрывы</h3>
+            <h3>{{.Translation.ProfileDetailBehaviorDisconnects}}</h3>
             <div class="kv-list">
-                <div class="kv-row"><span class="metric-label">Поведение:</span><span class="text-primary" id="behaviorShares">{{ range $i, $s := .Profile.BehaviorShares 0 }}{{ if $i }} / {{ end }}{{ if eq $s.Key "AGGRESSIVE" }}<span class="status-aggr">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else if eq $s.Key "PASSIVE" }}<span class="status-pass">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else }}{{ $s.Key }} <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ end }}{{ else }}—{{ end }}</span></div>
-                <div class="kv-row"><span class="metric-label">Кто обрывает:</span><span class="text-primary" id="closeShares">{{ range $i, $s := .Profile.CloseReasonShares 0 }}{{ if $i }} / {{ end }}{{ if eq $s.Key "TIMEOUT" }}<span class="status-pass">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else if eq $s.Key "RST" }}<span class="status-aggr">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else if eq $s.Key "FIN" }}<span class="status-mixed">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else }}{{ $s.Key }} <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ end }}{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailBehavior}}</span><span class="text-primary" id="behaviorShares">{{ range $i, $s := .Profile.BehaviorShares 0 }}{{ if $i }} / {{ end }}{{ if eq $s.Key "AGGRESSIVE" }}<span class="status-aggr">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else if eq $s.Key "PASSIVE" }}<span class="status-pass">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else }}{{ $s.Key }} <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ end }}{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailWhoDisconnects}}</span><span class="text-primary" id="closeShares">{{ range $i, $s := .Profile.CloseReasonShares 0 }}{{ if $i }} / {{ end }}{{ if eq $s.Key "TIMEOUT" }}<span class="status-pass">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else if eq $s.Key "RST" }}<span class="status-aggr">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else if eq $s.Key "FIN" }}<span class="status-mixed">{{ $s.Key }}</span> <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ else }}{{ $s.Key }} <agl-private>{{ printf "%.0f" $s.Percent }}%</agl-private>{{ end }}{{ else }}—{{ end }}</span></div>
             </div>
-            <p class="text-muted card-macrometric row">TIMEOUT = бот досидел до нашего таймера; FIN/RST = воля бота к сбросу.</p>
+            <p class="text-muted card-macrometric row">{{.Translation.ProfileDetailTimeoutExplanation}}</p>
         </div>
     </div>
 
@@ -57,10 +57,10 @@
     <div class="section-divider"></div>
     <div class="grid">
         <div class="card">
-            <div class="metric-label">Текущая фаза (Алг.3)</div>
+            <div class="metric-label">{{.Translation.ProfileDetailCurrentPhase}}</div>
             <div class="metric metric-sm phase-text phase-text--profile" id="profilePhase">{{ if .Profile.CurrentPhase }}{{ .Profile.CurrentPhase }}{{ else }}—{{ end }}</div>
             <div class="text-muted card-macrometric row">
-                Уровень угрозы:
+                {{.Translation.ProfileDetailThreatLevel}}
                 <div>
                     {{ if .Profile.ThreatLevel }}
                         {{ if eq .Profile.ThreatLevel "UNKNOWN" }}
@@ -81,17 +81,17 @@
             </div>
         </div>
         <div class="card">
-            <div class="metric-label">Прогноз (Алг.4)</div>
+            <div class="metric-label">{{.Translation.ProfileDetailPrediction}}</div>
             <div class="metric metric-sm prediction-text prediction-text--profile" id="profilePredVector">{{ if .Profile.PredictedVector }}{{ .Profile.PredictedVector }}{{ else }}—{{ end }}</div>
-            <div class="text-muted card-macrometric row">Вероятность:<div class="text-primary"><span id="profilePredProb">{{ if .Profile.PredictedProbability }}{{ .Profile.PredictedProbability }}{{ else }}—{{ end }}</span></div></div>
+            <div class="text-muted card-macrometric row">{{.Translation.ProfileDetailProbability}}<div class="text-primary"><span id="profilePredProb">{{ if .Profile.PredictedProbability }}{{ .Profile.PredictedProbability }}{{ else }}—{{ end }}</span></div></div>
         </div>
         <div class="card">
-            <h3>Распределение фаз (всё время)</h3>
+            <h3>{{.Translation.ProfileDetailPhaseDistribution}}</h3>
             <div class="kv-list" id="phaseSharesBlock">
                 {{ range $i, $s := .Profile.PhaseShares 0 }}
                 <div class="kv-row"><span class="metric-label">{{ $s.Key }}:</span><span class="text-primary">{{ $s.Count }} ({{ printf "%.1f" $s.Percent }}%)</span></div>
                 {{ else }}
-                <div class="kv-row"><span class="text-muted">Нет данных.</span></div>
+                <div class="kv-row"><span class="text-muted">{{.Translation.SharedNoData}}</div>
                 {{ end }}
             </div>
         </div>
@@ -101,7 +101,7 @@
     <div class="section-divider"></div>
     <div class="grid">
         <div class="card">
-            <h3>Сетевой отпечаток (Stack Fingerprint)</h3>
+            <h3>{{.Translation.ProfileDetailStackFingerprint}}</h3>
             <div id="stackValidBlock" style="{{ if not .Profile.StackValid }}display:none;{{ end }}">
                 <div class="kv-list">
                     <div class="kv-row"><span class="metric-label">MSS:</span><span class="text-primary" id="stackMSS">{{ .Profile.Stack.MSS }}</span></div>
@@ -110,26 +110,26 @@
                     <div class="kv-row"><span class="metric-label">RcvWscale:</span><span class="text-primary" id="stackRcvWscale">{{ .Profile.Stack.RcvWscale }}</span></div>
                 </div>
             </div>
-            <p id="stackMissingMsg" class="text-muted card-macrometric row" style="{{ if .Profile.StackValid }}display:none;{{ end }}">Сетевой отпечаток неполный или отсутствует.</p>
+            <p id="stackMissingMsg" class="text-muted card-macrometric row" style="{{ if .Profile.StackValid }}display:none;{{ end }}">{{.Translation.ProfileDetailStackIncomplete}}</p>
         </div>
         <div class="card">
-            <h3>Дрейф и задержка (Алг.2 + RTT)</h3>
-            <div class="metric metric-sm" id="profileDrift">{{ if .Profile.TokenDriftValid }}{{ .Profile.TokenDriftMs }} мс{{ else }}—{{ end }}</div>
+            <h3>{{.Translation.ProfileDetailDriftLatency}}</h3>
+            <div class="metric metric-sm" id="profileDrift">{{ if .Profile.TokenDriftValid }}{{ .Profile.TokenDriftMs }} {{$.Translation.SharedUnitMs}}{{ else }}—{{ end }}</div>
             <div class="kv-list">
-                <div class="kv-row"><span class="metric-label">Порт из токена:</span><span class="text-primary" id="profileClientPort">{{ if .Profile.TokenClientPort }}{{ .Profile.TokenClientPort }}{{ else }}—{{ end }}</span></div>
-                <div class="kv-row"><span class="metric-label">RTT средний:</span><span class="text-primary" id="rttAvg">{{ if .Profile.RTTCount }}{{ printf "%.0f" .Profile.RTTAvgMs }} мс{{ else }}—{{ end }}</span></div>
-                <div class="kv-row"><span class="metric-label">RTT мин:</span><span class="text-primary" id="rttMin">{{ if .Profile.RTTCount }}{{ .Profile.RTTMinMs }} мс{{ else }}—{{ end }}</span></div>
-                <div class="kv-row"><span class="metric-label">RTT макс:</span><span class="text-primary" id="rttMax">{{ if .Profile.RTTCount }}{{ .Profile.RTTMaxMs }} мс{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailPortFromToken}}</span><span class="text-primary" id="profileClientPort">{{ if .Profile.TokenClientPort }}{{ .Profile.TokenClientPort }}{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailRTTAvg}}</span><span class="text-primary" id="rttAvg">{{ if .Profile.RTTCount }}{{ printf "%.0f" .Profile.RTTAvgMs }} {{$.Translation.SharedUnitMs}}{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailRTTMin}}</span><span class="text-primary" id="rttMin">{{ if .Profile.RTTCount }}{{ .Profile.RTTMinMs }} {{$.Translation.SharedUnitMs}}{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailRTTMax}}</span><span class="text-primary" id="rttMax">{{ if .Profile.RTTCount }}{{ .Profile.RTTMaxMs }} {{$.Translation.SharedUnitMs}}{{ else }}—{{ end }}</span></div>
             </div>
         </div>
         <!-- Поведенческий портрет: L7 и воля бота -->
         <div class="card">
-            <h3>Профиль чтения (L7 Payload)</h3>
+            <h3>{{.Translation.ProfileDetailReadProfile}}</h3>
             <div class="kv-list">
-                <div class="kv-row"><span class="metric-label">Tiny (0–64 б):</span><span class="text-primary" id="readTiny">{{ .Profile.ReadTinyCount }}</span></div>
-                <div class="kv-row"><span class="metric-label">Small (65–256 б):</span><span class="text-primary" id="readSmall">{{ .Profile.ReadSmallCount }}</span></div>
-                <div class="kv-row"><span class="metric-label">Medium (257–1024 б):</span><span class="text-primary" id="readMedium">{{ .Profile.ReadMediumCount }}</span></div>
-                <div class="kv-row"><span class="metric-label">Large (>1024 б):</span><span class="text-primary" id="readLarge">{{ .Profile.ReadLargeCount }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailReadTiny}}</span><span class="text-primary" id="readTiny">{{ .Profile.ReadTinyCount }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailReadSmall}}</span><span class="text-primary" id="readSmall">{{ .Profile.ReadSmallCount }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailReadMedium}}</span><span class="text-primary" id="readMedium">{{ .Profile.ReadMediumCount }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailReadLarge}}</span><span class="text-primary" id="readLarge">{{ .Profile.ReadLargeCount }}</span></div>
             </div>
         </div>
     </div>
@@ -138,14 +138,14 @@
     <div class="section-divider"></div>
     <div class="grid">
         <div class="card">
-            <h3>Ротация IP (<span id="ipsCountHeader">{{ .Profile.UniqueIPCount }}</span>)</h3>
+            <h3>{{.Translation.ProfileDetailIPRotation}} (<span id="ipsCountHeader">{{ .Profile.UniqueIPCount }}</span>)</h3>
             <div class="table-scroll">
                 <table>
                     <thead>
                         <tr>
-                            <th>IP</th>
-                            <th>Событий</th>
-                            <th>Доля</th>
+                            <th>{{.Translation.SharedTableIP}}</th>
+                            <th>{{.Translation.SharedTableEvents}}</th>
+                            <th>{{.Translation.SharedTableShare}}</th>
                         </tr>
                     </thead>
                     <tbody id="ipsTableBody">
@@ -163,15 +163,15 @@
                     </tbody>
                 </table>
             </div>
-            <div class="text-muted card-macrometric row">Концентрация:<div class="text-primary"><span id="ipConcentration">{{ if gt .Profile.UniqueIPCount 0 }}{{ floorDiv .Profile.EventCount .Profile.UniqueIPCount }} соб/IP — {{ if eq .Profile.UniqueIPCount 1 }}резидент{{ else }}ротатор{{ end }}{{ else }}—{{ end }}</span></div></div>
+            <div class="text-muted card-macrometric row">{{.Translation.ProfileDetailConcentration}}<div class="text-primary"><span id="ipConcentration">{{ if gt .Profile.UniqueIPCount 0 }}{{ floorDiv .Profile.EventCount .Profile.UniqueIPCount }} {{$.Translation.ProfileDetailSubjPerIP}} — {{ if eq .Profile.UniqueIPCount 1 }}{{$.Translation.ProfileDetailResident}}{{ else }}{{$.Translation.ProfileDetailRotator}}{{ end }}{{ else }}—{{ end }}</span></div></div>
         </div>
         <div class="card">
-            <h3>Доминирование в странах (<span id="countriesCountHeader">{{ .Profile.UniqueCountryCount }}</span>)</h3>
+            <h3>{{.Translation.ProfileDetailCountryDominance}} (<span id="countriesCountHeader">{{ .Profile.UniqueCountryCount }}</span>)</h3>
             <div class="kv-list" id="countriesKvList">
                 {{ range .CountryGlobalShares }}
-                <div class="kv-row"><span class="kv-label--entity">{{ .code }}:</span><span class="text-primary">{{ .profile_events }} из {{ .global_events }}</span></div>
+                <div class="kv-row"><span class="kv-label--entity">{{ .code }}:</span><span class="text-primary">{{ .profile_events }} {{$.Translation.SharedOf}} {{ .global_events }}</span></div>
                 {{ else }}
-                <div class="kv-row"><span class="text-muted">Нет данных.</span></div>
+                <div class="kv-row"><span class="text-muted">{{.Translation.SharedNoData}}</span></div>
                 {{ end }}
             </div>
             {{ if .CountryGlobalShares }}
@@ -186,7 +186,7 @@
                 </div>
             </div>
             {{ end }}
-            <div class="text-muted card-macrometric card-macrometric--bare row">Гео-ротация:<div class="text-primary"><span id="geoVerdict">{{ if gt .Profile.UniqueCountryCount 1 }}{{ .Profile.UniqueCountryCount }} стран — маркер прокси/VPN при одном стеке{{ else }}нет гео-ротации{{ end }}</span></div></div>
+            <div class="text-muted card-macrometric card-macrometric--bare row">{{.Translation.ProfileDetailGeoRotation}}<div class="text-primary"><span id="geoVerdict">{{ if gt .Profile.UniqueCountryCount 1 }}{{ .Profile.UniqueCountryCount }} {{$.Translation.ProfileDetailCountriesProxyMarker}}{{ else }}{{$.Translation.ProfileDetailNoGeoRotation}}{{ end }}</span></div></div>
         </div>
     </div>
 
@@ -194,22 +194,22 @@
     <div class="section-divider"></div>
     <div class="grid">
         <div class="card">
-                <h3>Метрики удержания</h3>
-                <div class="kv-row"><span class="metric-label">Средний план:</span><span class="text-primary" id="holdPlanned"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgPlannedHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
-                <div class="kv-row"><span class="metric-label">Средний факт:</span><span class="text-primary" id="holdActual"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgActualHoldSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
-                <div class="kv-row"><span class="metric-label">Всего сессий:</span><span id="holdCount">{{ .Profile.HoldCount }}</span></div>
-                <div class="kv-row"><span class="metric-label">Всего утилизировано:</span><span class="text-primary" id="holdTotal"><agl-private>{{ if .Profile.HoldCount }}{{ .Profile.ActualHoldSumSec | formatDuration }}{{ else }}—{{ end }}</agl-private></span></div>
-                <div class="kv-row"><span class="metric-label">Дельта план−факт:</span><span class="text-primary" id="holdDelta"><agl-private>{{ if .Profile.HoldCount }}{{ if gt .Profile.HoldDeltaSec 0 }}+{{ end }}{{ .Profile.HoldDeltaSec }} сек{{ else }}—{{ end }}</agl-private></span></div>
+                <h3>{{.Translation.ProfileDetailHoldMetrics}}</h3>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailAvgPlan}}</span><span class="text-primary" id="holdPlanned"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgPlannedHoldSec }} {{$.Translation.SharedUnitSec}}{{ else }}—{{ end }}</agl-private></span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailAvgFact}}</span><span class="text-primary" id="holdActual"><agl-private>{{ if .Profile.HoldCount }}{{ printf "%.0f" .Profile.AvgActualHoldSec }} {{$.Translation.SharedUnitSec}}{{ else }}—{{ end }}</agl-private></span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailTotalSessions}}</span><span id="holdCount">{{ .Profile.HoldCount }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailTotalUtilized}}</span><span class="text-primary" id="holdTotal"><agl-private>{{ if .Profile.HoldCount }}{{ .Profile.ActualHoldSumSec | formatDuration }}{{ else }}—{{ end }}</agl-private></span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailPlanFactDelta}}</span><span class="text-primary" id="holdDelta"><agl-private>{{ if .Profile.HoldCount }}{{ if gt .Profile.HoldDeltaSec 0 }}+{{ end }}{{ .Profile.HoldDeltaSec }} {{$.Translation.SharedUnitSec}}{{ else }}—{{ end }}</agl-private></span></div>
         </div>
         <div class="card">
-            <h3>Интервалы и Сетевые аномалии</h3>
+            <h3>{{.Translation.ProfileDetailIntervalsAnomalies}}</h3>
             <div class="kv-list">
-                <div class="kv-row"><span class="metric-label">Средний ритм IAT:</span><span class="text-primary" id="iatAvg">{{ if gt .Profile.IATCount 0 }}{{ printf "%.0f" .Profile.IATAvgMs }} мс{{ else }}—{{ end }}</span></div>
-                <div class="kv-row"><span class="metric-label">Дисперсия IAT:</span><span class="text-primary" id="iatDispersion">{{ if gt .Profile.IATCount 1 }}{{ printf "%.1f" .Profile.IATDispersion }} мс{{ else }}—{{ end }}</span></div>
-                <div class="kv-row"><span class="metric-label">Retrans / сессию:</span><span class="text-primary" id="retransPerSession">{{ printf "%.2f" .Profile.RetransPerSession }}</span></div>
-                <div class="kv-row"><span class="metric-label">Probes / сессию:</span><span class="text-primary" id="probesPerSession">{{ printf "%.2f" .Profile.ProbesPerSession }}</span></div>
-                <div class="kv-row"><span class="metric-label">Retrans (накопл.):</span><span class="text-primary" id="totalRetrans"><agl-private>{{ .Profile.TotalRetransSum }}</agl-private></span></div>
-                <div class="kv-row"><span class="metric-label">Probes (зонды):</span><span class="text-primary" id="probesSum"><agl-private>{{ .Profile.ProbesSum }}</agl-private></span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailAvgIATRhythm}}</span><span class="text-primary" id="iatAvg">{{ if gt .Profile.IATCount 0 }}{{ printf "%.0f" .Profile.IATAvgMs }} {{$.Translation.SharedUnitMs}}{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailIATDispersion}}</span><span class="text-primary" id="iatDispersion">{{ if gt .Profile.IATCount 1 }}{{ printf "%.1f" .Profile.IATDispersion }} {{$.Translation.SharedUnitMs}}{{ else }}—{{ end }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailRetransPerSession}}</span><span class="text-primary" id="retransPerSession">{{ printf "%.2f" .Profile.RetransPerSession }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailProbesPerSession}}</span><span class="text-primary" id="probesPerSession">{{ printf "%.2f" .Profile.ProbesPerSession }}</span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailRetransAccumulated}}</span><span class="text-primary" id="totalRetrans"><agl-private>{{ .Profile.TotalRetransSum }}</agl-private></span></div>
+                <div class="kv-row"><span class="metric-label">{{.Translation.ProfileDetailProbesSum}}</span><span class="text-primary" id="probesSum"><agl-private>{{ .Profile.ProbesSum }}</agl-private></span></div>
             </div>
         </div>
     </div>
@@ -218,20 +218,20 @@
     <div class="section-divider"></div>
     <div class="grid">
         <div class="card" style="grid-column: 1 / -1;">
-            <h3>Журнал сессий (последние <span id="sessionsCount">{{ len .Profile.Sessions }}</span>)</h3>
+            <h3>{{.Translation.ProfileDetailSessionLog}} <span id="sessionsCount">{{ len .Profile.Sessions }}</span>)</h3>
             <div class="table-scroll">
                 <table>
                     <thead>
                         <tr>
-                            <th>Дата/время (лог)</th>
-                            <th>Ловушка</th>
-                            <th>IP</th>
-                            <th>Поведение</th>
-                            <th>Фаза</th>
-                            <th>Закрытие</th>
-                            <th>Удержание</th>
+                            <th>{{.Translation.ProfileDetailTableDateTime}}</th>
+                            <th>{{.Translation.SharedTableTrap}}</th>
+                            <th>{{.Translation.SharedTableIP}}</th>
+                            <th>{{.Translation.ProfileDetailTableBehavior}}</th>
+                            <th>{{.Translation.ProfileDetailTablePhase}}</th>
+                            <th>{{.Translation.ProfileDetailTableClose}}</th>
+                            <th>{{.Translation.ProfileDetailTableHold}}</th>
                             <th>RTT</th>
-                            <th>Payload</th>
+                            <th>{{.Translation.ProfileDetailTablePayload}}</th>
                         </tr>
                     </thead>
                     <tbody id="sessionsTableBody">
@@ -252,13 +252,13 @@
                                 {{ else if eq .CloseReason "FIN" }}<span class="status-mixed">{{ .CloseReason }}</span>
                                 {{ else }}<span class="text-muted">{{ .CloseReason }}</span>{{ end }}
                             </td>
-                            <td><agl-private>{{ if .HoldValid }}{{ .HoldSec }} сек{{ else }}—{{ end }}</agl-private></td>
-                            <td>{{ if .RTTValid }}{{ .RTTMs }} мс{{ else }}—{{ end }}</td>
+                            <td><agl-private>{{ if .HoldValid }}{{ .HoldSec }} {{$.Translation.SharedUnitSec}}{{ else }}—{{ end }}</agl-private></td>
+                            <td>{{ if .RTTValid }}{{ .RTTMs }} {{$.Translation.SharedUnitMs}}{{ else }}—{{ end }}</td>
                             <td>{{ .PayloadBytes }}</td>
                         </tr>
                         {{ else }}
                         <tr>
-                            <td colspan="9" class="text-muted">Нет данных</td>
+                            <td colspan="9" class="text-muted">{{.Translation.SharedNoData}}</td>
                         </tr>
                         {{ end }}
                     </tbody>
@@ -271,14 +271,14 @@
     <div class="section-divider"></div>
     <div class="grid">
         <div class="card" style="grid-column: 1 / -1;">
-            <h3>Суточная активность (доказательная база, даты = лог)</h3>
+            <h3>{{.Translation.ProfileDetailDailyActivity}}</h3>
             <div class="table-scroll">
                 <table>
                     <thead>
                         <tr>
-                            <th>Дата</th>
-                            <th>Событий</th>
-                            <th>IP (топ-5 дней)</th>
+                            <th>{{.Translation.ProfileDetailTableDate}}</th>
+                            <th>{{.Translation.SharedTableEvents}}</th>
+                            <th>{{.Translation.ProfileDetailTableIPTop5Days}}</th>
                         </tr>
                     </thead>
                     <tbody id="dayRowsTableBody">
@@ -290,7 +290,7 @@
                         </tr>
                         {{ else }}
                         <tr>
-                            <td colspan="3" class="text-muted">Нет данных</td>
+                            <td colspan="3" class="text-muted">{{.Translation.SharedNoData}}</td>
                         </tr>
                         {{ end }}
                     </tbody>
@@ -303,22 +303,22 @@
     <div class="section-divider"></div>
     <div class="grid">
         <div class="card">
-            <h3>Доказательства (Evidence)</h3>
+            <h3>{{.Translation.ProfileDetailEvidence}}</h3>
             <ul class="details-list details-list--evidence" id="evidenceList">
                 {{ range .Profile.Evidence }}
                 <li>{{ . }}</li>
                 {{ else }}
-                <li class="text-muted">Нет зафиксированных доказательств.</li>
+                <li class="text-muted">{{.Translation.SharedNoEvidence}}</li>
                 {{ end }}
             </ul>
         </div>
         <div class="card">
-            <h3>Причины и оговорки (Reasons)</h3>
+            <h3>{{.Translation.ProfileDetailReasons}}</h3>
             <ul class="details-list details-list--reasons" id="reasonsList">
                 {{ range .Profile.Reasons }}
                 <li>{{ . }}</li>
                 {{ else }}
-                <li class="text-muted">Нет зафиксированных причин.</li>
+                <li class="text-muted">{{.Translation.SharedNoReasons}}</li>
                 {{ end }}
             </ul>
         </div>
@@ -326,9 +326,9 @@
 
     {{ else }}
     <div class="card">
-        <h2>Профиль не найден</h2>
-        <p class="text-muted">Профиль с указанным идентификатором не существует, был удалён или ещё не создан.</p>
-        <a href="{{.Prefix}}dashboard/overview" class="link-green">&larr; Назад к обзору</a>
+        <h2>{{.Translation.ProfileDetailNotFound}}</h2>
+        <p class="text-muted">{{.Translation.ProfileDetailNotFoundDesc}}</p>
+        <a href="{{.Prefix}}dashboard/overview" class="link-green">&larr; {{.Translation.ProfileDetailBackToOverview}}</a>
     </div>
     {{ end }}
 
@@ -373,11 +373,11 @@
 
                     // Индикатор свежести: момент формирования снимка данных НА СЕРВЕРЕ.
                 // Единая витринная локация со всеми остальными метками отчёта.
-                    setText('reportUpdateTime', 'Отчёт обновлён: ' + data.server_time);
+                    setText('reportUpdateTime', window.AGL_I18N.JSProfileDetailReportUpdated + data.server_time);
 
                     // Форматтеры объявлены ДО первого использования (const — TDZ!)
-                    const fmtHold = (val, count) => count > 0 ? Math.round(val) + ' сек' : '—';
-                    const fmtRtt = (val, count) => count > 0 ? Math.round(val) + ' мс' : '—';
+                    const fmtHold = (val, count) => count > 0 ? Math.round(val) + ' ' + window.AGL_I18N.SharedUnitSec : '—';
+                    const fmtRtt = (val, count) => count > 0 ? Math.round(val) + ' ' + window.AGL_I18N.SharedUnitMs : '—';
 
                     // 1. Текстовые метрики (публичные поля)
                     setText('profileConfidence', p.confidence);
@@ -390,7 +390,7 @@
                     setText('profilePhase', p.current_phase || '—');
                     setText('profilePredVector', p.predicted_vector || '—');
                     setText('profilePredProb', p.predicted_probability || '—');
-                    setText('profileDrift', p.token_drift_valid ? p.token_drift_ms + ' мс' : '—');
+                    setText('profileDrift', p.token_drift_valid ? p.token_drift_ms + ' ' + window.AGL_I18N.SharedUnitMs : '—');
                     setText('profileClientPort', p.token_client_port || '—');
                     setText('profilePrimaryIP', p.primary_ip || '—');
                     setText('ipsCountHeader', p.unique_ip_count);
@@ -495,11 +495,11 @@
                     }
                     setText('sessionsCount', (p.sessions || []).length);
                     setText('ipConcentration', p.unique_ip_count > 0
-                        ? Math.round(p.event_count / p.unique_ip_count) + ' соб/IP — ' + (p.unique_ip_count === 1 ? 'резидент' : 'ротатор')
+                        ? Math.round(p.event_count / p.unique_ip_count) + ' ' + (p.unique_ip_count === 1 ? window.AGL_I18N.JSProfileDetailSubjPerIPResident : window.AGL_I18N.JSProfileDetailSubjPerIPRotator)
                         : '—');
                     setText('geoVerdict', p.unique_country_count > 1
-                        ? p.unique_country_count + ' стран — маркер прокси/VPN при одном стеке'
-                        : 'нет гео-ротации');
+                        ? p.unique_country_count + ' ' + window.AGL_I18N.JSProfileDetailCountriesProxy
+                        : window.AGL_I18N.JSProfileDetailNoGeoRotation);
 
                     // 2. Ротация IP (доли)
                     rebuildTableWithFlash('ipsTableBody', p.ip_shares, 3, (tr, item, index) => {
@@ -523,7 +523,7 @@
                             empty.className = 'kv-row';
                             const sp = document.createElement('span');
                             sp.className = 'text-muted';
-                            sp.textContent = 'Нет данных.';
+                            sp.textContent = window.AGL_I18N.SharedNoData;
                             empty.appendChild(sp);
                             countriesKv.appendChild(empty);
                         } else {
@@ -535,7 +535,7 @@
                                 label.textContent = item.code + ':';
                                 const val = document.createElement('span');
                                 val.className = 'text-primary';
-                                val.textContent = item.profile_events + ' из ' + item.global_events;
+                                val.textContent = item.profile_events + ' ' + window.AGL_I18N.SharedOf + ' ' + item.global_events;
                                 row.appendChild(label);
                                 row.appendChild(val);
                                 countriesKv.appendChild(row);
@@ -565,7 +565,7 @@
                             row.className = 'kv-row';
                             const sp = document.createElement('span');
                             sp.className = 'text-muted';
-                            sp.textContent = 'Нет данных.';
+                            sp.textContent = window.AGL_I18N.SharedNoData;
                             row.appendChild(sp);
                             phaseBlock.appendChild(row);
                         } else {
@@ -597,8 +597,8 @@
                         tr.appendChild(cellBehavior(s.behavior));
                         tr.appendChild(cellText(s.phase_label));
                         tr.appendChild(cellCloseReason(s.close_reason));
-                        tr.appendChild(cellPriv(s.hold_valid ? s.hold_sec + ' сек' : '—'));
-                        tr.appendChild(cellText(s.rtt_valid ? s.rtt_ms + ' мс' : '—'));
+                        tr.appendChild(cellPriv(s.hold_valid ? s.hold_sec + ' ' + window.AGL_I18N.SharedUnitSec : '—'));
+                        tr.appendChild(cellText(s.rtt_valid ? s.rtt_ms + ' ' + window.AGL_I18N.SharedUnitMs : '—'));
                         tr.appendChild(cellText(s.payload_bytes));
                     }, 'sessions', (s) => s.start_time_log, (s) => JSON.stringify({tarpit: s.tarpit_id, ip: s.ip, behavior: s.behavior, phase: s.phase_code, close: s.close_reason, hold: s.hold_valid ? s.hold_sec : null}));
 
@@ -611,8 +611,8 @@
                     }, 'day_rows', (d) => d.day_log, (d) => JSON.stringify({events: d.events, top_ips: d.top_ips}));
 
                     // 6. Списки Evidence и Reasons
-                    rebuildList('evidenceList', p.evidence, 'Нет зафиксированных доказательств.');
-                    rebuildList('reasonsList', p.reasons, 'Нет зафиксированных причин.');
+                    rebuildList('evidenceList', p.evidence, window.AGL_I18N.SharedNoEvidence);
+                    rebuildList('reasonsList', p.reasons, window.AGL_I18N.SharedNoReasons);
                 })
                 .catch(err => console.error('Auto-refresh error (profile):', err));
         }
@@ -688,7 +688,7 @@
                 const td = document.createElement('td');
                 td.colSpan = colspan;
                 td.className = 'text-muted';
-                td.textContent = 'Нет данных';
+                td.textContent = window.AGL_I18N.SharedNoData;
                 tr.appendChild(td);
                 fragment.appendChild(tr);
             } else {
@@ -767,15 +767,15 @@
         // Аналог серверного FormatDuration: "18d 19h"
         function fmtDur(sec) {
             sec = Math.round(sec || 0);
-            if (sec === 0) return '0с';
+            if (sec === 0) return window.AGL_I18N.JSProfileDetailFmtDurZero;
             const d = Math.floor(sec / 86400); sec %= 86400;
             const h = Math.floor(sec / 3600); sec %= 3600;
             const m = Math.floor(sec / 60);
             const parts = [];
-            if (d > 0) parts.push(d + 'д');
-            if (h > 0) parts.push(h + 'ч');
-            if (m > 0) parts.push(m + 'м');
-            if (parts.length === 0) parts.push(sec + 'с');
+            if (d > 0) parts.push(d + window.AGL_I18N.JSProfileDetailFmtDurDays);
+            if (h > 0) parts.push(h + window.AGL_I18N.JSProfileDetailFmtDurHours);
+            if (m > 0) parts.push(m + window.AGL_I18N.JSProfileDetailFmtDurMinutes);
+            if (parts.length === 0) parts.push(sec + window.AGL_I18N.JSProfileDetailFmtDurSeconds);
             return parts.slice(0, 2).join(' ');
         }
         function rebuildList(ulId, items, emptyMsg) {

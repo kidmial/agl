@@ -14,6 +14,9 @@ package analytics
 
 import (
 	"fmt"
+
+	"agl/config"
+	"agl/i18n"
 )
 
 // Коды фаз угрозы.
@@ -277,13 +280,16 @@ type PhaseResult struct {
 //   - функция не строит прогнозы;
 //   - она только классифицирует одну сессию.
 func ClassifyPhase(rec EventRecord) PhaseResult {
+	// Получаем словарь аналитики для текущего языка.
+	tr := i18n.GetAnalyticsTranslation(config.C.Lang)
+
 	// Создаём базовый результат.
 	//
 	// По умолчанию фаза неизвестна.
 	// Это честное состояние, пока данные не подтвердят обратное.
 	result := PhaseResult{
 		Code:        PhaseCodeUnknown,
-		Label:       "ФАЗА НЕ ОПРЕДЕЛЕНА",
+		Label:       tr.PhaseLabelUnknown,
 		DangerLevel: DangerLevelUnknown,
 		Confidence:  20,
 		ToolProfile: ToolProfileUnknown,
@@ -345,7 +351,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 	if !readsValid {
 		result.Reasons = appendUnique(
 			result.Reasons,
-			"метрики чтений невалидны; фазовая классификация невозможна",
+			tr.ReasonReadsInvalid,
 		)
 		return result
 	}
@@ -364,7 +370,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 		result.Confidence -= 10
 		result.Reasons = appendUnique(
 			result.Reasons,
-			"причина закрытия невалидна или не распознана",
+			tr.ReasonCloseInvalid,
 		)
 	}
 
@@ -381,7 +387,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 		result.Confidence -= 15
 		result.Reasons = appendUnique(
 			result.Reasons,
-			"сессия закрыта комплексом; поведение бота интерпретируется с оговоркой",
+			tr.ReasonOurClose,
 		)
 	}
 
@@ -447,7 +453,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 		//   - нет полезной нагрузки;
 		//   - нет признаков эксплуатации.
 		result.Code = PhaseCodeBlindRecon
-		result.Label = "ФАЗА 1: СЛЕПОЙ СКАНИРУЮЩИЙ ШТУРМ (Recon_L4)"
+		result.Label = tr.PhaseLabelBlindRecon
 		result.DangerLevel = DangerLevelLow
 		result.Confidence = 70
 
@@ -456,7 +462,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 		// Администратор должен видеть, почему выставлена фаза.
 		result.Evidence = appendUnique(
 			result.Evidence,
-			"все метрики чтений равны нулю",
+			tr.EvidenceAllReadsZero,
 		)
 
 		// Если сессия закрыта по TIMEOUT, это усиливает фазу.
@@ -469,7 +475,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 			result.Confidence += 5
 			result.Evidence = appendUnique(
 				result.Evidence,
-				"слепой зонд удержан до TIMEOUT",
+				tr.EvidenceBlindProbeTimeout,
 			)
 		}
 
@@ -485,7 +491,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 		if rec.CloseReason == "RST" {
 			result.Reasons = appendUnique(
 				result.Reasons,
-				"слепой зонд закрыт через RST; возможен панический обрыв",
+				tr.ReasonBlindProbeRST,
 			)
 		}
 
@@ -496,7 +502,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 		if rec.CloseReason == "FIN" {
 			result.Reasons = appendUnique(
 				result.Reasons,
-				"слепой зонд закрыт через FIN; возможно аккуратное закрытие",
+				tr.ReasonBlindProbeFIN,
 			)
 		}
 
@@ -522,7 +528,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 		//   - отправка логинов или команд;
 		//   - подготовка к брутфорсу.
 		result.Code = PhaseCodeBannerRecon
-		result.Label = "ФАЗА 2: АКТИВНЫЙ СБОР БАННЕРОВ (Recon_L7)"
+		result.Label = tr.PhaseLabelBannerRecon
 		result.DangerLevel = DangerLevelMedium
 		result.Confidence = 75
 
@@ -531,7 +537,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 		// Администратор должен видеть, что фаза подтверждена чтениями.
 		result.Evidence = appendUnique(
 			result.Evidence,
-			"обнаружены короткие или средние чтения без крупной полезной нагрузки",
+			tr.EvidenceShortMediumReads,
 		)
 
 		// Если есть средние чтения, это сильнее, чем только короткие.
@@ -543,7 +549,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 			result.Evidence = appendUnique(
 				result.Evidence,
 				fmt.Sprintf(
-					"ReadMedium=%d: обмен данными среднего размера",
+					tr.EvidenceReadMediumFormat,
 					rec.ReadMedium,
 				),
 			)
@@ -557,7 +563,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 			result.Evidence = appendUnique(
 				result.Evidence,
 				fmt.Sprintf(
-					"ReadTiny=%d: короткие зонды или баннерные проверки",
+					tr.EvidenceReadTinyFormat,
 					rec.ReadTiny,
 				),
 			)
@@ -576,7 +582,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 			result.Confidence += 3
 			result.Evidence = appendUnique(
 				result.Evidence,
-				"закрытие по FIN: бот контролирует лимит ожидания",
+				tr.EvidenceCloseFIN,
 			)
 		}
 
@@ -587,7 +593,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 		if rec.CloseReason == "TIMEOUT" {
 			result.Evidence = appendUnique(
 				result.Evidence,
-				"закрытие по TIMEOUT: бот оставался в капкане",
+				tr.EvidenceCloseTimeout,
 			)
 		}
 
@@ -615,7 +621,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 		//   - брутфорс с крупными ответами;
 		//   - внедрение команд.
 		result.Code = PhaseCodePayloadProbe
-		result.Label = "ФАЗА 3: ЗОНДИРОВАНИЕ PAYLOAD (Попытка брутфорса / внедрения)"
+		result.Label = tr.PhaseLabelPayloadProbe
 		result.DangerLevel = DangerLevelHigh
 		result.Confidence = 80
 
@@ -626,7 +632,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 		result.Evidence = appendUnique(
 			result.Evidence,
 			fmt.Sprintf(
-				"ReadLarge=%d при CloseReason=TIMEOUT",
+				tr.EvidenceReadLargeTimeoutFormat,
 				rec.ReadLarge,
 			),
 		)
@@ -639,7 +645,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 			result.Evidence = appendUnique(
 				result.Evidence,
 				fmt.Sprintf(
-					"ReadMedium=%d: дополнительная полезная нагрузка",
+					tr.EvidenceReadMediumAdditional,
 					rec.ReadMedium,
 				),
 			)
@@ -655,7 +661,7 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 			result.Evidence = appendUnique(
 				result.Evidence,
 				fmt.Sprintf(
-					"ReadTiny=%d: предварительные короткие зонды",
+					tr.EvidenceReadTinyPreliminary,
 					rec.ReadTiny,
 				),
 			)
@@ -664,18 +670,18 @@ func ClassifyPhase(rec EventRecord) PhaseResult {
 	case isPhase3Suspect:
 		// ФАЗА 3 (подозрение): крупная нагрузка, но без полного подтверждения.
 		result.Code = PhaseCodePayloadProbe
-		result.Label = "ФАЗА 3 (ПОДОЗРЕНИЕ): крупная нагрузка без полного подтверждения"
+		result.Label = tr.PhaseLabelSuspect
 		result.DangerLevel = DangerLevelHigh
 		result.Confidence = 55
 
 		result.Evidence = appendUnique(
 			result.Evidence,
-			fmt.Sprintf("ReadLarge=%d, но CloseReason=%s", rec.ReadLarge, rec.CloseReason),
+			fmt.Sprintf(tr.EvidenceReadLargeFormat, rec.ReadLarge, rec.CloseReason),
 		)
 
 		result.Reasons = appendUnique(
 			result.Reasons,
-			"крупная полезная нагрузка обнаружена, но сессия не удержана до TIMEOUT",
+			tr.ReasonLargePayloadNoTimeout,
 		)
 	}
 

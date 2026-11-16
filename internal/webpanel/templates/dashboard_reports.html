@@ -3,9 +3,8 @@
 {{template "header" .}}
 
 <div class="page-section-header">
-    <h1>Криминалистические отчёты</h1>
-    <p>Инструмент для принятия обоснованных решений на основе актуальных, агрегированных данных.
-        Данные обновляются инкрементально, гарантируя отсутствие искажений в расчетах.</p>
+    <h1>{{.Translation.ReportsPageTitle}}</h1>
+    <p>{{.Translation.ReportsPageDesc}}</p>
 </div>
 
 <div class="card">
@@ -19,9 +18,9 @@
 
     <!-- Переключатель периода -->
     <div class="period-range-buttons">
-        <a href="{{.Prefix}}dashboard/reports?range=24h" class="nav-link {{ $c24 }}">Сутки (24 ч)</a>
-        <a href="{{.Prefix}}dashboard/reports?range=7d" class="nav-link {{ $c7 }}">Неделя (7 д)</a>
-        <a href="{{.Prefix}}dashboard/reports?range=30d" class="nav-link {{ $c30 }}">Месяц (30 д)</a>
+        <a href="{{.Prefix}}dashboard/reports?range=24h" class="nav-link {{ $c24 }}">{{.Translation.ReportsRange24h}}</a>
+        <a href="{{.Prefix}}dashboard/reports?range=7d" class="nav-link {{ $c7 }}">{{.Translation.ReportsRange7d}}</a>
+        <a href="{{.Prefix}}dashboard/reports?range=30d" class="nav-link {{ $c30 }}">{{.Translation.ReportsRange30d}}</a>
     </div>
 </div>
 
@@ -29,46 +28,46 @@
 {{ $rangeDesc := "" }}
 <!-- 2. Логика определения описания -->
 {{ if eq .Range "24h" }}
-{{ $rangeDesc = "24 часа" }}
+{{ $rangeDesc = .Translation.ReportsRangeDesc24h }}
 {{ else if eq .Range "7d" }}
-{{ $rangeDesc = "7 дней" }}
+{{ $rangeDesc = .Translation.ReportsRangeDesc7d }}
 {{ else if eq .Range "30d" }}
-{{ $rangeDesc = "30 дней" }}
+{{ $rangeDesc = .Translation.ReportsRangeDesc30d }}
 {{ end }}
 
 <!-- Блок - Макро-статистика -->
 <div class="card" style="margin-top: 20px;">
-    <h3>Макро-статистика за период</h3>
+    <h3>{{.Translation.ReportsMacroStats}}</h3>
     <div class="grid">
         <div class="card">
-            <div class="metric-label">Всего событий</div>
+            <div class="metric-label">{{.Translation.ReportsTotalEvents}}</div>
             <div class="metric" id="macroEvents">{{ .Macro.Events }}</div>
             <div class="card-macrometric row">
-                <div class="text-muted">Валидных событий:<span class="macro-value" id="macroValidEvents">{{ .Macro.ValidEvents }}</span></div>
+                <div class="text-muted">{{.Translation.ReportsValidEvents}}<span class="macro-value" id="macroValidEvents">{{ .Macro.ValidEvents }}</span></div>
             </div>
         </div>
         <div class="card">
-            <div class="metric-label">Утилизировано времени</div>
+            <div class="metric-label">{{.Translation.ReportsUtilizedTime}}</div>
             <div class="metric text-amber" id="macroHold">{{ .Macro.HoldSumSec | formatDuration }}</div>
             <div class="card-macrometric row">
-                <div class="text-muted">Сумма фактического утилизированного времени ботнет в интервале за<span class="macro-value">{{ $rangeDesc }}</span></div>
+                <div class="text-muted">{{.Translation.ReportsUtilizedTimeSum}}<span class="macro-value">{{ $rangeDesc }}</span></div>
             </div>
         </div>
         <div class="card">
-            <div class="metric-label">Уникальных стран / IP</div>
+            <div class="metric-label">{{.Translation.ReportsUniqueCountriesIPs}}</div>
             <div class="metric" id="macroGeo">{{ .Macro.UniqueCountries }} / {{ .Macro.UniqueIPs }}</div>
             <div class="card-macrometric row">
-                <div class="metric-label">IP-адресов на страну (прибл.):</div>
+                <div class="metric-label">{{.Translation.ReportsIPsPerCountry}}</div>
                 <div class="macro-value" id="macroIPsPerCountry">{{ if .Macro.UniqueCountries }}{{ floorDiv .Macro.UniqueIPs .Macro.UniqueCountries }}{{ else }}—{{ end }}</div>
             </div>
         </div>
         <div class="card">
-            <div class="metric-label">Средняя секунда сброса атакующим (FIN/RST). Avg Drop Second</div>
+            <div class="metric-label">{{.Translation.ReportsAvgDropSecond}}</div>
             <div class="metric text-green">
-                <agl-privated id="macroAvgDrop">{{ if gt .Macro.DropCount 0 }}{{ printf "%.1f" .Macro.AvgDropSec }} сек{{ else }}—{{ end }}</agl-privated>
+                <agl-privated id="macroAvgDrop">{{ if gt .Macro.DropCount 0 }}{{ printf "%.1f" .Macro.AvgDropSec }} {{$.Translation.SharedUnitSec}}{{ else }}—{{ end }}</agl-privated>
             </div>
             <div class="card-macrometric row">
-                <div class="text-muted">Дроп-сессий:<agl-private class="macro-value" id="macroDropCount">{{ .Macro.DropCount }}</agl-private>
+                <div class="text-muted">{{.Translation.ReportsDropSessions}}<agl-private class="macro-value" id="macroDropCount">{{ .Macro.DropCount }}</agl-private>
                 </div>
             </div>
         </div>
@@ -76,7 +75,7 @@
 
     {{ if .Macro.BehaviorDisplay }}
     <div id="behaviorBlock">
-        <div class="metric-label">Распределение тактик</div>
+        <div class="metric-label">{{.Translation.ReportsTacticsDistribution}}</div>
         <div style="display: flex; gap: 20px; margin-top: 10px; flex-wrap: wrap;">
             {{ range .Macro.BehaviorDisplay }}
             <div>
@@ -92,20 +91,19 @@
 
 <!-- Блок - Эффективность ловушек -->
 <div class="card" style="margin-top: 20px;">
-    <h3 class="mb-0">Анализ эффективности ловушек</h3>
-    <p class="text-muted">Анализ трафика и среднего утилизированного времени ботнета в конкретной из ловушек.
-    </p>
+    <h3 class="mb-0">{{.Translation.ReportsTrapEfficiency}}</h3>
+    <p class="text-muted">{{.Translation.ReportsTrapEfficiencyDesc}}</p>
     <div class="table-scroll">
         <table>
             <thead>
                 <tr>
-                    <th>Ловушка</th>
-                    <th>Атак</th>
-                    <th>Утилизировано</th>
-                    <th>Уник. IP</th>
-                    <th>Уник. стран</th>
-                    <th>Дропов (FIN/RST)</th>
-                    <th>Ср. удержание за атаку</th>
+                    <th>{{.Translation.SharedTableTrap}}</th>
+                    <th>{{.Translation.ReportsTableAttacks}}</th>
+                    <th>{{.Translation.ReportsTableUtilized}}</th>
+                    <th>{{.Translation.SharedTableUniqueIPs}}</th>
+                    <th>{{.Translation.SharedTableUniqueCountries}}</th>
+                    <th>{{.Translation.ReportsTableDrops}}</th>
+                    <th>{{.Translation.ReportsTableAvgHoldPerAttack}}</th>
                 </tr>
             </thead>
             <tbody id="trapsTableBody">
@@ -117,11 +115,11 @@
                     <td>{{ .UniqueIPs }}</td>
                     <td>{{ .UniqueCountries }}</td>
                     <td><agl-private>{{ .DropCount }}</agl-private></td>
-                    <td><agl-private>{{ printf "%.1f" .Efficiency }} сек</agl-private></td>
+                    <td><agl-private>{{ printf "%.1f" .Efficiency }} {{$.Translation.SharedUnitSec}}</agl-private></td>
                 </tr>
                 {{ else }}
                 <tr>
-                    <td colspan="7" class="text-muted">Нет данных за выбранный период.</td>
+                    <td colspan="7" class="text-muted">{{.Translation.SharedNoDataPeriod}}</td>
                 </tr>
                 {{ end }}
             </tbody>
@@ -131,21 +129,20 @@
 
 <!-- Блок - Топ стран -->
 <div class="card" style="margin-top: 20px;">
-    <h3 class="mb-0">Блок 1. Геопрофилирование агрессивной сетевой активности — Топ-<span id="countriesCount">{{ len .Countries
-            }}</span> стран</h3>
-    <p class="text-muted">Детализация глобальных векторов ботнета и анализ концентрации событий по географическому
-        распределению.</p>
+    <h3 class="mb-0">{{.Translation.ReportsBlock1Title}}<span id="countriesCount">{{ len .Countries
+            }}</span> {{.Translation.ReportsBlock1Suffix}}</h3>
+    <p class="text-muted">{{.Translation.ReportsBlock1Desc}}</p>
     <div class="table-scroll">
         <table>
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Страна</th>
-                    <th>Топ-ловушка</th>
-                    <th>Событий</th>
-                    <th>Уник. IP</th>
-                    <th>Утилизировано</th>
-                    <th>Концентрация</th>
+                    <th>{{.Translation.ReportsTableCountry}}</th>
+                    <th>{{.Translation.ReportsTableTopTrap}}</th>
+                    <th>{{.Translation.SharedTableEvents}}</th>
+                    <th>{{.Translation.SharedTableUniqueIPs}}</th>
+                    <th>{{.Translation.ReportsTableUtilized}}</th>
+                    <th>{{.Translation.ReportsTableConcentration}}</th>
                 </tr>
             </thead>
             <tbody id="countriesTableBody">
@@ -163,7 +160,7 @@
                 </tr>
                 {{ else }}
                 <tr>
-                    <td colspan="7" class="text-muted">Нет данных за выбранный период.</td>
+                    <td colspan="7" class="text-muted">{{.Translation.SharedNoDataPeriod}}</td>
                 </tr>
                 {{ end }}
             </tbody>
@@ -173,25 +170,24 @@
 
 <!-- Блок 2: Топ IP -->
 <div class="card" style="margin-top: 20px;">
-    <h3 class="mb-0">Блок 2. Профилирование агрессивной сетевой активности — Топ-<span id="ipsCount">{{ len .IPs }}</span> атакующих</h3>
-    <p class="text-muted">Профилирование агрессивного трафика: Индикаторы оперативного анализа для приоритизации угроз и
-        принятия стратегических решений.</p>
+    <h3 class="mb-0">{{.Translation.ReportsBlock2Title}}<span id="ipsCount">{{ len .IPs }}</span> {{.Translation.ReportsBlock2Suffix}}</h3>
+    <p class="text-muted">{{.Translation.ReportsBlock2Desc}}</p>
     <div class="table-scroll">
         <table>
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>IP</th>
-                    <th>Страна</th>
-                    <th>Ловушка</th>
-                    <th>Заходов</th>
-                    <th>Утилизировано</th>
-                    <th>Ср. RTT</th>
-                    <th>Дропов (FIN/RST)</th>
-                    <th>Домин. CloseReason</th>
-                    <th>Дисперсия IAT</th>
-                    <th>Сетевые аномалии</th>
-                    <th>Последняя активность</th>
+                    <th>{{.Translation.SharedTableIP}}</th>
+                    <th>{{.Translation.ReportsTableCountry}}</th>
+                    <th>{{.Translation.SharedTableTrap}}</th>
+                    <th>{{.Translation.ReportsTableVisits}}</th>
+                    <th>{{.Translation.ReportsTableUtilized}}</th>
+                    <th>{{.Translation.ReportsTableAvgRTT}}</th>
+                    <th>{{.Translation.ReportsTableDrops}}</th>
+                    <th>{{.Translation.ReportsTableDominantClose}}</th>
+                    <th>{{.Translation.ReportsTableIATDispersion}}</th>
+                    <th>{{.Translation.ReportsTableNetworkAnomalies}}</th>
+                    <th>{{.Translation.ReportsTableLastActivity}}</th>
                 </tr>
             </thead>
             <tbody id="ipsTableBody">
@@ -203,7 +199,7 @@
                     <td><agl-private>{{ $ip.Trap }}</agl-private></td>
                     <td>{{ $ip.Events }}</td>
                     <td class="text-amber">{{ $ip.HoldSumSec | formatDuration }}</td>
-                    <td>{{ if gt $ip.AvgRTTMs 0.0 }}{{ printf "%.0f" $ip.AvgRTTMs }} мс{{ else }}—{{ end }}</td>
+                    <td>{{ if gt $ip.AvgRTTMs 0.0 }}{{ printf "%.0f" $ip.AvgRTTMs }} {{$.Translation.SharedUnitMs}}{{ else }}—{{ end }}</td>
                     <td><agl-private>{{ $ip.DropCount }}</agl-private></td>
                     <td>
                         {{ if eq $ip.TopCloseReason "TIMEOUT" }}<span class="status-pass">TIMEOUT</span>
@@ -211,7 +207,7 @@
                         {{ else if eq $ip.TopCloseReason "FIN" }}<span class="status-mixed">FIN</span>
                         {{ else }}<span class="text-muted">{{ $ip.TopCloseReason }}</span>{{ end }}
                     </td>
-                    <td>{{ if gt $ip.IATDispersion 0.0 }}{{ printf "%.1f" $ip.IATDispersion }} мс{{ else }}—{{ end }}</td>
+                    <td>{{ if gt $ip.IATDispersion 0.0 }}{{ printf "%.1f" $ip.IATDispersion }} {{$.Translation.SharedUnitMs}}{{ else }}—{{ end }}</td>
                     <td><agl-private>{{ if or (gt $ip.TotalRetransSum 0) (gt $ip.ProbesSum 0) }}{{ $ip.TotalRetransSum }} / {{ $ip.ProbesSum }}{{ else }}—{{ end }}</agl-private></td>
                     <td class="text-muted">{{ if $ip.LastSeen.IsZero }}—{{ else }}{{ $ip.LastSeen.Format "02.01 15:04"
                         }}{{
@@ -219,16 +215,14 @@
                 </tr>
                 {{ else }}
                 <tr>
-                    <td colspan="12" class="text-muted">Нет данных за выбранный период.</td>
+                    <td colspan="12" class="text-muted">{{.Translation.SharedNoDataPeriod}}</td>
                 </tr>
                 {{ end }}
             </tbody>
         </table>
     </div>
     <p class="text-muted" style="margin-top: 10px; font-size: 12px;">
-        Топ-100 гарантирует учёт всех активных адресов. Единичные касания на хвосте статистики
-        могут быть учтены не полностью: это осознанный предел оперативной памяти, а не потеря данных —
-        полная история каждого касания хранится в журнале.
+        {{.Translation.ReportsTop100Note}}
     </p>
 </div>
 
@@ -275,7 +269,7 @@
                 setText('macroValidEvents', data.macro.valid_events);
                 setText('macroHold', data.macro.hold);
                 setText('macroGeo', data.macro.unique_countries + ' / ' + data.macro.unique_ips);
-                setText('macroAvgDrop', data.macro.avg_drop === '—' ? '—' : data.macro.avg_drop + ' сек');
+                setText('macroAvgDrop', data.macro.avg_drop === '—' ? '—' : data.macro.avg_drop + ' ' + window.AGL_I18N.SharedUnitSec);
                 setText('macroDropCount', data.macro.drop_count);
                 setText('countriesCount', data.countries.length);
                 setText('ipsCount', data.ips.length);
@@ -290,7 +284,7 @@
                         behaviorBlock.innerHTML = '';
                         const label = document.createElement('div');
                         label.className = 'metric-label';
-                        label.textContent = 'Распределение тактик';
+                        label.textContent = window.AGL_I18N.JSReportsTacticsDistribution;
                         behaviorBlock.appendChild(label);
                         const flex = document.createElement('div');
                         flex.style.cssText = 'display: flex; gap: 20px; margin-top: 10px; flex-wrap: wrap;';
@@ -328,7 +322,7 @@
                     tr.appendChild(cellText(t.unique_ips));
                     tr.appendChild(cellText(t.unique_countries));
                     tr.appendChild(cellPriv(t.drop_count));
-                    tr.appendChild(cellPriv(t.efficiency + ' сек'));
+                    tr.appendChild(cellPriv(t.efficiency + ' ' + window.AGL_I18N.SharedUnitSec));
                 }, {
                     stateKey: 'traps_' + rangeParam,
                     getKey: (t) => t.label,
@@ -369,7 +363,7 @@
                     tr.appendChild(cellPriv(ip.trap));
                     tr.appendChild(cellText(ip.events));
                     tr.appendChild(cellText(ip.hold, 'text-amber'));
-                    tr.appendChild(cellText(ip.rtt === '—' ? '—' : ip.rtt + ' мс'));
+                    tr.appendChild(cellText(ip.rtt === '—' ? '—' : ip.rtt + ' ' + window.AGL_I18N.SharedUnitMs));
                     tr.appendChild(cellPriv(ip.drop_count));
 
                     const tdCR = document.createElement('td');
@@ -383,7 +377,7 @@
                     tr.appendChild(tdCR);
 
                     // Новые поля: Дисперсия IAT и Сетевые аномалии
-                    tr.appendChild(cellText(ip.iat_dispersion === '—' ? '—' : ip.iat_dispersion + ' мс'));
+                    tr.appendChild(cellText(ip.iat_dispersion === '—' ? '—' : ip.iat_dispersion + ' ' + window.AGL_I18N.SharedUnitMs));
                     tr.appendChild(cellPriv(ip.retrans + ' / ' + ip.probes));
 
                     tr.appendChild(cellText(ip.last_seen, 'text-muted'));
@@ -424,7 +418,7 @@
             const td = document.createElement('td');
             td.colSpan = colspan;
             td.className = 'text-muted';
-            td.textContent = 'Нет данных за выбранный период.';
+            td.textContent = window.AGL_I18N.SharedNoDataPeriod;
             tr.appendChild(td);
             fragment.appendChild(tr);
         } else {

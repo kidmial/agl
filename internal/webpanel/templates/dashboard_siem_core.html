@@ -3,23 +3,23 @@
 {{template "header" .}}
 
 <div class="page-section-header">
-    <h1>Инспектор Анализа Корреляций (SIEM Core)</h1>
-    <p>На основе непрерывного мониторинга поведенческих аномалий распределенных во времени, Корреляционный анализатор обеспечивает автоматическое выявление и картирование топологии ботнет-кампаний в режиме реального времени.</p>
+    <h1>{{.Translation.SIEMPageTitle}}</h1>
+    <p>{{.Translation.SIEMPageDesc}}</p>
 </div>
 
 <!-- 1. Сводка детекций -->
 <div class="card" style="margin-top: 20px;">
-    <h3>Обнаруженные ботнет-паттерны (интервал - час)</h3>
+    <h3>{{.Translation.SIEMDetectedPatterns}}</h3>
     {{ if .Detections }}
     <div class="table-scroll">
         <table>
             <thead>
                 <tr>
-                    <th>Паттерн</th>
-                    <th>Уверенность</th>
-                    <th>IP вовлечено</th>
-                    <th>Время обнаружения</th>
-                    <th>Доказательства</th>
+                    <th>{{.Translation.SIEMTablePattern}}</th>
+                    <th>{{.Translation.SIEMTableConfidence}}</th>
+                    <th>{{.Translation.SIEMTableIPsInvolved}}</th>
+                    <th>{{.Translation.SIEMTableDetectionTime}}</th>
+                    <th>{{.Translation.SIEMTableEvidence}}</th>
                 </tr>
             </thead>
             <tbody id="siemDetectionsBody">
@@ -40,7 +40,7 @@
                     <td>
                         {{ $det := . }}
                         <details>
-                            <summary>Показать ({{ add (len $det.IPsInvolved) (len $det.Evidence) }})</summary>
+                            <summary>{{$.Translation.SharedShow}} ({{ add (len $det.IPsInvolved) (len $det.Evidence) }})</summary>
                             <ul class="details-list">
                                 {{ range $ip := $det.IPsInvolved }}
                                 <li><code><agl-private>{{ $ip }}</agl-private></code>{{ with index $det.CountryByIP $ip
@@ -60,13 +60,13 @@
         </table>
     </div>
     {{ else }}
-    <p class="text-muted">За последний час ботнет-паттернов не обнаружено.</p>
+    <p class="text-muted">{{.Translation.SharedNoPatternsLastHour}}</p>
     {{ end }}
 </div>
 
 <!-- 2. Карточки предупреждений -->
 <div class="card" style="margin-top: 20px;">
-    <h3 class="mb-0">Активные предупреждения SIEM</h3>
+    <h3 class="mb-0">{{.Translation.SIEMActiveAlerts}}</h3>
 
     <!-- Используем наш стандартный класс .grid вместо инлайн-стилей -->
     <div class="grid" style="margin-top: 20px; margin-bottom: 0;">
@@ -75,15 +75,15 @@
         <div class="card {{ if gt .ProxyCount 0 }}border-red{{ end }}">
             <h4 class="{{ if gt .ProxyCount 0 }}text-red{{ else }}text-muted{{ end }} mb-8"
                 style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">
-                ⚠️ Detected Proxy/Tunnel
+                {{.Translation.SIEMProxyTunnelTitle}}
             </h4>
             <p class="text-muted" style="margin: 0 0 10px 0; font-size: 13px;">
-                Несоответствие физического пинга (RTT) и прикладной задержки (WriteLatencyMs).
+                {{.Translation.SIEMProxyTunnelDesc}}
             </p>
             <p id="proxyCount" class="{{ if gt .ProxyCount 0 }}text-red{{ else }}text-muted{{ end }} metric-large">
                 {{ .ProxyCount }}
-                {{ if eq .ProxyCount 1 }}обнаружение{{ else if and (ge .ProxyCount 2) (le .ProxyCount 4) }}обнаружения{{
-                else }}обнаружений{{ end }}
+                {{ if eq .ProxyCount 1 }}{{ $.Translation.JSSIEMDetectionOne }}{{ else if and (ge .ProxyCount 2) (le .ProxyCount 4) }}{{ $.Translation.JSSIEMDetectionFew }}{{
+                else }}{{ $.Translation.JSSIEMDetectionMany }}{{ end }}
             </p>
 
             {{ if .ProxyDetails }}
@@ -102,15 +102,15 @@
         <div class="card {{ if gt .SpoofCount 0 }}border-amber{{ end }}">
             <h4 class="{{ if gt .SpoofCount 0 }}text-amber{{ else }}text-muted{{ end }} mb-8"
                 style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">
-                ⚠️ OS Spoofing / Personality Split
+                {{.Translation.SIEMSpoofTitle}}
             </h4>
             <p class="text-muted" style="margin: 0 0 10px 0; font-size: 13px;">
-                Несоответствие физики стека L4 (IoT) прикладной логике L7 (Server).
+                {{.Translation.SIEMSpoofDesc}}
             </p>
             <p id="spoofCount" class="{{ if gt .SpoofCount 0 }}text-amber{{ else }}text-muted{{ end }} metric-large">
                 {{ .SpoofCount }}
-                {{ if eq .SpoofCount 1 }}обнаружение{{ else if and (ge .SpoofCount 2) (le .SpoofCount 4) }}обнаружения{{
-                else }}обнаружений{{ end }}
+                {{ if eq .SpoofCount 1 }}{{ $.Translation.JSSIEMDetectionOne }}{{ else if and (ge .SpoofCount 2) (le .SpoofCount 4) }}{{ $.Translation.JSSIEMDetectionFew }}{{
+                else }}{{ $.Translation.JSSIEMDetectionMany }}{{ end }}
             </p>
         </div>
 
@@ -154,7 +154,7 @@
                         const td = document.createElement('td');
                         td.colSpan = 5;
                         td.className = 'text-muted';
-                        td.textContent = 'За последний час ботнет-паттернов не обнаружено.';
+                        td.textContent = window.AGL_I18N.SharedNoPatternsLastHour;
                         tr.appendChild(td);
                         fragment.appendChild(tr);
                     } else {
@@ -203,7 +203,7 @@
 
                             const summary = document.createElement('summary');
                             const totalItems = (det.ips_involved ? det.ips_involved.length : 0) + (det.evidence ? det.evidence.length : 0);
-                            summary.textContent = `Показать (${totalItems})`;
+                            summary.textContent = `${window.AGL_I18N.SharedShow} (${totalItems})`;
                             details.appendChild(summary);
 
                             const ul = document.createElement('ul');
@@ -262,7 +262,13 @@
     function updateMetricCard(countId, listId, count, details, activeColor, activeBorder) {
         const countEl = document.getElementById(countId);
         if (countEl) {
-            const plural = getRussianPlural(count, ['обнаружение', 'обнаружения', 'обнаружений']);
+            let plural;
+            const n = Math.abs(count) % 100;
+            const n1 = n % 10;
+            if (n > 10 && n < 20) plural = window.AGL_I18N.JSSIEMDetectionMany;
+            else if (n1 > 1 && n1 < 5) plural = window.AGL_I18N.JSSIEMDetectionFew;
+            else if (n1 === 1) plural = window.AGL_I18N.JSSIEMDetectionOne;
+            else plural = window.AGL_I18N.JSSIEMDetectionMany;
             countEl.textContent = count + ' ' + plural;
             countEl.className = (count > 0 ? activeColor + ' ' : 'text-muted ') + 'metric-large';
 

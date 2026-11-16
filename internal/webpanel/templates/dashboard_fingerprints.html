@@ -3,15 +3,14 @@
 {{template "header" .}}
 
 <div class="page-section-header">
-    <h1>Отчёт о цифровом отпечатке и почерке</h1>
-    <p>Декомпозиция следа цифрового p0f идентификатора злоумышленников, долевые соотношения операционных систем,
-        используемого софта и дисперсии инструментального ритма.</p>
+    <h1>{{.Translation.FingerprintsPageTitle}}</h1>
+    <p>{{.Translation.FingerprintsPageDesc}}</p>
 </div>
 
 <!-- 1. Гистограмма распределения чтений -->
 <div class="card" style="margin-top: 20px;">
-    <h3 class="mb-0">Распределение прикладных чтений</h3>
-    <p class="text-muted">Категории: tiny (0-64 байт), small (65-256), medium (257-1024), large (>1024)</p>
+    <h3 class="mb-0">{{.Translation.FingerprintsReadDistTitle}}</h3>
+    <p class="text-muted">{{.Translation.FingerprintsReadDistDesc}}</p>
     <div class="chart-container">
         <canvas id="readChart"></canvas>
     </div>
@@ -19,15 +18,15 @@
 
 <!-- 2. Топ TCP-отпечатков -->
 <div class="card" style="margin-top: 20px;">
-    <h3 class="mb-0">Топ TCP-отпечатков (p0f-логика)</h3>
-    <p class="text-muted">Уникальные комбинации MSS|RcvSpace|SndWscale|RcvWscale идентифицируют ОС. Агрегат за 24 часа.</p>
+    <h3 class="mb-0">{{.Translation.FingerprintsTopTCPTitle}}</h3>
+    <p class="text-muted">{{.Translation.FingerprintsTopTCPDesc}}</p>
     <div class="table-scroll">
         <table>
             <thead>
                 <tr>
-                    <th>Отпечаток (MSS|RcvSpace|SndW|RcvW)</th>
-                    <th>Количество событий</th>
-                    <th>Доля</th>
+                    <th>{{.Translation.FingerprintsTableCol1}}</th>
+                    <th>{{.Translation.FingerprintsTableCol2}}</th>
+                    <th>{{.Translation.FingerprintsTableCol3}}</th>
                 </tr>
             </thead>
             <tbody id="fpTableBody">
@@ -39,8 +38,8 @@
 
 <!-- 3. Дисперсия IAT -->
 <div class="card" style="margin-top: 20px;">
-    <h3 class="mb-0">Дисперсия ритма IAT</h3>
-    <p class="text-muted">Средний дисперсионный след по часам. Высокая дисперсия = рваный ритм (человек/прокси).</p>
+    <h3 class="mb-0">{{.Translation.FingerprintsIATDispTitle}}</h3>
+    <p class="text-muted">{{.Translation.FingerprintsIATDispDesc}}</p>
     <div class="chart-container">
         <canvas id="dispersionChart"></canvas>
     </div>
@@ -48,8 +47,8 @@
 
 <!-- 4. RTT динамика (Перенесено из dashboard_tarpit) -->
 <div class="card" style="margin-top: 20px;">
-    <h3 class="mb-0">Средний RTT по часам (мс)</h3>
-    <p class="text-muted">Динамика сетевой задержки (Round Trip Time).</p>
+    <h3 class="mb-0">{{.Translation.FingerprintsRTTTitle}}</h3>
+    <p class="text-muted">{{.Translation.FingerprintsRTTDesc}}</p>
     <div class="chart-container">
         <canvas id="rttChart"></canvas>
     </div>
@@ -89,7 +88,7 @@
         window.readChart = AGLCharts.createChart('readChart', 'bar', {
             labels: Object.keys(readTotals),
             datasets: [{
-                label: 'Количество чтений',
+                label: window.AGL_I18N.JSReadsCount,
                 data: Object.values(readTotals),
                 backgroundColor: [
                     hexToRgba(colors.green, 0.7),
@@ -146,7 +145,7 @@
         window.dispersionChart = AGLCharts.createChart('dispersionChart', 'line', {
             labels: labels,
             datasets: [{
-                label: 'Средняя дисперсия IAT',
+                label: window.AGL_I18N.JSAvgIATDispersion,
                 data: hourStats.map(hs => hs.avg_iat_dispersion || 0),
                 borderColor: colors.purple,
                 backgroundColor: hexToRgba(colors.purple, 0.1),
@@ -161,7 +160,7 @@
         window.rttChart = AGLCharts.createChart('rttChart', 'line', {
             labels: labels,
             datasets: [{
-                label: 'Средний RTT (мс)',
+                label: window.AGL_I18N.JSAvgRTT,
                 data: hourStats.map(hs => hs.rtt_avg_ms || 0),
                 borderColor: colors.green,
                 backgroundColor: hexToRgba(colors.green, 0.1),
@@ -209,7 +208,7 @@
                             const td = document.createElement('td');
                             td.colSpan = 3;
                             td.className = 'text-muted';
-                            td.textContent = 'Нет данных за выбранный период';
+                            td.textContent = window.AGL_I18N.SharedNoDataPeriod;
                             tr.appendChild(td);
                             fragment.appendChild(tr);
                         } else {
@@ -286,7 +285,7 @@
                         AGLCharts.updateData('readChart', {
                             labels: Object.keys(readTotals),
                             datasets: [{
-                                label: 'Количество чтений',
+                                label: window.AGL_I18N.JSReadsCount,
                                 data: Object.values(readTotals),
                                 backgroundColor: [
                                     hexToRgba(colors.green, 0.7),
@@ -307,7 +306,7 @@
                         AGLCharts.updateData('dispersionChart', {
                             labels: newLabels,
                             datasets: [{
-                                label: 'Средняя дисперсия IAT',
+                                label: window.AGL_I18N.JSAvgIATDispersion,
                                 data: hourStats.map(hs => hs.avg_iat_dispersion || 0),
                                 borderColor: colors.purple,
                                 backgroundColor: hexToRgba(colors.purple, 0.1),
@@ -326,7 +325,7 @@
                         AGLCharts.updateData('rttChart', {
                             labels: rttLabels,
                             datasets: [{
-                                label: 'Средний RTT (мс)',
+                                label: window.AGL_I18N.JSAvgRTT,
                                 data: hourStats.map(hs => hs.rtt_avg_ms || 0),
                                 borderColor: colors.green,
                                 backgroundColor: hexToRgba(colors.green, 0.1),

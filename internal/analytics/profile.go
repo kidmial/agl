@@ -24,6 +24,9 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"agl/config"
+	"agl/i18n"
 )
 
 // ProfileIDPrefix задаёт префикс идентификатора профиля.
@@ -495,6 +498,8 @@ func ProfileIDFromFingerprint(fp StackFingerprint, seedIP string, seedTime time.
 //   - профиль без IP не имеет сетевого якоря;
 //   - профиль без времени не имеет жизненного цикла.
 func NewActorProfile(rec EventRecord) (*ActorProfile, bool) {
+	// Получаем словарь аналитики для текущего языка.
+	analyticsTranslation := i18n.GetAnalyticsTranslation(config.C.Lang)
 	// Пытаемся извлечь полный сетевой отпечаток.
 	//
 	// Если отпечаток неполный, профиль не создаём.
@@ -581,7 +586,7 @@ func NewActorProfile(rec EventRecord) (*ActorProfile, bool) {
 		// Администратор должен видеть, что профиль массовый.
 		profile.Evidence = append(
 			profile.Evidence,
-			"обнаружен распространённый сетевой профиль",
+			analyticsTranslation.IdentityEvidenceCommonProfile,
 		)
 	} else {
 		// Более редкий профиль.
@@ -924,16 +929,18 @@ func (p *ActorProfile) AddEvent(rec EventRecord) {
 	}
 
 	// Вычисляем прогноз на основе правил из спецификации
+	analyticsTranslation := i18n.GetAnalyticsTranslation(config.C.Lang)
+
 	if deltaPayload > 0 && p.lastCloseReason == "TIMEOUT" && rec.CloseReason == "FIN" {
-		p.PredictedVector = "Целевой брутфорс / Эксплуатация L7-уязвимости"
-		p.PredictedProbability = "90% в течение 30 минут"
+		p.PredictedVector = analyticsTranslation.ProfilePredictBruteforceVector
+		p.PredictedProbability = analyticsTranslation.ProfilePredictBruteforceProb
 	} else if attackInterval > 0 && attackInterval < 5*time.Minute && rec.Behavior == "AGGRESSIVE" {
 		// Упрощение для MVP: интервал мал (< 5 мин) и поведение агрессивное
-		p.PredictedVector = "Массированный DDoS / Забивание пула сокетов"
-		p.PredictedProbability = "85% в течение 1 часа"
+		p.PredictedVector = analyticsTranslation.ProfilePredictDDoSVector
+		p.PredictedProbability = analyticsTranslation.ProfilePredictDDoSProb
 	} else {
-		p.PredictedVector = "Фоновый непрерывный скан периметра"
-		p.PredictedProbability = "Низкая"
+		p.PredictedVector = analyticsTranslation.ProfilePredictBackgroundVector
+		p.PredictedProbability = analyticsTranslation.ProfilePredictBackgroundProb
 	}
 
 	// ИСПРАВЛЕНИЕ БАГА: Обновляем "предыдущие" значения ТОЛЬКО для валидных событий.
@@ -1002,9 +1009,10 @@ func (p *ActorProfile) AddEvent(rec EventRecord) {
 			// Добавляем причину.
 			//
 			// Администратор должен видеть противоречие.
+			analyticsTranslation := i18n.GetAnalyticsTranslation(config.C.Lang)
 			p.Reasons = appendUnique(
 				p.Reasons,
-				"обнаружено событие с несовпадающим сетевым стеком",
+				analyticsTranslation.ProfileReasonStackMismatchEvent,
 			)
 		}
 	}
@@ -1218,6 +1226,7 @@ func (p *ActorProfile) AddMatchEvidence(result MatchResult) {
 	//   - достаточный Confidence.
 	//
 	// Такой матч является серьёзным подтверждением профиля.
+	analyticsTranslation := i18n.GetAnalyticsTranslation(config.C.Lang)
 	if result.ShouldLink {
 		p.Confidence = clampConfidence(p.Confidence + 5)
 
@@ -1226,7 +1235,7 @@ func (p *ActorProfile) AddMatchEvidence(result MatchResult) {
 		// Администратор должен видеть, что профиль получил связку.
 		p.Reasons = appendUnique(
 			p.Reasons,
-			"получено подтверждение связки через идентификацию",
+			analyticsTranslation.ProfileReasonLinkConfirmed,
 		)
 	}
 
@@ -1241,7 +1250,7 @@ func (p *ActorProfile) AddMatchEvidence(result MatchResult) {
 	if result.Score >= LinkScoreThreshold && !result.ShouldLink {
 		p.Reasons = appendUnique(
 			p.Reasons,
-			"высокий алгоритмический балл, но недостаточная фактическая уверенность",
+			analyticsTranslation.ProfileReasonHighScoreLowConfidence,
 		)
 	}
 
@@ -3886,9 +3895,10 @@ func (pm *ProfileManager) MergeProfiles(target *ActorProfile, source *ActorProfi
 	target.sessionIntervalCount += source.sessionIntervalCount
 
 	// 14. Добавляем запись о слиянии в доказательства target.
+	analyticsTranslation := i18n.GetAnalyticsTranslation(config.C.Lang)
 	target.Evidence = appendUnique(
 		target.Evidence,
-		fmt.Sprintf("профиль %s слит в этот профиль", source.ID),
+		fmt.Sprintf(analyticsTranslation.ProfileEvidenceMergedFormat, source.ID),
 	)
 
 	// 15. Обновляем время последней активности target.

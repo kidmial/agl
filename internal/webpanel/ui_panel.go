@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/analytics"
 	"agl/internal/buildinfo"
 )
@@ -119,6 +120,9 @@ func getProfilesJSON(manager *analytics.ProfileManager, limit int) []profileView
 	if limit <= 0 {
 		limit = 20
 	}
+	// Словарь веб-панели: метки поведения и заглушка времени.
+	// Язык берём из глобального конфига комплекса (config.C.Lang).
+	panelTranslation := i18n.GetPanelTranslation(config.C.Lang)
 	profiles := manager.ProfilesSnapshot(limit)
 	res := make([]profileViewDTO, len(profiles))
 
@@ -152,7 +156,7 @@ func getProfilesJSON(manager *analytics.ProfileManager, limit int) []profileView
 			avgActual = float64(p.ActualHoldSumSec) / float64(p.HoldCount)
 		}
 
-		// Определяем поведение
+		// Определяем поведение (возвращаем токены для сравнения в шаблоне)
 		behavior := "UNK"
 		aggr := p.BehaviorCounts["AGGRESSIVE"]
 		pass := p.BehaviorCounts["PASSIVE"]
@@ -165,7 +169,7 @@ func getProfilesJSON(manager *analytics.ProfileManager, limit int) []profileView
 		}
 
 		// 2. Форматируем время с учётом витринной локации!
-		timeStr := "—"
+		timeStr := panelTranslation.TimeNoData
 		if !p.LastEventTime.IsZero() {
 			timeStr = p.LastEventTime.In(loc).Format("15:04:05")
 		}
@@ -212,14 +216,15 @@ func renderDashboard(w http.ResponseWriter, templateName string, prefix string, 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// 1. Определяем витринную локацию для отображения времени.
+	panelTranslation := i18n.GetPanelTranslation(config.C.Lang)
 	loc := time.Local
-	timezoneLabel := "Local"
+	timezoneLabel := panelTranslation.TimezoneLocal
 	if tz := config.C.WebPanelTimezone; tz != "" {
 		if tz == "local" {
 			// Уже time.Local
 		} else if tz == "UTC" {
 			loc = time.UTC
-			timezoneLabel = "UTC"
+			timezoneLabel = panelTranslation.TimezoneUTC
 		} else {
 			if loaded, err := time.LoadLocation(tz); err == nil {
 				loc = loaded
@@ -290,10 +295,14 @@ func renderDashboard(w http.ResponseWriter, templateName string, prefix string, 
 		"PipelineHealth":  health,
 		"StolenTime":      stolenTime,
 		"Version":         buildinfo.Version,
+		// Словарь веб-панели: доступен шаблонам как {{.Translation.*}} (i18n).
+		"Translation": panelTranslation,
+		// JSON-словарь для JavaScript (i18n).
+		"TranslationJSON": toJSON(panelTranslation),
 	}
 
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
-		http.Error(w, "Template execution error", http.StatusInternalServerError)
+		http.Error(w, panelTranslation.ErrorTemplateExecution, http.StatusInternalServerError)
 	}
 }
 
@@ -301,14 +310,19 @@ func renderDashboard(w http.ResponseWriter, templateName string, prefix string, 
 // Используется для дашбордов в разработке.
 func renderStub(w http.ResponseWriter, templateName string, prefix string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	panelTranslation := i18n.GetPanelTranslation(config.C.Lang)
 
 	data := map[string]interface{}{
 		"Prefix":       prefix,
 		"ProfileTotal": analytics.GlobalManager.Counters().Profiles,
+		// Словарь веб-панели: доступен шаблонам как {{.Translation.*}} (i18n).
+		"Translation": panelTranslation,
+		// JSON-словарь для JavaScript (i18n).
+		"TranslationJSON": toJSON(panelTranslation),
 	}
 
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
-		http.Error(w, "Template execution error", http.StatusInternalServerError)
+		http.Error(w, panelTranslation.ErrorTemplateExecution, http.StatusInternalServerError)
 	}
 }
 
@@ -317,14 +331,15 @@ func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix stri
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// 1. Определяем витринную локацию для отображения времени.
+	panelTranslation := i18n.GetPanelTranslation(config.C.Lang)
 	loc := time.Local
-	timezoneLabel := "Local"
+	timezoneLabel := panelTranslation.TimezoneLocal
 	if tz := config.C.WebPanelTimezone; tz != "" {
 		if tz == "local" {
 			// Уже time.Local
 		} else if tz == "UTC" {
 			loc = time.UTC
-			timezoneLabel = "UTC"
+			timezoneLabel = panelTranslation.TimezoneUTC
 		} else {
 			if loaded, err := time.LoadLocation(tz); err == nil {
 				loc = loaded
@@ -380,10 +395,14 @@ func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix stri
 		"ProxyDetails":    buildWarningLines(proxyDets, 5),
 		"SpoofDetails":    buildWarningLines(spoofDets, 5),
 		"Version":         buildinfo.Version,
+		// Словарь веб-панели: доступен шаблонам как {{.Translation.*}} (i18n).
+		"Translation": panelTranslation,
+		// JSON-словарь для JavaScript (i18n).
+		"TranslationJSON": toJSON(panelTranslation),
 	}
 
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
-		http.Error(w, "Template execution error", http.StatusInternalServerError)
+		http.Error(w, panelTranslation.ErrorTemplateExecution, http.StatusInternalServerError)
 	}
 }
 
@@ -391,13 +410,14 @@ func renderDashboardSIEM(w http.ResponseWriter, templateName string, prefix stri
 func renderDashboardVitals(w http.ResponseWriter, templateName string, prefix string, counters analytics.StoreCounters, profileCounters analytics.ProfileManagerCounters, hourStats []analytics.HourStat, profiles []analytics.ActorProfile, health PipelineHealth, stolenTime analytics.StolenTimeStats, burst []analytics.BurstPoint) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
+	panelTranslation := i18n.GetPanelTranslation(config.C.Lang)
 	loc := time.Local
-	timezoneLabel := "Local"
+	timezoneLabel := panelTranslation.TimezoneLocal
 	if tz := config.C.WebPanelTimezone; tz != "" {
 		if tz == "local" {
 		} else if tz == "UTC" {
 			loc = time.UTC
-			timezoneLabel = "UTC"
+			timezoneLabel = panelTranslation.TimezoneUTC
 		} else {
 			if loaded, err := time.LoadLocation(tz); err == nil {
 				loc = loaded
@@ -449,16 +469,21 @@ func renderDashboardVitals(w http.ResponseWriter, templateName string, prefix st
 		"BurstSeries":     burst,
 		"Version":         buildinfo.Version,
 		"TimeWindows":     analytics.TimeWindows, // v8.6.2: для GeoPulse dropdown
+		// Словарь веб-панели: доступен шаблонам как {{.Translation.*}} (i18n).
+		"Translation": panelTranslation,
+		// JSON-словарь для JavaScript (i18n).
+		"TranslationJSON": toJSON(panelTranslation),
 	}
 
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
-		http.Error(w, "Template execution error", http.StatusInternalServerError)
+		http.Error(w, panelTranslation.ErrorTemplateExecution, http.StatusInternalServerError)
 	}
 }
 
 // renderDashboardReports рендерит страницу отчётов.
 func renderDashboardReports(w http.ResponseWriter, templateName string, prefix string, rng string, countries []analytics.CountryReport, ips []analytics.IPReport, macro analytics.MacroReport, traps []analytics.TrapReport) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	panelTranslation := i18n.GetPanelTranslation(config.C.Lang)
 	data := map[string]interface{}{
 		"Prefix":          prefix,
 		"CurrentPagePath": "dashboard/reports",
@@ -469,9 +494,13 @@ func renderDashboardReports(w http.ResponseWriter, templateName string, prefix s
 		"Macro":           macro,
 		"Traps":           traps,
 		"Version":         buildinfo.Version,
+		// Словарь веб-панели: доступен шаблонам как {{.Translation.*}} (i18n).
+		"Translation": panelTranslation,
+		// JSON-словарь для JavaScript (i18n).
+		"TranslationJSON": toJSON(panelTranslation),
 	}
 	if err := panelTmpl.ExecuteTemplate(w, templateName, data); err != nil {
-		http.Error(w, "Template execution error", http.StatusInternalServerError)
+		http.Error(w, panelTranslation.ErrorTemplateExecution, http.StatusInternalServerError)
 	}
 }
 

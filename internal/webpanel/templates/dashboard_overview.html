@@ -3,42 +3,42 @@
 {{template "header" .}}
 
 <div class="page-section-header">
-    <h1>Панель мониторинга киберугроз</h1>
-    <p>Поведенческий анализ недавней активности акторов, их касания инфраструктуры и сдерживания сетевых атак.</p>
+    <h1>{{.Translation.OverviewPageTitle}}</h1>
+    <p>{{.Translation.OverviewPageDesc}}</p>
 </div>
 
 <!-- Статус аналитики -->
 <div class="card">
-    <h3>Статус аналитики</h3>
+    <h3>{{.Translation.OverviewAnalyticsStatus}}</h3>
     <div class="grid" style="margin-bottom: 0;">
         <div class="card">
-            <div class="metric-label">Всего событий в буфере</div>
+            <div class="metric-label">{{.Translation.OverviewTotalEvents}}</div>
             <div class="metric" id="totalEvents">{{ .StoreCounters.TotalEvents }}</div>
             <div class="card-macrometric row">
                 <div class="text-muted">
-                    Валидных:<span class="macro-value" id="validEvents">{{ .StoreCounters.ValidEvents }}</span> | Битых:<span class="macro-value" id="invalidEvents">{{ .StoreCounters.InvalidEvents }}</span>
-                    | Режим:<span class="macro-value" id="analyticsMode">{{ if .HistoryLoaded }}Полная история{{ else }}Живой срез{{ end }}</span>
+                    {{.Translation.OverviewValid}}<span class="macro-value" id="validEvents">{{ .StoreCounters.ValidEvents }}</span> | {{.Translation.OverviewBroken}}<span class="macro-value" id="invalidEvents">{{ .StoreCounters.InvalidEvents }}</span>
+                    | {{.Translation.OverviewMode}}<span class="macro-value" id="analyticsMode">{{ if .HistoryLoaded }}{{.Translation.SharedModeFullHistory}}{{ else }}{{.Translation.SharedModeLiveSlice}}{{ end }}</span>
                 </div>
             </div>
         </div>
         <div class="card">
-            <div class="metric-label">Активных кластеров профилей акторов</div>
+            <div class="metric-label">{{.Translation.OverviewActiveProfiles}}</div>
             <div class="metric" id="activeProfiles">{{ .ProfileCounters.Active }}</div>
             <div class="card-macrometric row">
-                <div class="text-muted">Низкая уверенность:<span class="macro-value" id="lowConfidence">{{ .ProfileCounters.LowConfidence }}</span> | Просрочено:<span class="macro-value" id="expiredProfiles">{{ .ProfileCounters.Expired }}</span></div>
+                <div class="text-muted">{{.Translation.OverviewLowConfidence}}<span class="macro-value" id="lowConfidence">{{ .ProfileCounters.LowConfidence }}</span> | {{.Translation.OverviewExpired}}<span class="macro-value" id="expiredProfiles">{{ .ProfileCounters.Expired }}</span></div>
             </div>
         </div>
         <div class="card">
-            <div class="metric-label">Временной охват</div>
-            <div class="metric" id="timeRange">{{ if .StoreCounters.HasEventTime }}{{ .StoreCounters.FirstEventTime.Format "02.01" }} - {{ .StoreCounters.LastEventTime.Format "02.01" }}{{ else }}Нет данных{{ end }}</div>
+            <div class="metric-label">{{.Translation.OverviewTimeRange}}</div>
+            <div class="metric" id="timeRange">{{ if .StoreCounters.HasEventTime }}{{ .StoreCounters.FirstEventTime.Format "02.01" }} - {{ .StoreCounters.LastEventTime.Format "02.01" }}{{ else }}{{.Translation.SharedNoData}}{{ end }}</div>
             <div class="card-macrometric row">
-                <div class="text-muted">Обновлено:<span class="macro-value" id="updatedTime">{{ .CurrentTime }}</span></div>
+                <div class="text-muted">{{.Translation.OverviewUpdated}}<span class="macro-value" id="updatedTime">{{ .CurrentTime }}</span></div>
             </div>
         </div>
     </div>
     <p class="text-muted" style="margin-top: 16px; margin-bottom: 0;">
-        Данные обновляются в реальном времени. Автообновление страницы:
-        <span id="autorefresh-status" class="text-green">активно (10 сек)</span>
+        {{.Translation.OverviewRealtimeUpdate}}
+        <span id="autorefresh-status" class="text-green">{{.Translation.JSStatusActive10s}}</span>
     </p>
 </div>
 
@@ -50,36 +50,36 @@
 <!-- Утилизированное время ботнет сетей -->
 <div class="grid" style="margin-top: 20px;">
     <div class="card">
-        <div class="metric-label">Утилизировано времени ботнет за текущий час</div>
+        <div class="metric-label">{{.Translation.OverviewStolenHour}}</div>
         <div class="metric amber" id="stolenHour">{{ .StolenTime.HourSec | formatDuration }}</div>
     </div>
     <div class="card">
-        <div class="metric-label">Утилизировано времени ботнет за 24 часа</div>
+        <div class="metric-label">{{.Translation.OverviewStolenDay}}</div>
         <div class="metric amber" id="stolenDay">{{ .StolenTime.DaySec | formatDuration }}</div>
     </div>
     <div class="card">
-        <div class="metric-label">Утилизировано времени ботнет за 7 дней</div>
+        <div class="metric-label">{{.Translation.OverviewStolenWeek}}</div>
         <div class="metric amber" id="stolenWeek">{{ .StolenTime.WeekSec | formatDuration }}</div>
     </div>
     <div class="card">
-        <div class="metric-label">Утилизировано времени ботнет за 30 дней</div>
+        <div class="metric-label">{{.Translation.OverviewStolenMonth}}</div>
         <div class="metric amber" id="stolenMonth">{{ .StolenTime.MonthSec | formatDuration }}</div>
     </div>
 </div>
 
 <!-- Часовая статистика -->
 <div class="card">
-    <h2>События за 24 часа</h2>
+    <h2>{{.Translation.OverviewEvents24h}}</h2>
     <div class="table-scroll">
         <table>
             <thead>
                 <tr>
-                    <th>Час ({{ .TimezoneLabel }})</th>
-                    <th>Событий</th>
-                    <th>Уник. IP</th>
-                    <th>Уник. Стран</th> <!-- НОВОЕ -->
-                    <th>Агрессивных</th>
-                    <th>Средний RTT</th>
+                    <th>{{.Translation.OverviewTableHour}} ({{ .TimezoneLabel }})</th>
+                    <th>{{.Translation.SharedTableEvents}}</th>
+                    <th>{{.Translation.SharedTableUniqueIPs}}</th>
+                    <th>{{.Translation.SharedTableUniqueCountries}}</th>
+                    <th>{{.Translation.OverviewTableAggressive}}</th>
+                    <th>{{.Translation.OverviewTableAvgRTT}}</th>
                 </tr>
             </thead>
             <tbody id="hourlyStatsBody">
@@ -100,21 +100,21 @@
 
     <!-- Профили акторов -->
     <div class="card" style="margin-top: 30px;">
-        <h2>Свежие профили акторов</h2>
+        <h2>{{.Translation.OverviewFreshProfiles}}</h2>
         <div class="table-scroll">
             <table>
                 <thead>
                     <tr>
-                        <th>Время завершения</th>
-                        <th>IP</th>
-                        <th>Cобытий</th>
-                        <th>Тип</th>
-                        <th>План (сек)</th>
-                        <th>Факт (сек)</th>
-                        <th>Фаза (Алг.3)</th>
-                        <th>Прогноз (Алг.4)</th>
-                        <th>Дрейф (Алг.2)</th>
-                        <th>Субъект</th>
+                        <th>{{.Translation.OverviewTableEndTime}}</th>
+                        <th>{{.Translation.SharedTableIP}}</th>
+                        <th>{{.Translation.OverviewTableEventCount}}</th>
+                        <th>{{.Translation.OverviewTableType}}</th>
+                        <th>{{.Translation.OverviewTablePlan}}</th>
+                        <th>{{.Translation.OverviewTableFact}}</th>
+                        <th>{{.Translation.OverviewTablePhase}}</th>
+                        <th>{{.Translation.OverviewTablePrediction}}</th>
+                        <th>{{.Translation.OverviewTableDrift}}</th>
+                        <th>{{.Translation.OverviewTableSubject}}</th>
                     </tr>
                 </thead>
                 <tbody id="profilesTableBody">
@@ -125,10 +125,10 @@
                         <td>{{ .EventCount }}</td>
                         <td>
                             {{ $b := .DominantBehavior }}
-                            {{ if eq $b "AGGR" }}<span class="status-aggr">AGGR</span>
-                            {{ else if eq $b "PASS" }}<span class="status-pass">PASS</span>
-                            {{ else if eq $b "MIXED" }}<span class="status-mixed">MIXED</span>
-                            {{ else }}<span class="text-muted">—</span>{{ end }}
+                            {{ if eq $b "AGGR" }}<span class="status-aggr">{{$.Translation.BehaviorAGGR}}</span>
+                            {{ else if eq $b "PASS" }}<span class="status-pass">{{$.Translation.BehaviorPASS}}</span>
+                            {{ else if eq $b "MIXED" }}<span class="status-mixed">{{$.Translation.BehaviorMIXED}}</span>
+                            {{ else }}<span class="text-muted">{{$.Translation.BehaviorUNK}}</span>{{ end }}
                         </td>
                         <td><agl-private>{{ if .HoldCount }}{{ printf "%.0f" .AvgPlannedHoldSec }}{{ else }}—{{ end
                                 }}</agl-private></td>
@@ -137,8 +137,8 @@
                         <td class="phase-text">{{ if .CurrentPhase }}{{ .CurrentPhase }}{{ else }}—{{ end }}</td>
                         <td class="prediction-text">{{ if .PredictedVector }}{{ .PredictedVector }}{{ else }}—{{ end }}
                         </td>
-                        <td>{{ if .TokenDriftValid }}{{ .TokenDriftMs }} мс{{ else }}—{{ end }}</td>
-                        <td><a href="{{$.Prefix}}dashboard/profile/{{.ID}}" class="profile-link">ДОСЬЕ</a></td>
+                        <td>{{ if .TokenDriftValid }}{{ .TokenDriftMs }} {{$.Translation.SharedUnitMs}}{{ else }}—{{ end }}</td>
+                        <td><a href="{{$.Prefix}}dashboard/profile/{{.ID}}" class="profile-link">{{$.Translation.OverviewDossier}}</a></td>
                     </tr>
                     {{ end }}
                 </tbody>
@@ -195,7 +195,7 @@
                     setText('totalEvents', sc.TotalEvents);
                     setText('validEvents', sc.ValidEvents);
                     setText('invalidEvents', sc.InvalidEvents);
-                    const mode = data.history_loaded ? 'Полная история' : 'Живой срез';
+                    const mode = data.history_loaded ? window.AGL_I18N.SharedModeFullHistory : window.AGL_I18N.SharedModeLiveSlice;
                     setText('analyticsMode', mode);
                     
                     if (sc.HasEventTime) {
@@ -205,7 +205,7 @@
                         };
                         setText('timeRange', fmt(sc.FirstEventTime) + ' - ' + fmt(sc.LastEventTime));
                     } else {
-                        setText('timeRange', 'Нет данных');
+                        setText('timeRange', window.AGL_I18N.SharedNoData);
                     }
                 }
                 if (data.profile_counters) {
@@ -247,7 +247,7 @@
                         const td = document.createElement('td');
                         td.colSpan = 10;
                         td.className = 'text-muted';
-                        td.textContent = 'Нет активных профилей';
+                        td.textContent = window.AGL_I18N.SharedNoActiveProfiles;
                         tr.appendChild(td);
                         fragment.appendChild(tr);
                     } else {
@@ -307,14 +307,25 @@
                             tr.appendChild(tdEvents);
 
                             // 4. ТИП
+                            // Синхронно с Go-шаблоном: токен доминирующего поведения
+                            // маппится на локализованную метку из AGL_I18N.
+                            // UNK -> BehaviorUNK ("НЕТ"), идентично else-ветке шаблона.
                             const tdType = document.createElement('td');
                             let typeClass = 'text-muted';
-                            if (p.dominant_behavior === 'AGGR') typeClass = 'status-aggr';
-                            else if (p.dominant_behavior === 'PASS') typeClass = 'status-pass';
-                            else if (p.dominant_behavior === 'MIXED') typeClass = 'status-mixed';
+                            let typeLabel = window.AGL_I18N.BehaviorUNK;
+                            if (p.dominant_behavior === 'AGGR') {
+                                typeClass = 'status-aggr';
+                                typeLabel = window.AGL_I18N.BehaviorAGGR;
+                            } else if (p.dominant_behavior === 'PASS') {
+                                typeClass = 'status-pass';
+                                typeLabel = window.AGL_I18N.BehaviorPASS;
+                            } else if (p.dominant_behavior === 'MIXED') {
+                                typeClass = 'status-mixed';
+                                typeLabel = window.AGL_I18N.BehaviorMIXED;
+                            }
                             const spanType = document.createElement('span');
                             spanType.className = typeClass;
-                            spanType.textContent = p.dominant_behavior === 'UNK' ? '—' : p.dominant_behavior;
+                            spanType.textContent = typeLabel;
                             tdType.appendChild(spanType);
                             tr.appendChild(tdType);
 
@@ -346,7 +357,7 @@
 
                             // 9. ДРЕЙФ (АЛГ.2)
                             const tdDrift = document.createElement('td');
-                            tdDrift.textContent = p.token_drift_valid ? p.token_drift_ms + ' мс' : '—';
+                            tdDrift.textContent = p.token_drift_valid ? p.token_drift_ms + ' ' + window.AGL_I18N.SharedUnitMs : '—';
                             tr.appendChild(tdDrift);
 
                             // 10. СУБЪЕКТ
@@ -354,7 +365,7 @@
                             const link = document.createElement('a');
                             link.href = '/' + prefix + 'dashboard/profile/' + p.id;
                             link.className = 'profile-link';
-                            link.textContent = 'ДОСЬЕ';
+                            link.textContent = window.AGL_I18N.OverviewDossier;
                             tdDossier.appendChild(link);
                             tr.appendChild(tdDossier);
 
@@ -428,7 +439,7 @@
                         const td = document.createElement('td');
                         td.colSpan = 6;
                         td.className = 'text-muted';
-                        td.textContent = 'Нет данных за последние 24 часа';
+                        td.textContent = window.AGL_I18N.SharedNoData24h;
                         tr.appendChild(td);
                         fragment.appendChild(tr);
                     } else {

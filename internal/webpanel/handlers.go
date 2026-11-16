@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"agl/config"
+	"agl/i18n"
 	"agl/internal/analytics"
 	"agl/internal/buildinfo"
 	"agl/internal/tarpit"
@@ -316,6 +317,9 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 		}
 		serverTime := time.Now().In(loc).Format("02.01.2006 15:04:05")
 
+		// Словарь веб-панели: шапка (Nav*, Aria*, Title*) и контент страницы.
+		panelTranslation := i18n.GetPanelTranslation(config.C.Lang)
+
 		// Формируем данные для шаблона.
 		// ВАЖНО: передаём УКАЗАТЕЛЬ на профиль, а не значение.
 		// Методы ActorProfile (TopIPs, UniqueIPCount, AvgPlannedHoldSec и др.)
@@ -329,11 +333,15 @@ func RegisterRoutes(mux *http.ServeMux, store *analytics.Store, manager *analyti
 			"Found":               ok,
 			"Version":             buildinfo.Version,
 			"ServerTime":          serverTime, // Момент формирования страницы (витринная локация)
+			// Словарь веб-панели: доступен шаблонам как {{.Translation.*}}.
+			"Translation": panelTranslation,
+			// JSON-словарь для JavaScript (i18n).
+			"TranslationJSON": toJSON(panelTranslation),
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := panelTmpl.ExecuteTemplate(w, "dashboard_profile_detail", data); err != nil {
-			http.Error(w, "Template execution error", http.StatusInternalServerError)
+			http.Error(w, panelTranslation.ErrorTemplateExecution, http.StatusInternalServerError)
 		}
 	})
 
